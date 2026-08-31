@@ -1,0 +1,24 @@
+# Gradle
+.gradle/
+build/
+
+# Local configuration (machine-specific; contains SDK paths)
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.kotlin/
+
+# OS
+.DS_Store
+
+# Misc
+/captures
+.externalNativeBuild
+.cxx
+*.hprof
+*.keystore
