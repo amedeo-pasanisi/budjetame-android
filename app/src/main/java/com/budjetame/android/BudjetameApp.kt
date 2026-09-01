@@ -59,6 +59,7 @@ fun BudjetameApp(container: AppContainer) {
         )
         is AuthState.SignedIn -> AppShell(
             account = state.account,
+            walletRepository = container.walletRepository,
             onSignOut = {
                 container.authRepository.signOut()
                 authState = AuthState.SignedOut

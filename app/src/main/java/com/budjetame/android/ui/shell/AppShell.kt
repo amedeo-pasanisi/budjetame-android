@@ -45,11 +45,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.screens.CategoriesScreen
 import com.budjetame.android.ui.screens.DashboardScreen
 import com.budjetame.android.ui.screens.RecurringScreen
 import com.budjetame.android.ui.screens.TransactionsScreen
-import com.budjetame.android.ui.screens.WalletsScreen
+import com.budjetame.android.ui.wallets.WalletsScreen
 import kotlinx.coroutines.launch
 
 /** The tabs in bottom-nav order, mirroring the web app's AppShell. */
@@ -66,6 +67,7 @@ private val TABS = listOf(
 @Composable
 fun AppShell(
     account: AccountDto,
+    walletRepository: WalletGateway,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -88,7 +90,7 @@ fun AppShell(
             modifier = Modifier.padding(innerPadding),
         ) {
             composable("dashboard") { DashboardScreen() }
-            composable("wallets") { WalletsScreen() }
+            composable("wallets") { WalletsScreen(walletRepository) }
             composable("transactions") { TransactionsScreen() }
             composable("categories") { CategoriesScreen() }
             composable("recurring") { RecurringScreen() }
