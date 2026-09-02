@@ -52,6 +52,7 @@ import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
@@ -78,9 +79,10 @@ fun TransactionsScreen(
     transactions: TransactionGateway,
     wallets: WalletGateway,
     categories: CategoryGateway,
+    recurringCosts: RecurringCostGateway,
 ) {
     val viewModel: TransactionsViewModel = viewModel {
-        TransactionsViewModel(transactions, wallets, categories)
+        TransactionsViewModel(transactions, wallets, categories, recurringCosts)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -139,6 +141,7 @@ fun TransactionsScreen(
             modal = modal,
             wallets = state.wallets,
             categories = state.categories,
+            recurringCosts = state.recurringCosts,
             onTypeChange = viewModel::onTypeChange,
             onAmountChange = viewModel::onAmountChange,
             onDateChange = viewModel::onDateChange,
@@ -146,6 +149,7 @@ fun TransactionsScreen(
             onSourceWalletChange = viewModel::onSourceWalletChange,
             onDestinationWalletChange = viewModel::onDestinationWalletChange,
             onCategoryChange = viewModel::onCategoryChange,
+            onRecurringCostChange = viewModel::onRecurringCostChange,
             onDescriptionChange = viewModel::onDescriptionChange,
             onAddWallet = viewModel::onWalletAdd,
             onAddCategory = viewModel::onCategoryAdd,

@@ -6,6 +6,7 @@ import com.budjetame.android.data.api.TransactionCreateRequest
 import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
+import com.budjetame.android.data.api.TransactionExpenseLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionPageDto
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
@@ -60,6 +61,12 @@ interface TransactionGateway {
  * one of EXPENSE, INCOME, or TRANSFER (an Opening Balance is never created
  * or edited here). Expense/Income fill `walletId` (plus an optional
  * `categoryId`); a Transfer fills `sourceWalletId` and `destinationWalletId`.
+ * `recurringCostId` is the optional Recurring Cost link (web issue #57) —
+ * Expenses only. On create it travels whenever set. On edit the key travels
+ * only when the form changed it (`linkTouched`), mirroring the web form: a
+ * PATCH field present applies even when null (unlinking, freeing the
+ * Occurrence); absent leaves the stored pin untouched — a mere amount or
+ * date edit never reassigns the Occurrence a link pays.
  */
 data class TransactionDraft(
     val type: TransactionType,
@@ -69,6 +76,8 @@ data class TransactionDraft(
     val sourceWalletId: Int? = null,
     val destinationWalletId: Int? = null,
     val categoryId: Int? = null,
+    val recurringCostId: Int? = null,
+    val linkTouched: Boolean = false,
     val description: String? = null,
 )
 
@@ -104,6 +113,7 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                     source_wallet_id = draft.sourceWalletId,
                     destination_wallet_id = draft.destinationWalletId,
                     category_id = draft.categoryId,
+                    recurring_cost_id = draft.recurringCostId,
                     description = draft.description,
                 ),
             )
@@ -111,25 +121,44 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
 
     override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto =
         call {
-            if (draft.type == TransactionType.TRANSFER) {
-                api.updateTransfer(
-                    id,
-                    TransactionTransferUpdateRequest(
-                        amount = draft.amount,
-                        date = draft.date,
-                        description = draft.description,
-                    ),
-                )
-            } else {
-                api.updateExpenseIncome(
-                    id,
-                    TransactionExpenseIncomeUpdateRequest(
-                        amount = draft.amount,
-                        date = draft.date,
-                        category_id = draft.categoryId,
-                        description = draft.description,
-                    ),
-                )
+            when {
+                draft.type == TransactionType.TRANSFER -> {
+                    api.updateTransfer(
+                        id,
+                        TransactionTransferUpdateRequest(
+                            amount = draft.amount,
+                            date = draft.date,
+                            description = draft.description,
+                        ),
+                    )
+                }
+                // An Expense whose Recurring Cost link the form changed
+                // carries the key — null unlinking, a value (re)linking.
+                draft.type == TransactionType.EXPENSE && draft.linkTouched -> {
+                    api.updateExpenseLink(
+                        id,
+                        TransactionExpenseLinkUpdateRequest(
+                            amount = draft.amount,
+                            date = draft.date,
+                            category_id = draft.categoryId,
+                            description = draft.description,
+                            recurring_cost_id = draft.recurringCostId,
+                        ),
+                    )
+                }
+                // Income always, and Expense with the link untouched: no
+                // recurring_cost_id key on the wire.
+                else -> {
+                    api.updateExpenseIncome(
+                        id,
+                        TransactionExpenseIncomeUpdateRequest(
+                            amount = draft.amount,
+                            date = draft.date,
+                            category_id = draft.categoryId,
+                            description = draft.description,
+                        ),
+                    )
+                }
             }
         }
 

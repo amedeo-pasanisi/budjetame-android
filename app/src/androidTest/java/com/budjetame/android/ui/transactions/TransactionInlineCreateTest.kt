@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
+import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionPageDto
@@ -19,6 +20,8 @@ import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.recurringcost.RecurringCostDraft
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -44,6 +47,7 @@ class TransactionInlineCreateTest {
     private val walletGateway = FakeWalletGateway()
     private val categoryGateway = FakeCategoryGateway()
     private val transactionGateway = FakeTransactionGateway()
+    private val recurringCostGateway = FakeRecurringCostGateway()
 
     private fun launchScreen() {
         composeRule.setContent {
@@ -51,6 +55,7 @@ class TransactionInlineCreateTest {
                 transactions = transactionGateway,
                 wallets = walletGateway,
                 categories = categoryGateway,
+                recurringCosts = recurringCostGateway,
             )
         }
     }
@@ -227,5 +232,16 @@ class TransactionInlineCreateTest {
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto =
             error("unused")
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto = error("unused")
+    }
+
+    /** The picker's definitions: none exist — the Expense form's Recurring
+     * Cost field stays hidden, and the transaction flows are unaffected. */
+    private class FakeRecurringCostGateway : RecurringCostGateway {
+        override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = emptyList()
+        override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto =
+            error("unused")
+        override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
+            error("unused")
+        override suspend fun deleteRecurringCost(id: Int) = error("unused")
     }
 }

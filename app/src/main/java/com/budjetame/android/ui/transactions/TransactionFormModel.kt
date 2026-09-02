@@ -2,6 +2,7 @@ package com.budjetame.android.ui.transactions
 
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
+import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
@@ -56,6 +57,24 @@ const val ADD_WALLET_OPTION = "New wallet…"
 
 /** The inline-create sentinel's label in the Category select (ADR-0013). */
 const val ADD_CATEGORY_OPTION = "New category…"
+
+/**
+ * The Occurrence date an Expense form's caption names (web issue #57): the
+ * stored pin when the form is editing the very link already on the row — a
+ * mere amount or date edit never reassigns the pin — otherwise the picked
+ * definition's oldest Unpaid Occurrence, the one a new link would pay at
+ * save time. Null when no link is picked or the pick is not in the list.
+ */
+fun payingOccurrenceDate(
+    storedLinkId: Int?,
+    storedPin: String?,
+    pickedId: Int?,
+    costs: List<RecurringCostDto>,
+): String? {
+    val id = pickedId ?: return null
+    if (storedLinkId == id && storedPin != null) return storedPin
+    return costs.find { it.id == id }?.next_unpaid_occurrence_date
+}
 
 /**
  * Which Wallet field an inline "New wallet…" pick came from (ADR-0013):

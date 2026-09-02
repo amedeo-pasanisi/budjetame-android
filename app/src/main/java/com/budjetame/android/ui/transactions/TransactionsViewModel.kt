@@ -6,12 +6,14 @@ import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
+import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -44,6 +46,7 @@ class TransactionsViewModel(
     private val transactions: TransactionGateway,
     private val wallets: WalletGateway,
     private val categories: CategoryGateway,
+    private val recurringCosts: RecurringCostGateway,
     private val searchDebounceMillis: Long = SEARCH_DEBOUNCE_MILLIS,
 ) : ViewModel() {
 
@@ -52,6 +55,10 @@ class TransactionsViewModel(
         val loadError: String? = null,
         val wallets: List<WalletDto> = emptyList(),
         val categories: List<CategoryDto> = emptyList(),
+        /** The Recurring Cost definitions the Expense form's link picker
+         * offers (web issue #57) — fetched while the form is open, never
+         * required by the ledger itself. */
+        val recurringCosts: List<RecurringCostDto> = emptyList(),
         val transactions: List<TransactionDto> = emptyList(),
         val nextCursor: String? = null,
         val loadingMore: Boolean = false,
@@ -99,7 +106,8 @@ class TransactionsViewModel(
      * The create/edit/delete Transaction form's draft (null = modal closed).
      * Create and edit share one modal: the Type selector appears only while
      * creating (type is immutable once recorded), and the tap-again delete
-     * confirmation only while editing.
+     * confirmation only while editing. `recurringCostId` is the Expense
+     * form's Recurring Cost link pick — null = none (web issue #57).
      */
     data class ModalState(
         val editing: TransactionDto? = null,
@@ -110,6 +118,7 @@ class TransactionsViewModel(
         val sourceWalletId: Int? = null,
         val destinationWalletId: Int? = null,
         val categoryId: Int? = null,
+        val recurringCostId: Int? = null,
         val description: String = "",
         val error: String? = null,
         val submitting: Boolean = false,
@@ -287,6 +296,7 @@ class TransactionsViewModel(
                 ),
             )
         }
+        refreshRecurringCosts()
     }
 
     fun openEdit(transaction: TransactionDto) {
@@ -305,10 +315,12 @@ class TransactionsViewModel(
                     sourceWalletId = transaction.source_wallet_id,
                     destinationWalletId = transaction.destination_wallet_id,
                     categoryId = transaction.category_id,
+                    recurringCostId = transaction.recurring_cost_id,
                     description = transaction.description.orEmpty(),
                 ),
             )
         }
+        refreshRecurringCosts()
     }
 
     fun closeModal() {
@@ -327,6 +339,7 @@ class TransactionsViewModel(
                     TransactionType.TRANSFER -> modal.copy(
                         type = value,
                         categoryId = null,
+                        recurringCostId = null,
                         sourceWalletId = modal.sourceWalletId ?: active.firstOrNull()?.id,
                         destinationWalletId = modal.destinationWalletId
                             ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id),
@@ -346,6 +359,7 @@ class TransactionsViewModel(
                                 modal.walletId ?: spendable.firstOrNull()?.id
                             },
                             categoryId = null,
+                            recurringCostId = null,
                             error = null,
                         )
                     }
@@ -373,6 +387,11 @@ class TransactionsViewModel(
         updateModal { it.copy(destinationWalletId = walletId, error = null) }
 
     fun onCategoryChange(categoryId: Int?) = updateModal { it.copy(categoryId = categoryId, error = null) }
+
+    /** The Expense form's Recurring Cost link pick (web issue #57): null =
+     * no link (or, on an edit of a linked Expense, unlinking). */
+    fun onRecurringCostChange(costId: Int?) =
+        updateModal { it.copy(recurringCostId = costId, error = null) }
 
     fun onDescriptionChange(value: String) =
         updateModal { it.copy(description = value.take(DESCRIPTION_MAX_LENGTH), error = null) }
@@ -683,6 +702,11 @@ class TransactionsViewModel(
         sourceWalletId = if (modal.isTransfer) modal.sourceWalletId else null,
         destinationWalletId = if (modal.isTransfer) modal.destinationWalletId else null,
         categoryId = if (modal.isTransfer) null else modal.categoryId,
+        // A picked link rides only on an Expense; a link change is a PATCH
+        // key the form sends only when the pick actually changed (the
+        // stored pin must survive a mere amount/date edit).
+        recurringCostId = if (modal.isTransfer) null else modal.recurringCostId,
+        linkTouched = modal.recurringCostId != modal.editing?.recurring_cost_id,
         description = modal.description.trim().ifEmpty { null },
     )
 
@@ -782,7 +806,34 @@ class TransactionsViewModel(
                     }
                 }
             }
+            // The picker rides on the form: while one is open, every reload
+            // also refreshes the definitions it lists (ADR-0002) — never the
+            // other way around, a picker fetch failure is not a ledger error.
+            refreshRecurringCostsIfModalOpen()
         }
+    }
+
+    /**
+     * The Expense form's Recurring Cost definitions, fetched when the form
+     * opens and again on every background reload while it stays open — so a
+     * definition created or deleted on the Recurring tab reaches the picker
+     * without reopening the form. The list is optional: a failed fetch
+     * silently keeps the held definitions (an empty picker never blocks the
+     * form), unlike the wallets/categories the screen itself renders from.
+     */
+    private fun refreshRecurringCosts() {
+        viewModelScope.launch {
+            try {
+                val loaded = recurringCosts.fetchRecurringCosts()
+                _uiState.update { it.copy(recurringCosts = loaded) }
+            } catch (_: Exception) {
+                // The picker keeps its held definitions.
+            }
+        }
+    }
+
+    private fun refreshRecurringCostsIfModalOpen() {
+        if (_uiState.value.modal != null) refreshRecurringCosts()
     }
 
     companion object {

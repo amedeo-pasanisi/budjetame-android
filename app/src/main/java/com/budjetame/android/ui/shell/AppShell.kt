@@ -47,11 +47,12 @@ import androidx.navigation.compose.rememberNavController
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoriesScreen
 import com.budjetame.android.ui.dashboard.DashboardScreen
-import com.budjetame.android.ui.screens.RecurringScreen
+import com.budjetame.android.ui.recurringcosts.RecurringCostsScreen
 import com.budjetame.android.ui.transactions.TransactionsScreen
 import com.budjetame.android.ui.wallets.WalletsScreen
 import kotlinx.coroutines.launch
@@ -74,6 +75,7 @@ fun AppShell(
     categoryRepository: CategoryGateway,
     dashboardRepository: DashboardGateway,
     transactionRepository: TransactionGateway,
+    recurringCostRepository: RecurringCostGateway,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -97,9 +99,11 @@ fun AppShell(
         ) {
             composable("dashboard") { DashboardScreen(dashboardRepository) }
             composable("wallets") { WalletsScreen(walletRepository) }
-            composable("transactions") { TransactionsScreen(transactionRepository, walletRepository, categoryRepository) }
+            composable("transactions") {
+                TransactionsScreen(transactionRepository, walletRepository, categoryRepository, recurringCostRepository)
+            }
             composable("categories") { CategoriesScreen(categoryRepository) }
-            composable("recurring") { RecurringScreen() }
+            composable("recurring") { RecurringCostsScreen(recurringCostRepository) }
         }
     }
 

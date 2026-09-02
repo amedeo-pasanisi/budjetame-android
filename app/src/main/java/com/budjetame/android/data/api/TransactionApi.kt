@@ -67,10 +67,14 @@ const val TRANSACTION_PAGE_LIMIT = 50
  * are created by the Wallet lifecycle). Expense/Income fill `wallet_id`
  * (plus an optional matching `category_id`); a Transfer fills
  * `source_wallet_id` and `destination_wallet_id` and never carries a
- * Category. Amounts travel as strings; `date` is the calendar day in
+ * Category. `recurring_cost_id` is the optional Recurring Cost link (web
+ * issue #57): Expenses only — the form never offers it to an Income or a
+ * Transfer — and the link pays the cost's oldest Unpaid Occurrence at link
+ * time. Amounts travel as strings; `date` is the calendar day in
  * Europe/Rome (CONTEXT.md). Null fields are omitted from the wire body (the
  * converter skips default-valued fields), so a Transfer never sends
- * `wallet_id`/`category_id` and an Expense never sends the Transfer legs.
+ * `wallet_id`/`category_id`, an unlinked Expense never sends
+ * `recurring_cost_id`, and an Expense never sends the Transfer legs.
  */
 @Serializable
 data class TransactionCreateRequest(
@@ -81,14 +85,20 @@ data class TransactionCreateRequest(
     val source_wallet_id: Int? = null,
     val destination_wallet_id: Int? = null,
     val category_id: Int? = null,
+    val recurring_cost_id: Int? = null,
     val description: String? = null,
 )
 
 /**
- * Edit an Expense or Income: amount, date, and description are always sent
- * (`null` description clears it); `category_id` is always sent too — a field
- * present in the PATCH is applied even when null, which is how clearing the
- * Category works. Type and Wallets cannot change.
+ * Edit an Expense or Income whose Recurring Cost link is untouched (or that
+ * carries none): amount, date, and description are always sent (`null`
+ * description clears it); `category_id` is always sent too — a field present
+ * in the PATCH is applied even when null, which is how clearing the Category
+ * works. The absent `recurring_cost_id` key means the stored link stays
+ * pinned: a mere amount, date, or Category edit never reassigns the
+ * Occurrence a link pays. Type and Wallets cannot change. An Income's PATCH
+ * always takes this shape — the backend rejects the link key on anything
+ * but an Expense, so it must not exist on the wire.
  */
 @Serializable
 data class TransactionExpenseIncomeUpdateRequest(
@@ -96,6 +106,24 @@ data class TransactionExpenseIncomeUpdateRequest(
     val date: String,
     val category_id: Int?,
     val description: String?,
+)
+
+/**
+ * Edit an Expense whose Recurring Cost link the form changed (web issue
+ * #57): every field is sent — `recurring_cost_id` present with a value
+ * links (or relinks), paying the cost's oldest Unpaid Occurrence at that
+ * moment; present as null it unlinks, freeing the Occurrence. The key is
+ * always on the wire here, null included (the converter's `explicitNulls`) —
+ * that is what tells the backend to apply the change instead of leaving the
+ * stored pin untouched.
+ */
+@Serializable
+data class TransactionExpenseLinkUpdateRequest(
+    val amount: String,
+    val date: String,
+    val category_id: Int?,
+    val description: String?,
+    val recurring_cost_id: Int?,
 )
 
 /**
@@ -141,11 +169,20 @@ interface TransactionApi {
     @POST("transactions")
     suspend fun create(@Body body: TransactionCreateRequest): TransactionDto
 
-    /** PATCH for an Expense/Income: `category_id` is always present. */
+    /** PATCH for an Expense/Income whose Recurring Cost link is untouched:
+     * `category_id` is always present, `recurring_cost_id` never is. */
     @PATCH("transactions/{id}")
     suspend fun updateExpenseIncome(
         @Path("id") id: Int,
         @Body body: TransactionExpenseIncomeUpdateRequest,
+    ): TransactionDto
+
+    /** PATCH for an Expense whose Recurring Cost link the form changed:
+     * `recurring_cost_id` is always present — a value links, null unlinks. */
+    @PATCH("transactions/{id}")
+    suspend fun updateExpenseLink(
+        @Path("id") id: Int,
+        @Body body: TransactionExpenseLinkUpdateRequest,
     ): TransactionDto
 
     /** PATCH for a Transfer: no `category_id` key on the wire. */

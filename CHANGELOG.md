@@ -61,6 +61,20 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   the originating field, the draft intact and ready to submit. An Income's
   Wallet pick never creates a Contact Wallet, and a new Category is locked
   to the form's type (#21).
+- **Recurring Costs** — the Recurring tab's costs side: every definition
+  sorted by next due date, each row showing the amount, the interval, the
+  next due date, the next unpaid occurrence date, an "N unpaid" backlog
+  badge, and an Overdue mark, with a "costs overdue · unpaid occurrences"
+  summary line. Create, edit, and delete in one modal: name, amount, every
+  N days/weeks/months/years, an optional start date (unset = today), and
+  the due-date override that follows the unit (a day-of-month for months, a
+  month+day for years); names are unique case-insensitively, and deleting a
+  definition leaves its linked expenses as ordinary ones (#22).
+- **Expense recurring link** — the transaction form's Recurring Cost
+  picker on Expenses (never Incomes or Transfers): it lists the definitions
+  and names the occurrence the link would pay, linking an Expense signs the
+  definition's oldest unpaid occurrence as paid, unlinking frees it, and a
+  mere amount or date edit never reassigns a link's occurrence (#22).
 
 ### Fixed
 

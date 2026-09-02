@@ -2,6 +2,8 @@ package com.budjetame.android.ui.transactions
 
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
+import com.budjetame.android.data.api.IntervalUnit
+import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
@@ -30,6 +32,17 @@ class TransactionFormModelTest {
 
     private fun category(id: Int, type: CategoryType) =
         CategoryDto(id, "Category $id", type, "🍕", "#000000", "2026-08-01T10:00:00Z")
+
+    private fun recurringCost(id: Int, nextUnpaid: String) = RecurringCostDto(
+        id = id,
+        name = "Cost $id",
+        amount = "10.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        next_due_date = nextUnpaid,
+        next_unpaid_occurrence_date = nextUnpaid,
+        created_at = "2026-08-01T10:00:00Z",
+    )
 
     // --- Wallet eligibility ---
 
@@ -172,5 +185,43 @@ class TransactionFormModelTest {
     @Test
     fun `the wallet option label carries the balance`() {
         assertEquals("Wallet 1 (€100.00)", walletOptionLabel(wallet(1, WalletType.CASH, "100.00")))
+    }
+
+    // --- The Recurring Cost link caption (web issue #57) ---
+
+    @Test
+    fun `no picked link means no caption`() {
+        assertNull(payingOccurrenceDate(null, null, null, listOf(recurringCost(1, "2026-08-01"))))
+    }
+
+    @Test
+    fun `a new pick names the picked cost's oldest unpaid occurrence`() {
+        val costs = listOf(
+            recurringCost(1, "2026-08-01"),
+            recurringCost(2, "2026-07-15"),
+        )
+        assertEquals("2026-07-15", payingOccurrenceDate(null, null, 2, costs))
+        assertEquals("2026-08-01", payingOccurrenceDate(1, "2026-08-01", 1, costs))
+    }
+
+    @Test
+    fun `editing the very link already on the row keeps the stored pin`() {
+        // The pin is stored at link time and never recomputed: the cost's
+        // list view may advertise a different oldest Unpaid by now, and the
+        // caption must still name the Occurrence the row actually pays.
+        assertEquals(
+            "2026-06-01",
+            payingOccurrenceDate(
+                storedLinkId = 1,
+                storedPin = "2026-06-01",
+                pickedId = 1,
+                costs = listOf(recurringCost(1, "2026-08-01")),
+            ),
+        )
+    }
+
+    @Test
+    fun `a pick missing from the list names no occurrence`() {
+        assertNull(payingOccurrenceDate(null, null, 9, listOf(recurringCost(1, "2026-08-01"))))
     }
 }

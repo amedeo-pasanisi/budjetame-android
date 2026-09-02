@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.CategoryDto
+import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.util.Dates
@@ -69,13 +70,17 @@ private val RED_600 = Color(0xFFDC2626)
  * `onAddWallet` reports which field's sentinel was picked (the created
  * Wallet is auto-selected into exactly that field), `onAddCategory` opens
  * the Category create form locked to this form's type — the selects
- * themselves never change value on a sentinel pick.
+ * themselves never change value on a sentinel pick. An Expense also carries
+ * the Recurring Cost link picker (web issue #57): `recurringCosts` is the
+ * definitions list it offers, `onRecurringCostChange` applies the pick — a
+ * pick pays the definition's oldest Unpaid Occurrence on save, None unlinks.
  */
 @Composable
 fun TransactionModal(
     modal: TransactionsViewModel.ModalState,
     wallets: List<WalletDto>,
     categories: List<CategoryDto>,
+    recurringCosts: List<RecurringCostDto> = emptyList(),
     onTypeChange: (TransactionType) -> Unit,
     onAmountChange: (String) -> Unit,
     onDateChange: (String) -> Unit,
@@ -83,6 +88,7 @@ fun TransactionModal(
     onSourceWalletChange: (Int) -> Unit,
     onDestinationWalletChange: (Int) -> Unit,
     onCategoryChange: (Int?) -> Unit,
+    onRecurringCostChange: (Int?) -> Unit = {},
     onDescriptionChange: (String) -> Unit,
     onAddWallet: (WalletFieldTarget) -> Unit = {},
     onAddCategory: () -> Unit = {},
@@ -99,6 +105,7 @@ fun TransactionModal(
                 modal = modal,
                 wallets = wallets,
                 categories = categories,
+                recurringCosts = recurringCosts,
                 onTypeChange = onTypeChange,
                 onAmountChange = onAmountChange,
                 onDateChange = onDateChange,
@@ -106,6 +113,7 @@ fun TransactionModal(
                 onSourceWalletChange = onSourceWalletChange,
                 onDestinationWalletChange = onDestinationWalletChange,
                 onCategoryChange = onCategoryChange,
+                onRecurringCostChange = onRecurringCostChange,
                 onDescriptionChange = onDescriptionChange,
                 onAddWallet = onAddWallet,
                 onAddCategory = onAddCategory,
@@ -137,6 +145,7 @@ internal fun TransactionForm(
     modal: TransactionsViewModel.ModalState,
     wallets: List<WalletDto>,
     categories: List<CategoryDto>,
+    recurringCosts: List<RecurringCostDto> = emptyList(),
     onTypeChange: (TransactionType) -> Unit,
     onAmountChange: (String) -> Unit,
     onDateChange: (String) -> Unit,
@@ -144,6 +153,7 @@ internal fun TransactionForm(
     onSourceWalletChange: (Int) -> Unit,
     onDestinationWalletChange: (Int) -> Unit,
     onCategoryChange: (Int?) -> Unit,
+    onRecurringCostChange: (Int?) -> Unit = {},
     onDescriptionChange: (String) -> Unit,
     onAddWallet: (WalletFieldTarget) -> Unit = {},
     onAddCategory: () -> Unit = {},
@@ -226,6 +236,21 @@ internal fun TransactionForm(
                 value = modal.categoryId,
                 onChange = onCategoryChange,
                 onAdd = onAddCategory,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
+
+        if (modal.type == TransactionType.EXPENSE) {
+            RecurringCostField(
+                costs = recurringCosts,
+                value = modal.recurringCostId,
+                occurrenceDate = payingOccurrenceDate(
+                    storedLinkId = modal.editing?.recurring_cost_id,
+                    storedPin = modal.editing?.occurrence_date,
+                    pickedId = modal.recurringCostId,
+                    costs = recurringCosts,
+                ),
+                onChange = onRecurringCostChange,
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
@@ -528,6 +553,79 @@ private fun CategoryField(
                     onAdd()
                     expanded = false
                 },
+            )
+        }
+    }
+}
+
+/**
+ * The Recurring Cost select an Expense carries (web issue #57): Expenses
+ * only — Income and Transfer never render it (the type reset clears a pick,
+ * and the backend rejects the key on anything but an Expense). Picking a
+ * cost signs the Occurrence the helper names as paid on save: the stored
+ * pin when the form is editing the very link already on the row (which must
+ * never be reassigned by a mere date edit), else the selected definition's
+ * oldest Unpaid Occurrence — the one a new link pays. The None option
+ * unlinks (freeing the Occurrence on save). The field is hidden until there
+ * is a definition to pick or a link to drop — an empty picker with nothing
+ * but None would be noise.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecurringCostField(
+    costs: List<RecurringCostDto>,
+    value: Int?,
+    occurrenceDate: String?,
+    onChange: (Int?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (costs.isEmpty() && value == null) return
+    var expanded by remember { mutableStateOf(false) }
+    Column(modifier = modifier) {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+        ) {
+            OutlinedTextField(
+                value = value?.let { id -> costs.find { it.id == id }?.name } ?: "None",
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                label = { Text("Recurring Cost") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    .testTag("tx-recurring-cost"),
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("None") },
+                    onClick = {
+                        onChange(null)
+                        expanded = false
+                    },
+                )
+                costs.forEach { cost ->
+                    DropdownMenuItem(
+                        text = { Text(cost.name) },
+                        onClick = {
+                            onChange(cost.id)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+        if (value != null && occurrenceDate != null) {
+            Text(
+                text = "Pays the occurrence of $occurrenceDate.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
