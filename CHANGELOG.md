@@ -117,6 +117,17 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   survives tab switches — discarded only by Cancel, picking another file,
   or a successful import, which then reports what was imported and
   refreshes the ledger (#26).
+- **Import: revalidation + inline creation** — returning to a live Preview
+  re-checks every problem row in one batch against the account's current
+  wallets and categories, flipping the rows that now pass to Ready (and
+  marking one that now duplicates); and the row editor's Wallet and
+  Category selects carry the same inline "New wallet…" / "New category…"
+  creation as the transaction forms — the create form stacks on the row
+  editor, prefilled with the missing name from the file, an Expense or
+  Income row's Wallet pick never creates a Contact wallet, a new Category
+  is locked to the row's type, and confirming creates the entity for real,
+  selects it into the exact originating field, and re-validates every
+  problem row that was waiting on its name in one batch (#27).
 
 ### Fixed
 

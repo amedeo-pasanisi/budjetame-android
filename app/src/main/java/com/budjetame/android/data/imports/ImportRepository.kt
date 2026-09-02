@@ -1,9 +1,11 @@
 package com.budjetame.android.data.imports
 
 import com.budjetame.android.data.api.ImportApi
+import com.budjetame.android.data.api.ImportBatchRevalidationRequest
 import com.budjetame.android.data.api.ImportConfirmRequest
 import com.budjetame.android.data.api.ImportPreviewDto
 import com.budjetame.android.data.api.ImportRowInput
+import com.budjetame.android.data.api.ImportRowRevalidationDto
 import com.budjetame.android.data.api.ImportRowValidationDto
 import com.budjetame.android.data.api.ImportRowValidationRequest
 import com.budjetame.android.data.api.TransactionDto
@@ -15,8 +17,9 @@ import retrofit2.HttpException
 
 /**
  * The import operations screens call (UI-independent): upload-and-preview,
- * the single-row re-validation of Verification (issue #44), and the
- * transactional confirm (T13). Nothing is written by the first two; the
+ * the single-row re-validation of Verification (issue #44), the batch
+ * Revalidation of problem rows (web issue #76, ticket #27), and the
+ * transactional confirm (T13). Nothing is written by the first three; the
  * computation endpoints are exempt from the data-version bump (ADR-0002),
  * confirm is a real write and bumps like any other.
  */
@@ -34,6 +37,15 @@ interface ImportGateway {
         row: ImportRowInput,
         earlierRows: List<ImportRowInput>,
     ): ImportRowValidationDto
+
+    /** Batch Revalidation (web issue #76): the Draft's rows (edits
+     * applied) plus the target row numbers in, every target's fresh
+     * verdict out — the in-file Duplicate context included. Nothing is
+     * written. */
+    suspend fun revalidateRows(
+        rows: List<ImportRowInput>,
+        targets: List<Int>,
+    ): List<ImportRowRevalidationDto>
 
     /** Insert the confirmed rows transactionally; the response is the
      * created Transactions, each carrying the Cash negative-balance
@@ -62,6 +74,13 @@ class ApiImportRepository(private val api: ImportApi) : ImportGateway {
         earlierRows: List<ImportRowInput>,
     ): ImportRowValidationDto = call {
         api.validateRow(ImportRowValidationRequest(row = row, earlier_rows = earlierRows))
+    }
+
+    override suspend fun revalidateRows(
+        rows: List<ImportRowInput>,
+        targets: List<Int>,
+    ): List<ImportRowRevalidationDto> = call {
+        api.revalidateRows(ImportBatchRevalidationRequest(rows = rows, targets = targets))
     }
 
     override suspend fun confirm(rows: List<ImportRowInput>): List<TransactionDto> =

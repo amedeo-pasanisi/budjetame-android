@@ -12,6 +12,7 @@ import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DashboardSummaryDto
 import com.budjetame.android.data.api.ImportPreviewDto
 import com.budjetame.android.data.api.ImportRowInput
+import com.budjetame.android.data.api.ImportRowRevalidationDto
 import com.budjetame.android.data.api.ImportRowValidationDto
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
@@ -176,6 +177,10 @@ class ImportDraftTabTest {
             row: ImportRowInput,
             earlierRows: List<ImportRowInput>,
         ): ImportRowValidationDto = error("unused")
+        override suspend fun revalidateRows(
+            rows: List<ImportRowInput>,
+            targets: List<Int>,
+        ): List<ImportRowRevalidationDto> = error("unused")
         override suspend fun confirm(rows: List<ImportRowInput>): List<TransactionDto> = error("unused")
     }
 }

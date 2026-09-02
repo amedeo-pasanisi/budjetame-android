@@ -99,6 +99,29 @@ data class ImportRowValidationDto(
     val error: String? = null,
 )
 
+/** A batch Revalidation (web issue #76): the Draft's rows — with the user's
+ * edits applied — plus the target row numbers to re-validate, in one call.
+ * `rows` is the whole Draft in file order (the preceding rows are the
+ * in-file Duplicate context, which the endpoint cannot see by itself);
+ * `targets` names the rows — by their `row` number, the file's line —
+ * whose fresh verdicts are wanted. Nothing is written. */
+@Serializable
+data class ImportBatchRevalidationRequest(
+    val rows: List<ImportRowInput>,
+    val targets: List<Int>,
+)
+
+/** The fresh verdict for one target row of a batch Revalidation (web issue
+ * #76): `row` echoes the target's row number so the client can map each
+ * verdict back to its Draft row; `status` and `error` speak the Preview's
+ * vocabulary, exactly like the single-row re-validation. */
+@Serializable
+data class ImportRowRevalidationDto(
+    val row: Int,
+    val status: ImportRowStatus,
+    val error: String? = null,
+)
+
 /** The rows the user confirmed (T13): the subset of the Preview they kept.
  * The insert is transactional — any invalid row rejects the whole batch. */
 @Serializable
@@ -109,11 +132,12 @@ data class ImportConfirmRequest(
 /**
  * Imports resource (T13): upload a .csv/.xlsx file against the fixed
  * template and preview its rows (nothing written), re-validate one edited
- * row during Verification (issue #44), and confirm the kept rows — the only
- * step that writes, transactionally (201 with the created Transactions, 422
- * rejecting the whole batch when any row is invalid or now-duplicate). The
- * computation endpoints never bump the data version (ADR-0002); confirm is
- * a real write and does.
+ * row during Verification (issue #44) or a batch of problem rows (web
+ * issue #76), and confirm the kept rows — the only step that writes,
+ * transactionally (201 with the created Transactions, 422 rejecting the
+ * whole batch when any row is invalid or now-duplicate). The computation
+ * endpoints never bump the data version (ADR-0002); confirm is a real
+ * write and does.
  */
 interface ImportApi {
 
@@ -125,6 +149,15 @@ interface ImportApi {
 
     @POST("import/validate-row")
     suspend fun validateRow(@Body body: ImportRowValidationRequest): ImportRowValidationDto
+
+    /** Batch Revalidation (web issue #76): the whole Draft as the in-file
+     * Duplicate context plus the target row numbers in, every target's
+     * fresh verdict out — one call through the same resolution and rules
+     * as the Preview and the single-row re-validation. Nothing is
+     * written; exempt from the data-version bump like the other
+     * computation endpoints (ADR-0002). */
+    @POST("import/revalidate-rows")
+    suspend fun revalidateRows(@Body body: ImportBatchRevalidationRequest): List<ImportRowRevalidationDto>
 
     /** 201 with the created Transactions (each carrying the Cash
      * negative-balance `warning`); 422 rejects the whole batch. */

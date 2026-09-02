@@ -24,6 +24,7 @@ import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.api.ImportPreviewDto
 import com.budjetame.android.data.api.ImportRowInput
+import com.budjetame.android.data.api.ImportRowRevalidationDto
 import com.budjetame.android.data.api.ImportRowValidationDto
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
@@ -221,6 +222,10 @@ class TransactionInlineCreateTest {
             row: ImportRowInput,
             earlierRows: List<ImportRowInput>,
         ): ImportRowValidationDto = error("unused")
+        override suspend fun revalidateRows(
+            rows: List<ImportRowInput>,
+            targets: List<Int>,
+        ): List<ImportRowRevalidationDto> = error("unused")
         override suspend fun confirm(rows: List<ImportRowInput>): List<TransactionDto> = error("unused")
     }
 

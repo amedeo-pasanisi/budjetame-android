@@ -1,7 +1,11 @@
 package com.budjetame.android.ui.imports
 
+import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowInput
+import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.ui.transactions.WalletFieldTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,9 +13,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The Verification row editor's draft rules (ImportRowEditorModel.kt),
- * ported from the web app's ImportRowModal.tsx: the cleaned-value
- * normalization, the mandatory-fields gate on Save, and the wire input's
- * type-shaped fields. */
+ * ported from the web app's ImportRowModal.tsx + ImportEntitySelect.tsx:
+ * the cleaned-value normalization, the mandatory-fields gate on Save, the
+ * wire input's type-shaped fields, and the inline entity-creation rules
+ * (ticket #27): the sentinel's prefill, the Wallet eligibility lock, and
+ * the re-validation matching. */
 class ImportRowEditorModelTest {
 
     @Test
@@ -145,5 +151,75 @@ class ImportRowEditorModelTest {
         assertEquals(TransactionType.EXPENSE, rowEditorStartType(TransactionType.EXPENSE))
         assertEquals(TransactionType.INCOME, rowEditorStartType(TransactionType.INCOME))
         assertEquals(TransactionType.TRANSFER, rowEditorStartType(TransactionType.TRANSFER))
+    }
+
+    @Test
+    fun `the sentinel's prefill is the field's missing name, else empty`() {
+        val options = listOf("Checking" to "Checking", "Cash" to "Cash")
+        // A name matching no option (the missing name from the file) is the
+        // prefill, trimmed.
+        assertEquals("Mystery", importSentinelPrefill(" Mystery ", options))
+        // A blank field and a name that already resolves start empty.
+        assertEquals("", importSentinelPrefill("", options))
+        assertEquals("", importSentinelPrefill("   ", options))
+        // Resolution is case-insensitive, like the field's display.
+        assertEquals("", importSentinelPrefill("checking", options))
+        assertEquals("", importSentinelPrefill("CASH", options))
+    }
+
+    @Test
+    fun `an expense or income row's wallet sentinel locks out contact wallets`() {
+        assertEquals(
+            setOf(WalletType.CHECKING, WalletType.CREDIT_CARD, WalletType.CASH),
+            importEditorWalletCreateAllowedTypes(WalletFieldTarget.WALLET),
+        )
+        // A Transfer's From/To may create any of the four — Contact
+        // included — where Contact Wallets belong.
+        assertNull(importEditorWalletCreateAllowedTypes(WalletFieldTarget.SOURCE))
+        assertNull(importEditorWalletCreateAllowedTypes(WalletFieldTarget.DESTINATION))
+    }
+
+    @Test
+    fun `a row references the created wallet through any of its wallet-kind fields`() {
+        val row = ImportRowDto(
+            row = 4,
+            status = com.budjetame.android.data.api.ImportRowStatus.ERROR,
+            type = TransactionType.TRANSFER,
+            date = "2026-08-03",
+            amount = "7.00",
+            source_wallet = "mystery",
+        )
+        // Case- and space-insensitive, and any of the three fields counts.
+        assertTrue(rowReferencesWallet(row, "Mystery"))
+        assertTrue(rowReferencesWallet(row, " mystery "))
+        val expense = row.copy(
+            type = TransactionType.EXPENSE,
+            source_wallet = null,
+            destination_wallet = null,
+            wallet = "Mystery",
+        )
+        assertTrue(rowReferencesWallet(expense, "Mystery"))
+        val other = expense.copy(wallet = "Cash", category = "Mystery")
+        assertFalse(rowReferencesWallet(other, "Mystery"))
+    }
+
+    @Test
+    fun `a row references the created category only through its category field`() {
+        val row = ImportRowDto(
+            row = 4,
+            status = ImportRowStatus.ERROR,
+            type = TransactionType.EXPENSE,
+            date = "2026-08-03",
+            amount = "7.00",
+            wallet = "Checking",
+            category = "groceries",
+        )
+        assertTrue(rowReferencesCategory(row, "Groceries"))
+        assertTrue(rowReferencesCategory(row, " groceries "))
+        val without = row.copy(category = null)
+        assertFalse(rowReferencesCategory(without, "Groceries"))
+        // The wallet field never counts for a Category match.
+        val walletOnly = row.copy(category = null, wallet = "Groceries")
+        assertFalse(rowReferencesCategory(walletOnly, "Groceries"))
     }
 }

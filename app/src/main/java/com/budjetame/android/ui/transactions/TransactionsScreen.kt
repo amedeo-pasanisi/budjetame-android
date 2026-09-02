@@ -102,8 +102,12 @@ fun TransactionsScreen(
     // The Import Draft (web issue #43, ticket #26): its own ViewModel on
     // the Transactions tab's back-stack entry — the draft survives tab
     // switches with the entry (ADR-0002's keep-alive), discarded only by
-    // Cancel, picking another file, or a successful import.
-    val importViewModel: ImportViewModel = viewModel { ImportViewModel(imports) }
+    // Cancel, picking another file, or a successful import. The entity
+    // gateways back the row editor's inline Wallet/Category creation
+    // (ADR-0014, ticket #27).
+    val importViewModel: ImportViewModel = viewModel {
+        ImportViewModel(imports, wallets, categories)
+    }
     val importUi by importViewModel.uiState.collectAsStateWithLifecycle()
     val importDraft = importUi.draft
 

@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -44,7 +45,9 @@ import com.budjetame.android.data.api.ImportPreviewDto
 import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.transactions.descriptionText
+import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Money
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -128,6 +131,20 @@ fun ImportScreen(
             }
         }
 
+        // The on-resume re-check (web issue #76, ticket #27): the Draft
+        // survives tab switches in the tab's ViewModel (ADR-0002), so the
+        // Preview "resumes" when this screen re-enters composition — the
+        // user returns to the Transactions tab — and every re-entry
+        // re-checks the live Preview's problem rows in one batch against
+        // the Account's current Wallets and Categories: a Wallet or
+        // Category created on another tab flips the rows that waited on
+        // it. The ViewModel re-checks nothing while the flow is not in a
+        // live Preview (the flow opens in the pick phase, so the first
+        // entry never re-checks).
+        LaunchedEffect(Unit) {
+            viewModel.recheckProblems()
+        }
+
         when (draft.phase) {
             ImportPhase.PICK -> PickPhase(
                 draft = draft,
@@ -167,6 +184,46 @@ fun ImportScreen(
             error = draft.editorError,
             onSave = viewModel::saveRowEdit,
             onClose = viewModel::closeEditor,
+            onAddWallet = viewModel::onRowWalletAdd,
+            walletToSelect = draft.rowWalletToSelect,
+            onAddCategory = viewModel::onRowCategoryAdd,
+            categoryToSelect = draft.rowCategoryToSelect,
+        )
+    }
+
+    // Inline entity creation (ADR-0013/0014, ticket #27): the entity's
+    // create form, stacked on the row editor. Composed after it, its dialog
+    // window renders on top; a Cancel or back press closes only this one —
+    // the row editor's draft survives below. The entity is created for real
+    // through the same endpoints the Wallets/Categories screens use
+    // (ADR-0014), its name is reported back to the editor's originating
+    // field, and the problem rows that waited on it re-validate in a batch.
+    draft.rowWalletCreate?.let { create ->
+        WalletModal(
+            modal = create.modal,
+            allowedTypes = create.allowedTypes,
+            onNameChange = viewModel::onRowWalletCreateNameChange,
+            onTypeChange = viewModel::onRowWalletCreateTypeChange,
+            onOpeningBalanceChange = viewModel::onRowWalletCreateOpeningBalanceChange,
+            onSubmit = viewModel::submitRowWalletCreate,
+            onFreeze = {}, // Create-only: the freeze section never renders.
+            onClose = viewModel::cancelRowWalletCreate,
+        )
+    }
+
+    draft.rowCategoryCreate?.let { create ->
+        CategoryModal(
+            modal = create.modal,
+            lockedType = create.lockedType,
+            onNameChange = viewModel::onRowCategoryCreateNameChange,
+            onTypeChange = {}, // Locked: the Type selector never renders.
+            onIconChange = viewModel::onRowCategoryCreateIconChange,
+            onColorChange = viewModel::onRowCategoryCreateColorChange,
+            onSubmit = viewModel::submitRowCategoryCreate,
+            onMerge = {}, // Create-only: the merge/delete sections never render.
+            onCancelMerge = {},
+            onDelete = {},
+            onClose = viewModel::cancelRowCategoryCreate,
         )
     }
 }

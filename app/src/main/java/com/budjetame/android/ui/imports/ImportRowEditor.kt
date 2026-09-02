@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,11 +42,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.CategoryDto
+import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.ui.transactions.ADD_CATEGORY_OPTION
+import com.budjetame.android.ui.transactions.ADD_WALLET_OPTION
 import com.budjetame.android.ui.transactions.TypeSelector
+import com.budjetame.android.ui.transactions.WalletFieldTarget
 import com.budjetame.android.ui.transactions.activeWallets
 import com.budjetame.android.ui.transactions.categoryFilterLabel
 import com.budjetame.android.ui.transactions.matchingCategories
@@ -70,6 +75,14 @@ import java.time.Instant
  * matches nothing stays visible as the field's raw text, since the file's
  * value is kept until the user changes it (the re-validation decides
  * whether the name resolves).
+ *
+ * The selects carry the inline-create sentinels (ADR-0013/0014, ticket
+ * #27): picking "New wallet…"/"New category…" — always last, never a value —
+ * stacks the entity's create form on this editor, prefilled with the
+ * field's name when it matches nothing (the missing name from the file);
+ * when that form saves, the created entity's name is reported back through
+ * `walletToSelect`/`categoryToSelect` and the exact originating field
+ * selects it, the rest of the editor untouched.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +94,20 @@ fun ImportRowEditor(
     error: String?,
     onSave: (ImportRowInput) -> Unit,
     onClose: () -> Unit,
+    /** Inline entity creation (ADR-0013): opens the Wallet create form,
+     * hosted by the screen, prefilled with the field's missing name; the
+     * target is the field whose sentinel was picked. */
+    onAddWallet: (target: WalletFieldTarget, prefillName: String) -> Unit,
+    /** The freshly created Wallet the screen reports back, with the field
+     * whose sentinel was picked: that exact field selects it by name,
+     * leaving the rest of the editor untouched. */
+    walletToSelect: RowWalletToSelect?,
+    /** Inline entity creation (ADR-0013): opens the Category create form,
+     * locked to the row's current type and prefilled with the field's
+     * missing name. */
+    onAddCategory: (lockedType: CategoryType, prefillName: String) -> Unit,
+    /** The freshly created Category's name for the Category field. */
+    categoryToSelect: String?,
 ) {
     var type by remember(row.row) { mutableStateOf(rowEditorStartType(row.type)) }
     var amount by remember(row.row) { mutableStateOf(row.amount ?: "") }
@@ -103,6 +130,14 @@ fun ImportRowEditor(
     val spendable = spendableWallets(wallets)
     val categoryType = if (isTransfer) TransactionType.EXPENSE else type
     val matchingCategories = matchingCategories(categories, categoryType)
+    // The Category create form's lock while the row is an Expense or an
+    // Income (the Transfer branch renders no Category field at all): the
+    // created Category always fits the row being edited.
+    val rowCategoryLock = if (type == TransactionType.INCOME) {
+        CategoryType.INCOME
+    } else {
+        CategoryType.EXPENSE
+    }
 
     val canSave = canSaveEditedRow(
         type = type,
@@ -112,6 +147,27 @@ fun ImportRowEditor(
         sourceWallet = sourceWallet,
         destinationWallet = destinationWallet,
     )
+
+    // Inline entity creation (ADR-0013, ticket #27): when the screen's
+    // inner Wallet modal saves, it reports the new Wallet's name here so
+    // the exact field whose sentinel was picked selects it — nothing else
+    // in the editor moves.
+    LaunchedEffect(walletToSelect) {
+        val pick = walletToSelect ?: return@LaunchedEffect
+        when (pick.target) {
+            WalletFieldTarget.WALLET -> wallet = pick.name
+            WalletFieldTarget.SOURCE -> sourceWallet = pick.name
+            WalletFieldTarget.DESTINATION -> destinationWallet = pick.name
+        }
+    }
+    // The Category field's inline creation, same contract: the new
+    // Category's name lands in the Category field, the only field that
+    // changes.
+    LaunchedEffect(categoryToSelect) {
+        if (categoryToSelect != null) {
+            category = categoryToSelect
+        }
+    }
 
     AlertDialog(
         onDismissRequest = { if (!saving) onClose() },
@@ -157,6 +213,7 @@ fun ImportRowEditor(
                             options = transferWallets.map { it.name to it.name },
                             onChange = { sourceWallet = it },
                             tag = "im-source",
+                            onAdd = { prefill -> onAddWallet(WalletFieldTarget.SOURCE, prefill) },
                             modifier = Modifier.weight(1f),
                         )
                         NameSelectField(
@@ -165,6 +222,7 @@ fun ImportRowEditor(
                             options = transferWallets.map { it.name to it.name },
                             onChange = { destinationWallet = it },
                             tag = "im-destination",
+                            onAdd = { prefill -> onAddWallet(WalletFieldTarget.DESTINATION, prefill) },
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -176,6 +234,7 @@ fun ImportRowEditor(
                             options = spendable.map { it.name to it.name },
                             onChange = { wallet = it },
                             tag = "im-wallet",
+                            onAdd = { prefill -> onAddWallet(WalletFieldTarget.WALLET, prefill) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
@@ -199,6 +258,7 @@ fun ImportRowEditor(
                         value = category,
                         categories = matchingCategories,
                         onChange = { category = it },
+                        onAdd = { prefill -> onAddCategory(rowCategoryLock, prefill) },
                         modifier = Modifier.padding(top = 12.dp),
                     )
                 }
@@ -284,12 +344,15 @@ fun ImportRowEditor(
 }
 
 /**
- * A name-based entity select (web issue #77's ImportEntitySelect minus the
- * inline-create sentinel, which ticket #27 adds): the editor's fields hold
- * names, not ids, so the select keys its options by name and the field's
- * value is a raw name — one that matches an option case-insensitively
- * renders as that option, one that matches nothing stays visible as the raw
- * text (the file's value, kept until the user changes it).
+ * A name-based entity select (web issue #77's ImportEntitySelect, ticket
+ * #26 + #27): the editor's fields hold names, not ids, so the select keys
+ * its options by name and the field's value is a raw name — one that
+ * matches an option case-insensitively renders as that option, one that
+ * matches nothing stays visible as the raw text (the file's value, kept
+ * until the user changes it). The inline "New wallet…" sentinel (ADR-0013)
+ * sits last and never becomes the field's value: picking it opens the
+ * Wallet create form — hosted by the screen — prefilled with the field's
+ * missing name.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -299,6 +362,7 @@ private fun NameSelectField(
     options: List<Pair<String, String>>,
     onChange: (String) -> Unit,
     tag: String,
+    onAdd: (prefillName: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -333,6 +397,17 @@ private fun NameSelectField(
                     },
                 )
             }
+            DropdownMenuItem(
+                text = { Text(ADD_WALLET_OPTION) },
+                onClick = {
+                    // Revert-on-pick: the sentinel never becomes the field's
+                    // value; it opens the Wallet create form, prefilled with
+                    // the field's name when it matches no existing Wallet
+                    // (the missing name from the file).
+                    onAdd(importSentinelPrefill(value, options))
+                    expanded = false
+                },
+            )
         }
     }
 }
@@ -340,13 +415,17 @@ private fun NameSelectField(
 /** The Category select an Expense/Income row carries (Transfers never do),
  * with the web's leading "None" option (optional field): a name matching an
  * existing Category renders as that option, anything else stays as the raw
- * text. */
+ * text. The inline "New category…" sentinel (ADR-0013, ticket #27) sits
+ * last and never becomes the field's value: picking it opens the Category
+ * create form — hosted by the screen — prefilled with the field's missing
+ * name. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryNameSelectField(
     value: String,
     categories: List<CategoryDto>,
     onChange: (String) -> Unit,
+    onAdd: (prefillName: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val options = categories.map { it.name to categoryFilterLabel(it.name, it.icon) }
@@ -389,6 +468,17 @@ private fun CategoryNameSelectField(
                         },
                     )
                 }
+                DropdownMenuItem(
+                    text = { Text(ADD_CATEGORY_OPTION) },
+                    onClick = {
+                        // Revert-on-pick: the sentinel never becomes the
+                        // field's value; it opens the Category create form,
+                        // prefilled with the field's name when it matches no
+                        // existing Category (the missing name from the file).
+                        onAdd(importSentinelPrefill(value, options))
+                        expanded = false
+                    },
+                )
             }
         }
     }
