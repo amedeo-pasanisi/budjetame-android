@@ -34,6 +34,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   contact wallets included) front and center, the reference month's
   income/expense totals with previous/next navigation, and the category pie
   with an Expenses/Incomes toggle and a neutral "Uncategorized" slice (#17).
+- **Dashboard part 2** — the monthly trend chart with an Expenses/Incomes
+  toggle over a user-picked From/To month range (swapping like the web app,
+  never reversed), Europe/Rome month bars oldest-first with zero-filled
+  empties, tap-to-read exact totals; and the Budget card — Spendable Today
+  big, the daily-allowance/this-month line, and a "You're €X over" note
+  when the bucket is negative (shown as €0.00 until accruals repay it,
+  ADR-0012) (#18).
 
 ### Fixed
 

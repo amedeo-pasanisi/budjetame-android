@@ -2,10 +2,14 @@ package com.budjetame.android.ui.dashboard
 
 import com.budjetame.android.MainDispatcherRule
 import com.budjetame.android.data.api.ApiClient
+import com.budjetame.android.data.api.BudgetDto
 import com.budjetame.android.data.api.CategorySliceDto
 import com.budjetame.android.data.api.DashboardApi
 import com.budjetame.android.data.api.DashboardSummaryDto
 import com.budjetame.android.data.api.DataVersion
+import com.budjetame.android.data.api.MonthBucketDto
+import com.budjetame.android.data.api.TrendDto
+import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -44,7 +48,13 @@ class DashboardViewModelTest {
     @get:Rule
     val mainRule = MainDispatcherRule()
 
-    private data class RecordedCall(val method: String, val path: String, val month: String?)
+    private data class RecordedCall(
+        val method: String,
+        val path: String,
+        val month: String?,
+        val from: String? = null,
+        val to: String? = null,
+    )
 
     private lateinit var server: MockWebServer
     private lateinit var viewModel: DashboardViewModel
@@ -52,7 +62,14 @@ class DashboardViewModelTest {
     private val calls = ConcurrentLinkedQueue<RecordedCall>()
     /** Month → latch: a gated month's response is held back (a slow wire). */
     private val heldMonths = ConcurrentHashMap<String, CountDownLatch>()
+    /** kind:from:to → latch: a gated trend response is held back. */
+    private val heldTrends = ConcurrentHashMap<String, CountDownLatch>()
     private val failMonths = mutableSetOf<String>()
+    private var failBudget = false
+    private var failTrend = false
+    /** kind:month → amount: overrides a trend bucket's zero default. */
+    private val trendAmounts = mutableMapOf<String, String>()
+    private var budgetSpendableToday = "49.80"
     private var now: YearMonth = YearMonth.of(2026, 8)
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -63,7 +80,12 @@ class DashboardViewModelTest {
         server.start()
         calls.clear()
         heldMonths.clear()
+        heldTrends.clear()
         failMonths.clear()
+        failBudget = false
+        failTrend = false
+        trendAmounts.clear()
+        budgetSpendableToday = "49.80"
         now = YearMonth.of(2026, 8)
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
@@ -85,7 +107,9 @@ class DashboardViewModelTest {
         val method = request.method ?: "GET"
         val path = request.requestUrl?.encodedPath ?: request.path.orEmpty()
         val month = request.requestUrl?.queryParameter("month")
-        calls.add(RecordedCall(method, path, month))
+        val from = request.requestUrl?.queryParameter("from_month")
+        val to = request.requestUrl?.queryParameter("to_month")
+        calls.add(RecordedCall(method, path, month, from, to))
 
         return when {
             method == "GET" && path == "/api/dashboard/summary" -> {
@@ -96,6 +120,21 @@ class DashboardViewModelTest {
                     month in failMonths -> jsonResponse(500, """{"detail":"boom"}""")
                     else -> jsonResponse(200, json.encodeToString(summaryFor(month.orEmpty())))
                 }
+            }
+
+            method == "GET" && path == "/api/dashboard/budget" -> {
+                if (failBudget) jsonResponse(500, """{"detail":"boom"}""")
+                else jsonResponse(200, json.encodeToString(budgetFor()))
+            }
+
+            method == "GET" &&
+                (path == "/api/dashboard/expense-trend" || path == "/api/dashboard/income-trend") -> {
+                val kind = if (path == "/api/dashboard/expense-trend") "expense" else "income"
+                // A gated range simulates a slow response: the test moves
+                // the pickers before it arrives.
+                heldTrends["$kind:$from:$to"]?.await(5, TimeUnit.SECONDS)
+                if (failTrend) jsonResponse(500, """{"detail":"boom"}""")
+                else jsonResponse(200, json.encodeToString(trendFor(kind, from.orEmpty(), to.orEmpty())))
             }
 
             else -> MockResponse().setResponseCode(404)
@@ -142,8 +181,59 @@ class DashboardViewModelTest {
             .setHeader("Content-Type", "application/json")
             .setBody(body)
 
+    /** The fake of GET /dashboard/budget: the current month's frame, raw —
+     * spendable_today overridable so the negative case is observable. */
+    private fun budgetFor() = BudgetDto(
+        month = "2026-08",
+        monthly_spendable = "500.00",
+        daily_allowance = "16.60",
+        spendable_today = budgetSpendableToday,
+    )
+
+    /** The fake of the two trend endpoints: one bucket per month in the
+     * inclusive range, oldest first, zero-filled unless overridden (the
+     * real endpoint's guarantee, T12/US28). */
+    private fun trendFor(kind: String, from: String, to: String): TrendDto {
+        val buckets = mutableListOf<MonthBucketDto>()
+        var month = YearMonth.parse(from)
+        val end = YearMonth.parse(to)
+        while (!month.isAfter(end)) {
+            buckets += MonthBucketDto(
+                month = month.toString(),
+                amount = trendAmounts["$kind:$month"] ?: "0.00",
+            )
+            month = month.plusMonths(1)
+        }
+        return TrendDto(from_month = from, to_month = to, months = buckets)
+    }
+
+    /** The trend wire calls as (kind, from, to) triples, in request order. */
+    private fun trendCalls(): List<Triple<String, String, String>> =
+        calls.mapNotNull { call ->
+            when (call.path) {
+                "/api/dashboard/expense-trend", "/api/dashboard/income-trend" -> Triple(
+                    call.path.removeSuffix("-trend").substringAfterLast('/'),
+                    call.from.orEmpty(),
+                    call.to.orEmpty(),
+                )
+
+                else -> null
+            }
+        }
+
+    private fun budgetCalls(): Int = calls.count { it.path == "/api/dashboard/budget" }
+
     private suspend fun awaitLoaded() {
         withTimeout(5_000) { viewModel.uiState.first { !it.loading } }
+    }
+
+    /** Waits until the initial load of every card has settled (loaded or
+     * failed): the reload fetches sequentially, so the summary alone
+     * resolving does not mean the budget and trend responses arrived. */
+    private suspend fun awaitDashboard() {
+        awaitLoaded()
+        withTimeout(5_000) { viewModel.uiState.first { it.budget != null || it.budgetError != null } }
+        withTimeout(5_000) { viewModel.uiState.first { it.trend != null || it.trendError != null } }
     }
 
     private suspend fun awaitState(predicate: (DashboardViewModel.UiState) -> Boolean) {
@@ -218,12 +308,27 @@ class DashboardViewModelTest {
         assertEquals(listOf("2026-01", "2025-12"), months())
     }
 
+    @Test
+    fun `a month change refetches the summary alone`() = runBlocking {
+        createViewModel()
+        awaitDashboard()
+
+        viewModel.nextMonth()
+        awaitState { it.summary?.month == "2026-09" && it.monthInSync }
+
+        // The Budget is current-month-only and the trend has its own range:
+        // a pie-month change never refetches them (the web app's effects).
+        assertEquals(listOf("2026-08", "2026-09"), months())
+        assertEquals(1, budgetCalls())
+        assertEquals(1, trendCalls().size)
+    }
+
     // --- The pie toggle ---
 
     @Test
     fun `the pie side toggles between the response's two pies`() = runBlocking {
         createViewModel()
-        awaitLoaded()
+        awaitDashboard()
 
         assertEquals(PieSide.EXPENSE, viewModel.uiState.value.pieSide)
         assertEquals(
@@ -237,9 +342,10 @@ class DashboardViewModelTest {
         assertEquals(listOf("Salary"), viewModel.uiState.value.pieSlices.map { it.name })
         assertEquals("200.00", viewModel.uiState.value.pieTotal)
 
-        // The toggle is pure state: both pies arrive in one response, so no
-        // extra request goes out.
-        assertEquals(1, calls.size)
+        // The toggle is pure state: both pies arrive in one summary response,
+        // so no extra request goes out — the initial load's summary, budget,
+        // and trend fetches stay untouched.
+        assertEquals(3, calls.size)
     }
 
     // --- Load failure + retry ---
@@ -306,22 +412,203 @@ class DashboardViewModelTest {
     // --- ADR-0002 background refetch ---
 
     @Test
-    fun `a write elsewhere refetches the current month in the background`() = runBlocking {
+    fun `a write elsewhere refetches summary, budget, and trend in the background`() = runBlocking {
         createViewModel()
-        awaitLoaded()
+        awaitDashboard()
         assertEquals(1, months().size)
+        assertEquals(1, budgetCalls())
+        assertEquals(1, trendCalls().size)
 
         // ADR-0002: the transport bumps the data version after a successful
-        // write anywhere; the screen re-fetches the same month in the
-        // background (the refetched state equals the held one, so the
-        // request count is the observable).
+        // write anywhere; the screen re-fetches every card in the
+        // background (the refetched states equal the held ones, so the
+        // request counts are the observable).
         DataVersion.bump()
         withTimeout(5_000) {
-            while (months().size < 2) {
+            while (months().size < 2 || budgetCalls() < 2 || trendCalls().size < 2) {
                 delay(10)
             }
         }
 
         assertEquals(listOf("2026-08", "2026-08"), months())
+        assertEquals(2, budgetCalls())
+        assertEquals(
+            listOf(
+                Triple("expense", "2026-03", "2026-08"),
+                Triple("expense", "2026-03", "2026-08"),
+            ),
+            trendCalls(),
+        )
+    }
+
+    // --- The Budget card (web issue #65, ADR-0012 semantics) ---
+
+    @Test
+    fun `the budget response maps every field through the seam`() = runBlocking {
+        createViewModel()
+        awaitDashboard()
+
+        val budget = requireNotNull(viewModel.uiState.value.budget)
+        assertEquals("2026-08", budget.month)
+        assertEquals("500.00", budget.monthly_spendable)
+        assertEquals("16.60", budget.daily_allowance)
+        assertEquals("49.80", budget.spendable_today)
+
+        // The Budget is current-month-only by product decision: no month
+        // parameter ever goes out.
+        val call = calls.first { it.path == "/api/dashboard/budget" }
+        assertEquals("GET", call.method)
+        assertNull(call.month)
+    }
+
+    @Test
+    fun `a negative spendable today arrives raw for the card to floor`() = runBlocking {
+        budgetSpendableToday = "-12.34"
+        createViewModel()
+        awaitDashboard()
+
+        // Raw through the seam: the card renders it as 0 with the "you're
+        // over" note; the ViewModel never rewrites the endpoint's value.
+        assertEquals("-12.34", viewModel.uiState.value.budget?.spendable_today)
+    }
+
+    @Test
+    fun `a failed budget load surfaces its error and a refetch clears it`() = runBlocking {
+        failBudget = true
+        createViewModel()
+        awaitDashboard()
+
+        assertEquals("Could not load the budget.", viewModel.uiState.value.budgetError)
+        assertNull(viewModel.uiState.value.budget)
+
+        failBudget = false
+        DataVersion.bump()
+        awaitState { it.budget != null && it.budgetError == null }
+    }
+
+    // --- The trend chart (T12, US28) ---
+
+    @Test
+    fun `the trend loads the expense buckets of the default range oldest first`() = runBlocking {
+        createViewModel()
+        awaitDashboard()
+
+        val trend = requireNotNull(viewModel.uiState.value.trend)
+        assertEquals(TrendKind.EXPENSE, trend.kind)
+        assertEquals("2026-03", trend.data.from_month)
+        assertEquals("2026-08", trend.data.to_month)
+        assertEquals(
+            listOf("2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"),
+            trend.data.months.map { it.month },
+        )
+        // Zero-filled for months with nothing recorded.
+        assertTrue(trend.data.months.all { it.amount == "0.00" })
+        assertTrue(viewModel.uiState.value.trendInSync)
+
+        // The default range is the current month minus five months through
+        // the current month, asked of the expense endpoint.
+        assertEquals(listOf(Triple("expense", "2026-03", "2026-08")), trendCalls())
+    }
+
+    @Test
+    fun `the trend toggle switches endpoints and loads the income buckets`() = runBlocking {
+        trendAmounts["income:2026-03"] = "77.00"
+        createViewModel()
+        awaitDashboard()
+        assertTrue(viewModel.uiState.value.trendInSync)
+
+        viewModel.onTrendKindChange(TrendKind.INCOME)
+        awaitState { it.trend?.kind == TrendKind.INCOME && it.trendInSync }
+
+        val trend = requireNotNull(viewModel.uiState.value.trend)
+        assertEquals("77.00", trend.data.months.first { it.month == "2026-03" }.amount)
+        assertEquals(
+            listOf(
+                Triple("expense", "2026-03", "2026-08"),
+                Triple("income", "2026-03", "2026-08"),
+            ),
+            trendCalls(),
+        )
+    }
+
+    @Test
+    fun `the trend range pickers drive the wire and swapping keeps from before to`() = runBlocking {
+        createViewModel()
+        awaitDashboard()
+
+        viewModel.onTrendFromChange(YearMonth.of(2026, 5))
+        awaitState { it.trendFrom == YearMonth.of(2026, 5) && it.trendInSync }
+
+        // From after To swaps the two instead of a reversed request: the
+        // user's intent was a range between the two months (T12).
+        viewModel.onTrendFromChange(YearMonth.of(2026, 10))
+        awaitState {
+            it.trendFrom == YearMonth.of(2026, 8) &&
+                it.trendTo == YearMonth.of(2026, 10) && it.trendInSync
+        }
+
+        // To before From swaps too.
+        viewModel.onTrendToChange(YearMonth.of(2026, 1))
+        awaitState {
+            it.trendFrom == YearMonth.of(2026, 1) &&
+                it.trendTo == YearMonth.of(2026, 8) && it.trendInSync
+        }
+
+        // A To inside the range only moves the end.
+        viewModel.onTrendToChange(YearMonth.of(2026, 6))
+        awaitState { it.trendTo == YearMonth.of(2026, 6) && it.trendInSync }
+
+        assertEquals(
+            listOf(
+                Triple("expense", "2026-03", "2026-08"),
+                Triple("expense", "2026-05", "2026-08"),
+                Triple("expense", "2026-08", "2026-10"),
+                Triple("expense", "2026-01", "2026-08"),
+                Triple("expense", "2026-01", "2026-06"),
+            ),
+            trendCalls(),
+        )
+    }
+
+    @Test
+    fun `a failed trend load surfaces its error and a refetch clears it`() = runBlocking {
+        failTrend = true
+        createViewModel()
+        awaitDashboard()
+
+        assertEquals("Could not load the trend.", viewModel.uiState.value.trendError)
+        assertNull(viewModel.uiState.value.trend)
+
+        failTrend = false
+        DataVersion.bump()
+        awaitState { it.trend != null && it.trendError == null }
+    }
+
+    @Test
+    fun `a late trend response never overwrites the current range`() = runBlocking {
+        val holdIncome = CountDownLatch(1)
+        heldTrends["income:2026-03:2026-08"] = holdIncome
+        createViewModel()
+        awaitDashboard()
+
+        viewModel.onTrendKindChange(TrendKind.INCOME)
+        awaitState { it.trendKind == TrendKind.INCOME }
+        // The range moves before the gated income response arrives.
+        viewModel.onTrendFromChange(YearMonth.of(2026, 4))
+        awaitState { it.trendFrom == YearMonth.of(2026, 4) && it.trendInSync }
+
+        // The gated 2026-03 income response finally arrives — long after the
+        // user moved the range.
+        holdIncome.countDown()
+
+        // If the guard were missing, the stale response would overwrite the
+        // loaded trend and desync it from the requested range. Neither
+        // happens.
+        val wrong = withTimeoutOrNull(5_000) {
+            viewModel.uiState.first { !it.trendInSync || it.trend?.data?.from_month == "2026-03" }
+        }
+        assertNull(wrong)
+        assertEquals("2026-04", viewModel.uiState.value.trend?.data?.from_month)
+        assertTrue(viewModel.uiState.value.trendInSync)
     }
 }

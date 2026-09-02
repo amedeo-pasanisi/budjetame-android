@@ -33,4 +33,15 @@ class DatesTest {
     fun `month labels render the long month and the year`() {
         assertEquals("August 2026", Dates.monthLabel("2026-08", Locale.ENGLISH))
     }
+
+    @Test
+    fun `compact month labels render the short month and the year`() {
+        assertEquals("Aug 2026", Dates.monthLabelCompact("2026-08", Locale.ENGLISH))
+    }
+
+    @Test
+    fun `short bar labels render the month and January carries the year`() {
+        assertEquals("Aug", Dates.shortMonthLabel("2026-08", Locale.ENGLISH))
+        assertEquals("Jan ’26", Dates.shortMonthLabel("2026-01", Locale.ENGLISH))
+    }
 }
