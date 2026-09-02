@@ -48,7 +48,26 @@ same product, with the same data and the same behavior as the web app
 ./gradlew test                  # unit tests (JVM, MockWebServer seam)
 ./gradlew assembleDebug         # debug APK (→ stage.budjetame.de)
 ./gradlew installDebug          # install on a connected device/emulator
+./gradlew bundleRelease         # signed release AAB (→ budjetame.de, Play upload)
+./gradlew assembleRelease       # signed release APK (→ budjetame.de, sideload)
 ```
+
+Release builds talk to the production backend (`budjetame.de`); debug
+builds to stage. Release signing uses the Play upload key, kept outside the
+repo — set these Gradle properties in `~/.gradle/gradle.properties` (never
+commit a key or password):
+
+```properties
+RELEASE_KEYSTORE_PATH=/path/to/budjetame-upload.jks
+RELEASE_KEYSTORE_PASSWORD=…
+RELEASE_KEY_ALIAS=budjetame
+RELEASE_KEY_PASSWORD=…
+```
+
+Without them release builds come out unsigned. Google Play App Signing
+re-signs the AAB with its own key, so a sideloaded release APK (signed with
+the upload key) must be uninstalled before installing the Play version —
+their signatures differ.
 
 Notes:
 

@@ -10,6 +10,24 @@ android {
     namespace = "com.budjetame.android"
     compileSdk = 37 // Android 17
 
+    // Release signing: the upload key lives outside the repo. Set
+    // RELEASE_KEYSTORE_PATH / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS /
+    // RELEASE_KEY_PASSWORD as Gradle properties (e.g. in
+    // ~/.gradle/gradle.properties) and release builds come out signed;
+    // without them release builds stay unsigned (debug-only machines).
+    val keystorePath = providers.gradleProperty("RELEASE_KEYSTORE_PATH").orElse("").get()
+
+    signingConfigs {
+        if (keystorePath.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = providers.gradleProperty("RELEASE_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.gradleProperty("RELEASE_KEY_ALIAS").get()
+                keyPassword = providers.gradleProperty("RELEASE_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     // Map provider seam (ADR-0004 parity, ticket #29): the picker's provider
     // comes from Gradle properties at build time, mirroring the web's
     // VITE_MAP_PROVIDER / VITE_GOOGLE_MAPS_API_KEY. Anything that is not
@@ -26,7 +44,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
         buildConfigField("String", "MAP_PROVIDER", "\"$mapProvider\"")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
@@ -51,6 +69,9 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "API_BASE_URL", "\"https://budjetame.de/api/\"")
+            if (keystorePath.isNotEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

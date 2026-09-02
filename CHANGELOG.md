@@ -11,6 +11,14 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.0.0] — 2026-09-02
+
+First release: the full spec #13 feature set — auth, the 5-tab shell,
+wallets, categories, the dashboard, the transactions ledger with forms,
+recurring definitions, and import/export with the map picker — verified by
+the JVM suite (298 tests), the Compose UI tests, and a signed release
+build. Release builds talk to the production backend at budjetame.de.
+
 ### Added
 
 - **Auth & shell** — email+password login, registration, Google sign-in via
@@ -153,3 +161,5 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 - **Auth** — sign-in and sign-up failed with "please try again" on devices
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
+
+[v1.0.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.0
