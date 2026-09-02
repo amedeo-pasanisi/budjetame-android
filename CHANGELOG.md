@@ -41,6 +41,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   big, the daily-allowance/this-month line, and a "You're €X over" note
   when the bucket is negative (shown as €0.00 until accruals repay it,
   ADR-0012) (#18).
+- **Transactions ledger** — the read path: newest-first cursor paging (50 per
+  page) with infinite scroll, a collapsible filter bar (wallet, frozen ones
+  included and marked "Frozen", date range, category) with the debounced
+  description search composed in, "Uncategorized" on category-less Expenses,
+  and rows on frozen wallets rendered read-only (#19).
 
 ### Fixed
 

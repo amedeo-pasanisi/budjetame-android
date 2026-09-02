@@ -85,16 +85,18 @@ app/src/main/java/com/budjetame/android/
 │   ├── Session.kt           # In-memory token cache for the interceptor
 │   ├── auth/                # AuthGateway + API-backed repository
 │   ├── wallet/              # WalletGateway + API-backed repository
-│   └── category/            # CategoryGateway + API-backed repository (incl. merge conflict)
+│   ├── category/            # CategoryGateway + API-backed repository (incl. merge conflict)
+│   └── transaction/         # TransactionGateway + API-backed repository (ledger paging/filters)
 ├── ui/
 │   ├── theme/               # Material 3, indigo/slate palette mirroring the web app
 │   ├── login/               # Login/registration/Google/forgot + ViewModel
 │   ├── wallets/             # Wallets tab: sections, create/rename/freeze, ViewModel
 │   ├── categories/          # Categories tab: sections, search, CRUD, merge-on-rename, ViewModel
 │   ├── dashboard/           # Dashboard tab: net worth, month totals + navigation, category pie (ticket #17)
+│   ├── transactions/        # Transactions tab: ledger, cursor paging, filter bar, search (ticket #19)
 │   ├── common/              # Shared message bodies (loading, empty, load-error + retry)
 │   ├── shell/               # AppShell: header, 5-tab NavigationBar, settings/deletion
-│   └── screens/             # Remaining tab placeholders (Transactions, Recurring)
+│   └── screens/             # Remaining tab placeholder (Recurring)
 └── util/                    # Money + date formatting (ports of the web app's format.ts)
 ```
 
