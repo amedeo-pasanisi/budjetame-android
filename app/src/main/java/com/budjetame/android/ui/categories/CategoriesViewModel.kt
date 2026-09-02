@@ -30,6 +30,38 @@ val CATEGORY_PRESET_COLORS = listOf(
 )
 
 /**
+ * The merge offer (ADR-0007): set when a rename save collided.
+ */
+data class CategoryMergeOffer(val targetId: Int, val transactionCount: Int)
+
+/**
+ * The create/edit/delete Category modal's draft (null = modal closed).
+ * Shared by every host of the modal: the Categories screen (ticket #16) and
+ * the Transaction form's inline "New category…" creation (ADR-0013, ticket
+ * #21) — one draft type, so the create form cannot drift between its hosts.
+ */
+data class CategoryModalState(
+    val category: CategoryDto? = null,
+    val name: String = "",
+    val type: CategoryType = CategoryType.EXPENSE,
+    val icon: String = "",
+    val color: String = CATEGORY_PRESET_COLORS.first(),
+    val error: String? = null,
+    val submitting: Boolean = false,
+    val confirmingDelete: Boolean = false,
+    val deleting: Boolean = false,
+    val mergeOffer: CategoryMergeOffer? = null,
+    val confirmingMerge: Boolean = false,
+    val merging: Boolean = false,
+) {
+    val editing: Boolean get() = category != null
+
+    val busy: Boolean get() = submitting || deleting || merging
+
+    val canSubmit: Boolean get() = !busy && name.isNotBlank()
+}
+
+/**
  * The Categories screen's state machine (ticket #16), ported from the web
  * app's CategoriesScreen + CategoryForm: load with sections and search,
  * create/edit/delete, and the rename-collision merge flow (ADR-0007) — a
@@ -39,37 +71,12 @@ val CATEGORY_PRESET_COLORS = listOf(
  */
 class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel() {
 
-    /** The merge offer (ADR-0007): set when a rename save collided. */
-    data class MergeOffer(val targetId: Int, val transactionCount: Int)
-
-    /** The create/edit modal's draft (null = modal closed). */
-    data class ModalState(
-        val category: CategoryDto? = null,
-        val name: String = "",
-        val type: CategoryType = CategoryType.EXPENSE,
-        val icon: String = "",
-        val color: String = CATEGORY_PRESET_COLORS.first(),
-        val error: String? = null,
-        val submitting: Boolean = false,
-        val confirmingDelete: Boolean = false,
-        val deleting: Boolean = false,
-        val mergeOffer: MergeOffer? = null,
-        val confirmingMerge: Boolean = false,
-        val merging: Boolean = false,
-    ) {
-        val editing: Boolean get() = category != null
-
-        val busy: Boolean get() = submitting || deleting || merging
-
-        val canSubmit: Boolean get() = !busy && name.isNotBlank()
-    }
-
     data class UiState(
         val loading: Boolean = true,
         val loadError: String? = null,
         val categories: List<CategoryDto> = emptyList(),
         val query: String = "",
-        val modal: ModalState? = null,
+        val modal: CategoryModalState? = null,
     ) {
         val sections: List<CategorySection> get() = categorySections(categories, query)
     }
@@ -87,13 +94,13 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
     }
 
     fun openCreate() {
-        _uiState.update { it.copy(modal = ModalState()) }
+        _uiState.update { it.copy(modal = CategoryModalState()) }
     }
 
     fun openEdit(category: CategoryDto) {
         _uiState.update {
             it.copy(
-                modal = ModalState(
+                modal = CategoryModalState(
                     category = category,
                     name = category.name,
                     icon = category.icon ?: "",
@@ -221,7 +228,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
         }
     }
 
-    private fun create(modal: ModalState) {
+    private fun create(modal: CategoryModalState) {
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
             try {
@@ -246,7 +253,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
         }
     }
 
-    private fun update(modal: ModalState) {
+    private fun update(modal: CategoryModalState) {
         val category = modal.category ?: return
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
@@ -263,7 +270,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
                 updateModal {
                     it.copy(
                         submitting = false,
-                        mergeOffer = MergeOffer(error.targetId, error.transactionCount),
+                        mergeOffer = CategoryMergeOffer(error.targetId, error.transactionCount),
                         confirmingMerge = false,
                     )
                 }
@@ -303,7 +310,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
         }
     }
 
-    private fun updateModal(transform: (ModalState) -> ModalState) {
+    private fun updateModal(transform: (CategoryModalState) -> CategoryModalState) {
         _uiState.update { state ->
             state.modal?.let { state.copy(modal = transform(it)) } ?: state
         }

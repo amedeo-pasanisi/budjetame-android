@@ -54,8 +54,10 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Dates
 import java.time.Instant
 
@@ -145,9 +147,44 @@ fun TransactionsScreen(
             onDestinationWalletChange = viewModel::onDestinationWalletChange,
             onCategoryChange = viewModel::onCategoryChange,
             onDescriptionChange = viewModel::onDescriptionChange,
+            onAddWallet = viewModel::onWalletAdd,
+            onAddCategory = viewModel::onCategoryAdd,
             onSubmit = viewModel::submit,
             onDelete = viewModel::onDeleteTap,
             onClose = viewModel::closeModal,
+        )
+    }
+
+    // Inline entity creation (ADR-0013, ticket #21): the entity's create
+    // modal, stacked on the Transaction form. Composed after it, its dialog
+    // window renders on top; a Cancel or back press closes only this one —
+    // the Transaction draft survives below.
+    state.walletCreate?.let { create ->
+        WalletModal(
+            modal = create.modal,
+            allowedTypes = create.allowedTypes,
+            onNameChange = viewModel::onWalletCreateNameChange,
+            onTypeChange = viewModel::onWalletCreateTypeChange,
+            onOpeningBalanceChange = viewModel::onWalletCreateOpeningBalanceChange,
+            onSubmit = viewModel::submitWalletCreate,
+            onFreeze = {}, // Create-only: the freeze section never renders.
+            onClose = viewModel::cancelWalletCreate,
+        )
+    }
+
+    state.categoryCreate?.let { create ->
+        CategoryModal(
+            modal = create.modal,
+            lockedType = create.lockedType,
+            onNameChange = viewModel::onCategoryCreateNameChange,
+            onTypeChange = {}, // Locked: the Type selector never renders.
+            onIconChange = viewModel::onCategoryCreateIconChange,
+            onColorChange = viewModel::onCategoryCreateColorChange,
+            onSubmit = viewModel::submitCategoryCreate,
+            onMerge = {}, // Create-only: the merge/delete sections never render.
+            onCancelMerge = {},
+            onDelete = {},
+            onClose = viewModel::cancelCategoryCreate,
         )
     }
 }

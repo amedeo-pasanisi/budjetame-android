@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -35,12 +36,17 @@ import com.budjetame.android.util.Money
 /**
  * The create/edit/freeze Wallet form inside an AlertDialog (web issue #49).
  * Create and edit share one modal: Type and Opening balance appear only while
- * creating, and the tap-again freeze confirmation only while editing.
+ * creating, and the tap-again freeze confirmation only while editing. Also
+ * hosts the Transaction form's inline "New wallet…" creation (ADR-0013):
+ * `allowedTypes` restricts the create form's Type selector — an Income's
+ * Wallet field never creates a Contact Wallet (ADR-0017) — and edit mode
+ * never shows the selector, so the lock is create-only.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WalletModal(
-    modal: WalletsViewModel.ModalState,
+    modal: WalletModalState,
+    allowedTypes: Set<WalletType>? = null,
     onNameChange: (String) -> Unit,
     onTypeChange: (WalletType) -> Unit,
     onOpeningBalanceChange: (String) -> Unit,
@@ -76,17 +82,28 @@ fun WalletModal(
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp),
+                        .padding(top = 12.dp)
+                        .testTag("wallet-name"),
                 )
 
                 if (!editing) {
                     WalletTypeField(
                         value = modal.type,
+                        types = allowedTypes ?: WalletType.entries.toSet(),
                         onSelect = onTypeChange,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp),
                     )
+                    allowedTypes?.let { types ->
+                        Text(
+                            text = types.joinToString(", ") { walletTypeLabel(it) } +
+                                " · fixed for this form",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                     OutlinedTextField(
                         value = modal.openingBalance,
                         onValueChange = onOpeningBalanceChange,
@@ -148,6 +165,7 @@ fun WalletModal(
 @Composable
 private fun WalletTypeField(
     value: WalletType,
+    types: Set<WalletType>,
     onSelect: (WalletType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -165,13 +183,14 @@ private fun WalletTypeField(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .testTag("wallet-type"),
         )
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            WalletType.entries.forEach { type ->
+            WalletType.entries.filter { it in types }.forEach { type ->
                 DropdownMenuItem(
                     text = { Text(walletTypeLabel(type)) },
                     onClick = {
@@ -186,7 +205,7 @@ private fun WalletTypeField(
 
 @Composable
 private fun FreezeSection(
-    modal: WalletsViewModel.ModalState,
+    modal: WalletModalState,
     wallet: WalletDto,
     onFreeze: () -> Unit,
 ) {

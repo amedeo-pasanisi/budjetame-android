@@ -16,6 +16,46 @@ import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
 /**
+ * The create/edit/freeze Wallet modal's draft (null = modal closed). Shared
+ * by every host of the modal: the Wallets screen (ticket #15) and the
+ * Transaction form's inline "New wallet…" creation (ADR-0013, ticket #21) —
+ * one draft type, so the create form cannot drift between its hosts.
+ */
+data class WalletModalState(
+    val wallet: WalletDto? = null,
+    val name: String = "",
+    val type: WalletType = WalletType.CHECKING,
+    val openingBalance: String = "",
+    val error: String? = null,
+    val submitting: Boolean = false,
+    val confirmingFreeze: Boolean = false,
+    val freezing: Boolean = false,
+    val freezeError: String? = null,
+) {
+    val editing: Boolean get() = wallet != null
+
+    val canSubmit: Boolean get() = !submitting && !freezing && name.isNotBlank()
+
+    /** Freeze only when the balance is exactly €0 (ADR-0002). */
+    val canFreeze: Boolean
+        get() = editing && wallet?.let { BigDecimal(it.balance).compareTo(BigDecimal.ZERO) == 0 } == true
+}
+
+/**
+ * The opening-balance value to send, or null when the draft is not a valid
+ * non-negative amount. Blank means €0 (no Opening Balance Transaction).
+ */
+fun normalizeOpeningBalance(raw: String): String? {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return "0.00"
+    return try {
+        if (BigDecimal(trimmed) < BigDecimal.ZERO) null else trimmed
+    } catch (_: NumberFormatException) {
+        null
+    }
+}
+
+/**
  * The Wallets screen's state machine (ticket #15), ported from the web app's
  * WalletsScreen + WalletForm: load with sections, create/rename/freeze, and
  * one-tap unfreeze — with the web's exact error strings. Data is refetched in
@@ -23,34 +63,13 @@ import java.math.BigDecimal
  */
 class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
 
-    /** The create/edit/freeze modal's draft (null = modal closed). */
-    data class ModalState(
-        val wallet: WalletDto? = null,
-        val name: String = "",
-        val type: WalletType = WalletType.CHECKING,
-        val openingBalance: String = "",
-        val error: String? = null,
-        val submitting: Boolean = false,
-        val confirmingFreeze: Boolean = false,
-        val freezing: Boolean = false,
-        val freezeError: String? = null,
-    ) {
-        val editing: Boolean get() = wallet != null
-
-        val canSubmit: Boolean get() = !submitting && !freezing && name.isNotBlank()
-
-        /** Freeze only when the balance is exactly €0 (ADR-0002). */
-        val canFreeze: Boolean
-            get() = editing && wallet?.let { BigDecimal(it.balance).compareTo(BigDecimal.ZERO) == 0 } == true
-    }
-
     data class UiState(
         val loading: Boolean = true,
         val loadError: String? = null,
         val wallets: List<WalletDto> = emptyList(),
         val frozenExpanded: Boolean = false,
         val unfreezeError: String? = null,
-        val modal: ModalState? = null,
+        val modal: WalletModalState? = null,
     ) {
         val sections: List<WalletSection> get() = walletSections(wallets)
         val frozenWallets: List<WalletDto> get() = frozenWalletsOf(wallets)
@@ -69,12 +88,12 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
     }
 
     fun openCreate() {
-        _uiState.update { it.copy(modal = ModalState(), unfreezeError = null) }
+        _uiState.update { it.copy(modal = WalletModalState(), unfreezeError = null) }
     }
 
     fun openEdit(wallet: WalletDto) {
         _uiState.update {
-            it.copy(modal = ModalState(wallet = wallet, name = wallet.name), unfreezeError = null)
+            it.copy(modal = WalletModalState(wallet = wallet, name = wallet.name), unfreezeError = null)
         }
     }
 
@@ -171,7 +190,7 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
         }
     }
 
-    private fun create(modal: ModalState) {
+    private fun create(modal: WalletModalState) {
         val openingBalance = if (modal.type == WalletType.CONTACT) {
             "0.00"
         } else {
@@ -205,7 +224,7 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
         }
     }
 
-    private fun rename(modal: ModalState) {
+    private fun rename(modal: WalletModalState) {
         val wallet = modal.wallet ?: return
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
@@ -255,26 +274,9 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
         }
     }
 
-    private fun updateModal(transform: (ModalState) -> ModalState) {
+    private fun updateModal(transform: (WalletModalState) -> WalletModalState) {
         _uiState.update { state ->
             state.modal?.let { state.copy(modal = transform(it)) } ?: state
-        }
-    }
-
-    companion object {
-        /**
-         * The opening-balance value to send, or null when the draft is not a
-         * valid non-negative amount. Blank means €0 (no Opening Balance
-         * Transaction).
-         */
-        fun normalizeOpeningBalance(raw: String): String? {
-            val trimmed = raw.trim()
-            if (trimmed.isEmpty()) return "0.00"
-            return try {
-                if (BigDecimal(trimmed) < BigDecimal.ZERO) null else trimmed
-            } catch (_: NumberFormatException) {
-                null
-            }
         }
     }
 }

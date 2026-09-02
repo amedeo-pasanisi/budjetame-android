@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.budjetame.android.MainDispatcherRule
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.CategoryApi
+import com.budjetame.android.data.api.CategoryCreateRequest
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
@@ -16,6 +17,7 @@ import com.budjetame.android.data.api.TransactionPageDto
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletApi
+import com.budjetame.android.data.api.WalletCreateRequest
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.ApiCategoryRepository
@@ -85,6 +87,8 @@ class TransactionsViewModelTest {
     private var walletsStatus = 200
     private var categoriesStatus = 200
     private var createStatus = 201
+    private var walletCreateStatus = 201
+    private var categoryCreateStatus = 201
     private var updateStatus = 200
     private var deleteStatus = 200
     private var createWarning = false
@@ -106,6 +110,8 @@ class TransactionsViewModelTest {
         walletsStatus = 200
         categoriesStatus = 200
         createStatus = 201
+        walletCreateStatus = 201
+        categoryCreateStatus = 201
         updateStatus = 200
         deleteStatus = 200
         createWarning = false
@@ -160,6 +166,10 @@ class TransactionsViewModelTest {
 
             method == "GET" && path == "/api/transactions" -> listPage(query)
 
+            method == "POST" && path == "/api/wallets" -> createWallet(body)
+
+            method == "POST" && path == "/api/categories" -> createCategory(body)
+
             method == "POST" && path == "/api/transactions" -> createTransaction(body)
 
             method == "PATCH" && path.matches(Regex("/api/transactions/\\d+")) -> updateTransaction(path, body)
@@ -202,6 +212,49 @@ class TransactionsViewModelTest {
         val nextStart = start + page.size
         val nextCursor = if (nextStart < sorted.size) "cursor-$nextStart" else null
         return jsonResponse(200, json.encodeToString(TransactionPageDto(page, nextCursor)))
+    }
+
+    /** The fake inline Wallet create (ADR-0014): real at once — the Wallet
+     * lands in the store the ledger and the fake validation read from. */
+    private fun createWallet(body: String): MockResponse {
+        if (walletCreateStatus != 201) return jsonResponse(walletCreateStatus, """{"detail":"boom"}""")
+        val create = json.decodeFromString<WalletCreateRequest>(body)
+        if (create.name.isBlank()) return jsonResponse(422, """{"detail":"Name is required"}""")
+        if (walletStore.any { it.name.equals(create.name, ignoreCase = true) }) {
+            return jsonResponse(409, """{"detail":"A Wallet with this name already exists"}""")
+        }
+        val id = (walletStore.maxOfOrNull { it.id } ?: 0) + 1
+        val created = wallet(id, create.name, create.type, create.opening_balance)
+        walletStore.add(created)
+        return jsonResponse(201, json.encodeToString(created))
+    }
+
+    /** The fake inline Category create (ADR-0014): real at once — the
+     * Category lands in the store the ledger and the fake validation read
+     * from; a blank icon stores as null, like the backend. */
+    private fun createCategory(body: String): MockResponse {
+        if (categoryCreateStatus != 201) {
+            return jsonResponse(categoryCreateStatus, """{"detail":"boom"}""")
+        }
+        val create = json.decodeFromString<CategoryCreateRequest>(body)
+        if (create.name.isBlank()) return jsonResponse(422, """{"detail":"Name is required"}""")
+        if (categoryStore.any {
+                it.type == create.type && it.name.equals(create.name, ignoreCase = true)
+            }
+        ) {
+            return jsonResponse(409, """{"detail":"A Category with this name already exists"}""")
+        }
+        val id = (categoryStore.maxOfOrNull { it.id } ?: 0) + 1
+        val created = CategoryDto(
+            id = id,
+            name = create.name,
+            type = create.type,
+            icon = create.icon.ifBlank { null },
+            color = create.color,
+            created_at = "2026-08-01T10:00:00Z",
+        )
+        categoryStore.add(created)
+        return jsonResponse(201, json.encodeToString(created))
     }
 
     /** The fake create, mirroring the backend's type rules just far enough
@@ -380,7 +433,6 @@ class TransactionsViewModelTest {
 
     private fun category(id: Int, name: String, type: CategoryType, icon: String? = null) =
         CategoryDto(id, name, type, icon, "#000000", "2026-08-01T10:00:00Z")
-
     private suspend fun awaitLoaded() {
         withTimeout(5_000) { viewModel.uiState.first { !it.loading } }
     }
@@ -937,6 +989,253 @@ class TransactionsViewModelTest {
         viewModel.onAmountChange("6.00")
         viewModel.submit()
         awaitState { it.modal?.error == "Could not save the transaction." }
+    }
+
+    // --- Inline entity creation (ADR-0013/0014, ticket #21) ---
+
+    @Test
+    fun `a wallet created from the expense wallet field is real selects and the draft survives`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.onDescriptionChange("Lunch")
+        viewModel.onWalletAdd(WalletFieldTarget.WALLET)
+        val opened = viewModel.uiState.value.walletCreate
+        assertNotNull(opened)
+        // An Expense's Wallet field may create any type — Contact included —
+        // so nothing is locked (null, like the web's unrestricted modal).
+        assertNull(opened?.allowedTypes)
+
+        viewModel.onWalletCreateNameChange("Marco")
+        viewModel.onWalletCreateTypeChange(WalletType.CONTACT)
+        viewModel.submitWalletCreate()
+        awaitState { it.walletCreate == null && it.wallets.any { w -> w.name == "Marco" } }
+
+        val create = json.decodeFromString<WalletCreateRequest>(call("POST", "/api/wallets").body)
+        assertEquals("Marco", create.name)
+        assertEquals(WalletType.CONTACT, create.type)
+        assertEquals("0.00", create.opening_balance)
+        // Real at once: the Wallet is selectable in the open form, whose
+        // draft is untouched — nothing was sent to the ledger yet.
+        val state = viewModel.uiState.value
+        assertEquals(2, state.modal?.walletId)
+        assertEquals("5.00", state.modal?.amount)
+        assertEquals("Lunch", state.modal?.description)
+        assertTrue(state.modal!!.canSubmit)
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
+
+        // The form submits immediately against the fresh Wallet.
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+        val saved = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(2, saved.wallet_id)
+    }
+
+    @Test
+    fun `a wallet created from a transfer's From field selects into From only`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "100.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        viewModel.onAmountChange("10.00")
+        viewModel.onWalletAdd(WalletFieldTarget.SOURCE)
+        assertNotNull(viewModel.uiState.value.walletCreate)
+        // A Transfer's From/To may create a Contact Wallet: nothing locked.
+        assertNull(viewModel.uiState.value.walletCreate?.allowedTypes)
+
+        viewModel.onWalletCreateNameChange("Marco")
+        viewModel.submitWalletCreate()
+        awaitState { it.walletCreate == null && it.modal?.sourceWalletId == 3 }
+
+        val state = viewModel.uiState.value
+        // Only the From field auto-selects; To keeps its pick.
+        assertEquals(3, state.modal?.sourceWalletId)
+        assertEquals(2, state.modal?.destinationWalletId)
+        assertEquals("10.00", state.modal?.amount)
+    }
+
+    @Test
+    fun `a wallet created from a transfer's To field selects into To only`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "100.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        viewModel.onAmountChange("10.00")
+        viewModel.onWalletAdd(WalletFieldTarget.DESTINATION)
+        viewModel.onWalletCreateNameChange("Marco")
+        viewModel.submitWalletCreate()
+        awaitState { it.walletCreate == null && it.modal?.destinationWalletId == 3 }
+
+        // Only the To field auto-selects; From keeps its pick — and the two
+        // stay distinct, so the form can submit immediately.
+        val state = viewModel.uiState.value
+        assertEquals(1, state.modal?.sourceWalletId)
+        assertEquals(3, state.modal?.destinationWalletId)
+        assertTrue(state.modal!!.canSubmit)
+    }
+
+    @Test
+    fun `an income's wallet sentinel locks contact out of the create form`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onWalletAdd(WalletFieldTarget.WALLET)
+        assertNull(viewModel.uiState.value.walletCreate?.allowedTypes)
+        viewModel.cancelWalletCreate()
+        // Cancelling only the inline form: the draft's Wallet pick survives.
+        assertEquals(1, viewModel.uiState.value.modal?.walletId)
+        assertNull(viewModel.uiState.value.walletCreate)
+
+        viewModel.onTypeChange(TransactionType.INCOME)
+        viewModel.onWalletAdd(WalletFieldTarget.WALLET)
+        assertEquals(NON_CONTACT_WALLET_TYPES, viewModel.uiState.value.walletCreate?.allowedTypes)
+        assertFalse(WalletType.CONTACT in viewModel.uiState.value.walletCreate!!.allowedTypes!!)
+    }
+
+    @Test
+    fun `a category created from an expense form is locked to expense and auto-selects`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.onCategoryAdd()
+        val opened = viewModel.uiState.value.categoryCreate
+        assertNotNull(opened)
+        assertEquals(CategoryType.EXPENSE, opened?.lockedType)
+
+        viewModel.onCategoryCreateNameChange("Groceries")
+        viewModel.onCategoryCreateIconChange("🛒")
+        viewModel.onCategoryCreateColorChange("#10b981")
+        viewModel.submitCategoryCreate()
+        awaitState { it.categoryCreate == null && it.categories.any { c -> c.name == "Groceries" } }
+
+        val create = json.decodeFromString<CategoryCreateRequest>(call("POST", "/api/categories").body)
+        assertEquals("Groceries", create.name)
+        assertEquals(CategoryType.EXPENSE, create.type)
+        assertEquals("🛒", create.icon)
+        assertEquals("#10b981", create.color)
+        // The open form now carries the fresh Category; the draft survives.
+        val state = viewModel.uiState.value
+        assertEquals(1, state.modal?.categoryId)
+        assertEquals("5.00", state.modal?.amount)
+        assertTrue(state.modal!!.canSubmit)
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
+
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+        val saved = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(1, saved.category_id)
+    }
+
+    @Test
+    fun `an income's category sentinel locks to income`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.INCOME)
+        viewModel.onCategoryAdd()
+        val create = viewModel.uiState.value.categoryCreate
+        assertNotNull(create)
+        assertEquals(CategoryType.INCOME, create?.lockedType)
+        assertEquals(CategoryType.INCOME, create?.modal?.type)
+    }
+
+    @Test
+    fun `an inline create failure stays in the create form and the draft survives`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedCategories(category(1, "Food", CategoryType.EXPENSE))
+        createViewModel()
+        awaitLoaded()
+
+        walletCreateStatus = 409
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.onWalletAdd(WalletFieldTarget.WALLET)
+        viewModel.onWalletCreateNameChange("Cash")
+        viewModel.submitWalletCreate()
+        awaitState { it.walletCreate?.modal?.error != null }
+        assertEquals("A wallet with this name already exists.", viewModel.uiState.value.walletCreate?.modal?.error)
+        assertFalse(viewModel.uiState.value.walletCreate!!.modal.submitting)
+        // The outer Transaction draft is untouched and still open.
+        assertEquals("5.00", viewModel.uiState.value.modal?.amount)
+        assertEquals(1, viewModel.uiState.value.modal?.walletId)
+
+        viewModel.cancelWalletCreate()
+        categoryCreateStatus = 409
+        viewModel.onCategoryAdd()
+        viewModel.onCategoryCreateNameChange("Food")
+        viewModel.submitCategoryCreate()
+        awaitState { it.categoryCreate?.modal?.error != null }
+        assertEquals("A category with this name already exists.", viewModel.uiState.value.categoryCreate?.modal?.error)
+        assertEquals("5.00", viewModel.uiState.value.modal?.amount)
+    }
+
+    @Test
+    fun `a negative opening balance blocks the inline wallet create`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onWalletAdd(WalletFieldTarget.WALLET)
+        viewModel.onWalletCreateNameChange("New")
+        viewModel.onWalletCreateOpeningBalanceChange("-5")
+        viewModel.submitWalletCreate()
+
+        assertEquals("Enter an amount of €0 or more.", viewModel.uiState.value.walletCreate?.modal?.error)
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/wallets" })
+    }
+
+    @Test
+    fun `a category can be created inline while editing an uncategorized expense`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        createViewModel()
+        awaitLoaded()
+
+        // The Category field stays live while editing (web parity); the
+        // Wallet fields freeze, so only a Category can be created inline.
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onCategoryAdd()
+        val create = viewModel.uiState.value.categoryCreate
+        assertNotNull(create)
+        assertEquals(CategoryType.EXPENSE, create?.lockedType)
+
+        viewModel.onCategoryCreateNameChange("Groceries")
+        viewModel.submitCategoryCreate()
+        awaitState { it.categoryCreate == null && it.modal?.categoryId == 1 }
+
+        // The edit draft survives: the amount and wallet are untouched, the
+        // fresh Category rides on the update.
+        val state = viewModel.uiState.value
+        assertEquals(1, state.modal?.editing?.id)
+        assertEquals("5.00", state.modal?.amount)
+        assertEquals(1, state.modal?.categoryId)
+        viewModel.submit()
+        awaitState { it.modal == null }
+        val patch = json.decodeFromString<TransactionExpenseIncomeUpdateRequest>(
+            call("PATCH", "/api/transactions/1").body,
+        )
+        assertEquals(1, patch.category_id)
     }
 
     /** A stub triple gateway for the pure-timing debounce test: the seam

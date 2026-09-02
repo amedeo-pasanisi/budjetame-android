@@ -53,6 +53,14 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   negative-balance warning, and the API's post-write warning banner; delete
   sits behind a tap-again confirmation, rows on frozen wallets stay
   read-only, and the ledger refreshes through the data-version bump (#20).
+- **Transaction forms, inline creation** — the Wallet and Category selects
+  create a missing entity without leaving the form (ADR-0013/0014): a
+  trailing "New wallet…" / "New category…" option stacks the entity's
+  create form on the transaction form, confirming creates it for real —
+  visible on its screen and usable immediately — and auto-selects it into
+  the originating field, the draft intact and ready to submit. An Income's
+  Wallet pick never creates a Contact Wallet, and a new Category is locked
+  to the form's type (#21).
 
 ### Fixed
 

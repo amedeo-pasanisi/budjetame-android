@@ -50,6 +50,41 @@ fun matchingCategories(categories: List<CategoryDto>, type: TransactionType): Li
 fun walletOptionLabel(wallet: WalletDto): String =
     "${wallet.name} (${Money.formatEuros(wallet.balance)})"
 
+/** The inline-create sentinel's label in the Wallet selects (ADR-0013):
+ * picking it opens the create form instead of selecting anything. */
+const val ADD_WALLET_OPTION = "New wallet…"
+
+/** The inline-create sentinel's label in the Category select (ADR-0013). */
+const val ADD_CATEGORY_OPTION = "New category…"
+
+/**
+ * Which Wallet field an inline "New wallet…" pick came from (ADR-0013):
+ * 'wallet' is an Expense/Income's single Wallet select, 'source' and
+ * 'destination' a Transfer's From/To — the created Wallet is reported back
+ * to exactly that field.
+ */
+enum class WalletFieldTarget { WALLET, SOURCE, DESTINATION }
+
+/**
+ * The Wallet types an inline-created Wallet may take (ADR-0013/0017,
+ * mirroring the web's WalletForm eligibility lock): an Income's Wallet field
+ * never creates a Contact Wallet — money coming in from a Contact is a
+ * Transfer — so it is restricted to Checking/Credit Card/Cash; everywhere
+ * else (an Expense's Wallet field — consumption the contact paid for — and
+ * a Transfer's From/To, where Contact Wallets belong) nothing is locked.
+ * Null means unrestricted, exactly like the web's `allowedTypes ===
+ * undefined`: the type selector offers all four and no caption shows.
+ */
+fun walletCreateAllowedTypes(
+    type: TransactionType,
+    target: WalletFieldTarget,
+): Set<WalletType>? =
+    if (target == WalletFieldTarget.WALLET && type == TransactionType.INCOME) {
+        NON_CONTACT_WALLET_TYPES
+    } else {
+        null
+    }
+
 /**
  * The draft's amount as a positive BigDecimal, or null when blank, not a
  * number, or not strictly positive — the mandatory-amount gate.

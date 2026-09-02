@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
@@ -59,12 +60,18 @@ private val RED_600 = Color(0xFFDC2626)
  * creating, and the tap-again delete confirmation only while editing. A
  * colliding rename turns the failure into the merge offer (ADR-0007) —
  * "Merge X into Y? N transactions will move" — with the same tap-again
- * confirmation; Cancel merge abandons the offer without saving.
+ * confirmation; Cancel merge abandons the offer without saving. Also hosts
+ * the Transaction form's inline "New category…" creation (ADR-0013):
+ * `lockedType` presets the create form's Type and hides its selector —
+ * Expense for an Expense form, Income for an Income form — so the created
+ * Category always fits the transaction being recorded. Edit mode never
+ * changes Type, so the lock is create-only.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryModal(
-    modal: CategoriesViewModel.ModalState,
+    modal: CategoryModalState,
+    lockedType: CategoryType? = null,
     onNameChange: (String) -> Unit,
     onTypeChange: (CategoryType) -> Unit,
     onIconChange: (String) -> Unit,
@@ -103,17 +110,27 @@ fun CategoryModal(
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp),
+                        .padding(top = 12.dp)
+                        .testTag("category-name"),
                 )
 
                 if (!editing) {
-                    CategoryTypeField(
-                        value = modal.type,
-                        onSelect = onTypeChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                    )
+                    if (lockedType != null) {
+                        Text(
+                            text = "${categoryTypeLabel(lockedType)} · fixed for this form",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                    } else {
+                        CategoryTypeField(
+                            value = modal.type,
+                            onSelect = onTypeChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                        )
+                    }
                 }
 
                 ColorPicker(
@@ -259,7 +276,7 @@ private fun ColorPicker(
 @Composable
 private fun MergeOfferSection(
     category: CategoryDto,
-    modal: CategoriesViewModel.ModalState,
+    modal: CategoryModalState,
     onMerge: () -> Unit,
     onCancelMerge: () -> Unit,
 ) {
@@ -314,7 +331,7 @@ private fun MergeOfferSection(
 
 @Composable
 private fun DeleteSection(
-    modal: CategoriesViewModel.ModalState,
+    modal: CategoryModalState,
     onDelete: () -> Unit,
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))

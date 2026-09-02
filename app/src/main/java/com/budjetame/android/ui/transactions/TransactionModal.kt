@@ -64,7 +64,12 @@ private val RED_600 = Color(0xFFDC2626)
  * (Transfer's distinct From/To Wallets and no Category; Contact Wallets only
  * on an Expense, ADR-0017), the Europe/Rome-defaulted date, the Cash
  * negative-balance preview, and the tap-again delete confirmation. The
- * post-write warning flag from the API surfaces as the screen's banner.
+ * post-write warning flag from the API surfaces as the screen's banner. The
+ * Wallet and Category selects carry the inline-create sentinels (ADR-0013):
+ * `onAddWallet` reports which field's sentinel was picked (the created
+ * Wallet is auto-selected into exactly that field), `onAddCategory` opens
+ * the Category create form locked to this form's type — the selects
+ * themselves never change value on a sentinel pick.
  */
 @Composable
 fun TransactionModal(
@@ -79,6 +84,8 @@ fun TransactionModal(
     onDestinationWalletChange: (Int) -> Unit,
     onCategoryChange: (Int?) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    onAddWallet: (WalletFieldTarget) -> Unit = {},
+    onAddCategory: () -> Unit = {},
     onSubmit: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
@@ -100,6 +107,8 @@ fun TransactionModal(
                 onDestinationWalletChange = onDestinationWalletChange,
                 onCategoryChange = onCategoryChange,
                 onDescriptionChange = onDescriptionChange,
+                onAddWallet = onAddWallet,
+                onAddCategory = onAddCategory,
                 onDelete = onDelete,
             )
         },
@@ -136,6 +145,8 @@ internal fun TransactionForm(
     onDestinationWalletChange: (Int) -> Unit,
     onCategoryChange: (Int?) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    onAddWallet: (WalletFieldTarget) -> Unit = {},
+    onAddCategory: () -> Unit = {},
     onDelete: () -> Unit,
 ) {
     val editing = modal.isEditing
@@ -181,6 +192,7 @@ internal fun TransactionForm(
                 enabled = !editing,
                 onSourceChange = onSourceWalletChange,
                 onDestinationChange = onDestinationWalletChange,
+                onAddWallet = onAddWallet,
                 modifier = Modifier.padding(top = 12.dp),
             )
         } else {
@@ -194,6 +206,7 @@ internal fun TransactionForm(
                 value = modal.walletId,
                 enabled = !editing,
                 onChange = onWalletChange,
+                onAdd = { onAddWallet(WalletFieldTarget.WALLET) },
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
@@ -212,6 +225,7 @@ internal fun TransactionForm(
                 categories = matchingCategories(categories, modal.type),
                 value = modal.categoryId,
                 onChange = onCategoryChange,
+                onAdd = onAddCategory,
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
@@ -283,6 +297,11 @@ private fun transactionTypeLabel(type: TransactionType): String = when (type) {
     TransactionType.OPENING_BALANCE -> "Opening balance"
 }
 
+/** The single-Wallet select an Expense/Income moves money through, with the
+ * inline "New wallet…" sentinel (ADR-0013): the option always sits last and
+ * never becomes the field's value — picking it reverts the select and opens
+ * the create form. An Expense may create a Contact Wallet (consumption the
+ * contact paid for); an Income's sentinel locks Contact out (ADR-0017). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SingleWalletField(
@@ -291,6 +310,7 @@ private fun SingleWalletField(
     value: Int?,
     enabled: Boolean,
     onChange: (Int) -> Unit,
+    onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -326,6 +346,15 @@ private fun SingleWalletField(
                         },
                     )
                 }
+                DropdownMenuItem(
+                    text = { Text(ADD_WALLET_OPTION) },
+                    onClick = {
+                        // Revert-on-pick: the sentinel never becomes the
+                        // field's value; it only opens the create form.
+                        onAdd()
+                        expanded = false
+                    },
+                )
             }
         }
         Text(
@@ -341,6 +370,10 @@ private fun SingleWalletField(
     }
 }
 
+/** The From/To Wallet selects a Transfer moves money between, each with the
+ * inline "New wallet…" sentinel (ADR-0013) reporting the exact field whose
+ * sentinel was picked. Both allow all four types — Contact included — since
+ * Transfers are where Contact Wallets belong. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransferWalletFields(
@@ -350,6 +383,7 @@ private fun TransferWalletFields(
     enabled: Boolean,
     onSourceChange: (Int) -> Unit,
     onDestinationChange: (Int) -> Unit,
+    onAddWallet: (WalletFieldTarget) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -362,6 +396,7 @@ private fun TransferWalletFields(
             value = sourceWalletId,
             enabled = enabled,
             onChange = onSourceChange,
+            onAdd = { onAddWallet(WalletFieldTarget.SOURCE) },
             tag = "tx-source",
             modifier = Modifier.weight(1f),
         )
@@ -371,6 +406,7 @@ private fun TransferWalletFields(
             value = destinationWalletId,
             enabled = enabled,
             onChange = onDestinationChange,
+            onAdd = { onAddWallet(WalletFieldTarget.DESTINATION) },
             tag = "tx-destination",
             modifier = Modifier.weight(1f),
         )
@@ -385,6 +421,7 @@ private fun WalletSelectField(
     value: Int?,
     enabled: Boolean,
     onChange: (Int) -> Unit,
+    onAdd: () -> Unit,
     tag: String,
     modifier: Modifier = Modifier,
 ) {
@@ -421,16 +458,29 @@ private fun WalletSelectField(
                     },
                 )
             }
+            DropdownMenuItem(
+                text = { Text(ADD_WALLET_OPTION) },
+                onClick = {
+                    onAdd()
+                    expanded = false
+                },
+            )
         }
     }
 }
 
+/** The Category select an Expense/Income carries (Transfers never do), with
+ * the inline "New category…" sentinel (ADR-0013): it always sits last, after
+ * None, and never becomes the field's value — picking it opens the create
+ * form locked to this field's type. The select stays live while editing,
+ * like the web app's. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryField(
     categories: List<CategoryDto>,
     value: Int?,
     onChange: (Int?) -> Unit,
+    onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -472,6 +522,13 @@ private fun CategoryField(
                     },
                 )
             }
+            DropdownMenuItem(
+                text = { Text(ADD_CATEGORY_OPTION) },
+                onClick = {
+                    onAdd()
+                    expanded = false
+                },
+            )
         }
     }
 }

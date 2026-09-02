@@ -57,6 +57,24 @@ class TransactionFormModelTest {
     }
 
     @Test
+    fun `an income's wallet sentinel never creates a contact wallet`() {
+        // An Income's Wallet field is restricted to Checking/Credit Card/Cash
+        // — money coming in from a Contact is a Transfer (ADR-0017).
+        val income = walletCreateAllowedTypes(TransactionType.INCOME, WalletFieldTarget.WALLET)
+        assertEquals(NON_CONTACT_WALLET_TYPES, income)
+        assertFalse(WalletType.CONTACT in income!!)
+
+        // Everywhere else nothing is locked (null, like the web's
+        // `allowedTypes === undefined`): an Expense's Wallet field may create
+        // a Contact Wallet — the consumption the contact paid for — as may a
+        // Transfer's From/To, where Contact Wallets belong.
+        assertNull(walletCreateAllowedTypes(TransactionType.EXPENSE, WalletFieldTarget.WALLET))
+        assertNull(walletCreateAllowedTypes(TransactionType.EXPENSE, WalletFieldTarget.SOURCE))
+        assertNull(walletCreateAllowedTypes(TransactionType.TRANSFER, WalletFieldTarget.SOURCE))
+        assertNull(walletCreateAllowedTypes(TransactionType.TRANSFER, WalletFieldTarget.DESTINATION))
+    }
+
+    @Test
     fun `categories match the transaction type and never a transfer`() {
         val categories = listOf(
             category(1, CategoryType.EXPENSE),

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryDto
+import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
@@ -15,6 +16,9 @@ import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.categories.CategoryModalState
+import com.budjetame.android.ui.wallets.WalletModalState
+import com.budjetame.android.ui.wallets.normalizeOpeningBalance
 import com.budjetame.android.util.Dates
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -62,6 +66,12 @@ class TransactionsViewModel(
         val searchNeedle: String = "",
         val savedWarning: String? = null,
         val modal: ModalState? = null,
+        /** The inline "New wallet…" modal stacked on the Transaction form
+         * (ADR-0013), null = closed. */
+        val walletCreate: WalletCreateState? = null,
+        /** The inline "New category…" modal stacked on the Transaction form
+         * (ADR-0013), null = closed. */
+        val categoryCreate: CategoryCreateState? = null,
     ) {
         /** True when any Filters-bar field is set — the search needle is
          * separate, it rides along with the bar's fields (ADR-0009). */
@@ -128,6 +138,30 @@ class TransactionsViewModel(
                 }
             }
     }
+
+    /**
+     * The inline "New wallet…" modal (ADR-0013): a create-only
+     * WalletModalState draft plus the exact Wallet field whose sentinel was
+     * picked — so the created Wallet is auto-selected into it — and the
+     * eligibility lock (the Wallet types the originating field may create,
+     * ADR-0017); null = unrestricted.
+     */
+    data class WalletCreateState(
+        val target: WalletFieldTarget,
+        val allowedTypes: Set<WalletType>?,
+        val modal: WalletModalState,
+    )
+
+    /**
+     * The inline "New category…" modal (ADR-0013): a create-only
+     * CategoryModalState draft whose type is locked to the form's type —
+     * Expense for an Expense, Income for an Income — so the created
+     * Category always fits the Transaction being recorded.
+     */
+    data class CategoryCreateState(
+        val lockedType: CategoryType,
+        val modal: CategoryModalState,
+    )
 
     /**
      * Monotonic reset counter: every reload (filter/search change, version
@@ -343,6 +377,187 @@ class TransactionsViewModel(
     fun onDescriptionChange(value: String) =
         updateModal { it.copy(description = value.take(DESCRIPTION_MAX_LENGTH), error = null) }
 
+    // --- Inline entity creation (ADR-0013, ticket #21) ---
+
+    /**
+     * A "New wallet…" pick from a Wallet select (the form must be open and
+     * creating — the Wallet fields freeze while editing): stack the create
+     * form on the Transaction form, with the eligibility lock the originating
+     * field applies. The draft stays untouched until the create form's save
+     * reports the new Wallet back.
+     */
+    fun onWalletAdd(target: WalletFieldTarget) {
+        _uiState.update { state ->
+            val modal = state.modal
+            if (modal == null || modal.isEditing || modal.busy) return@update state
+            if (state.walletCreate != null || state.categoryCreate != null) return@update state
+            state.copy(
+                walletCreate = WalletCreateState(
+                    target = target,
+                    allowedTypes = walletCreateAllowedTypes(modal.type, target),
+                    modal = WalletModalState(),
+                ),
+            )
+        }
+    }
+
+    fun onWalletCreateNameChange(value: String) =
+        updateWalletCreate { it.copy(name = value, error = null) }
+
+    fun onWalletCreateTypeChange(value: WalletType) = updateWalletCreate {
+        if (value == WalletType.CONTACT) {
+            // A Contact wallet starts at €0: drop any drafted amount.
+            it.copy(type = value, openingBalance = "", error = null)
+        } else {
+            it.copy(type = value, error = null)
+        }
+    }
+
+    fun onWalletCreateOpeningBalanceChange(value: String) =
+        updateWalletCreate { it.copy(openingBalance = value, error = null) }
+
+    /** Cancel only the inline form: the Transaction draft stays as it was. */
+    fun cancelWalletCreate() {
+        _uiState.update { it.copy(walletCreate = null) }
+    }
+
+    /**
+     * Confirm the inline "New wallet…" form: the Wallet is created for real
+     * through the same endpoint the Wallets screen uses (ADR-0014), appended
+     * to the form's list, and auto-selected into the exact field whose
+     * sentinel was picked — the Transaction draft's other fields untouched,
+     * so the form can be submitted immediately.
+     */
+    fun submitWalletCreate() {
+        val create = _uiState.value.walletCreate ?: return
+        val modal = create.modal
+        if (!modal.canSubmit) return
+        val openingBalance = if (modal.type == WalletType.CONTACT) {
+            "0.00"
+        } else {
+            normalizeOpeningBalance(modal.openingBalance)
+        }
+        if (openingBalance == null) {
+            updateWalletCreate { it.copy(error = "Enter an amount of €0 or more.") }
+            return
+        }
+        val target = create.target
+        viewModelScope.launch {
+            updateWalletCreate { it.copy(submitting = true, error = null) }
+            try {
+                val created = wallets.createWallet(modal.name.trim(), modal.type, openingBalance)
+                _uiState.update { state ->
+                    val transactionModal = state.modal?.let { form ->
+                        when (target) {
+                            WalletFieldTarget.WALLET -> form.copy(walletId = created.id)
+                            WalletFieldTarget.SOURCE -> form.copy(sourceWalletId = created.id)
+                            WalletFieldTarget.DESTINATION -> form.copy(destinationWalletId = created.id)
+                        }
+                    }
+                    state.copy(
+                        wallets = state.wallets + created,
+                        modal = transactionModal ?: state.modal,
+                        walletCreate = null,
+                    )
+                }
+            } catch (error: ApiException) {
+                updateWalletCreate {
+                    it.copy(
+                        submitting = false,
+                        error = apiErrorMessage(
+                            error.status,
+                            "A wallet with this name already exists.",
+                            "Could not create the wallet.",
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateWalletCreate { it.copy(submitting = false, error = "Could not create the wallet.") }
+            }
+        }
+    }
+
+    /**
+     * A "New category…" pick from the Category select (an Expense or Income
+     * form — a Transfer never carries one): stack the create form on the
+     * Transaction form, its type locked to the form's current type.
+     */
+    fun onCategoryAdd() {
+        _uiState.update { state ->
+            val modal = state.modal
+            if (modal == null || modal.isTransfer || modal.busy) return@update state
+            if (state.categoryCreate != null || state.walletCreate != null) return@update state
+            val locked = when (modal.type) {
+                TransactionType.INCOME -> CategoryType.INCOME
+                else -> CategoryType.EXPENSE
+            }
+            state.copy(
+                categoryCreate = CategoryCreateState(
+                    lockedType = locked,
+                    modal = CategoryModalState(type = locked),
+                ),
+            )
+        }
+    }
+
+    fun onCategoryCreateNameChange(value: String) =
+        updateCategoryCreate { it.copy(name = value, error = null) }
+
+    fun onCategoryCreateIconChange(value: String) =
+        updateCategoryCreate { it.copy(icon = value, error = null) }
+
+    fun onCategoryCreateColorChange(value: String) =
+        updateCategoryCreate { it.copy(color = value, error = null) }
+
+    /** Cancel only the inline form: the Transaction draft stays as it was. */
+    fun cancelCategoryCreate() {
+        _uiState.update { it.copy(categoryCreate = null) }
+    }
+
+    /**
+     * Confirm the inline "New category…" form: the Category is created for
+     * real through the same endpoint the Categories screen uses (ADR-0014),
+     * appended to the form's list, and auto-selected into the Category
+     * field — the Transaction draft's other fields untouched.
+     */
+    fun submitCategoryCreate() {
+        val create = _uiState.value.categoryCreate ?: return
+        val modal = create.modal
+        if (!modal.canSubmit) return
+        val lockedType = create.lockedType
+        viewModelScope.launch {
+            updateCategoryCreate { it.copy(submitting = true, error = null) }
+            try {
+                val created = categories.createCategory(
+                    modal.name.trim(),
+                    lockedType,
+                    modal.icon,
+                    modal.color,
+                )
+                _uiState.update { state ->
+                    state.copy(
+                        categories = state.categories + created,
+                        modal = state.modal?.copy(categoryId = created.id),
+                        categoryCreate = null,
+                    )
+                }
+            } catch (error: ApiException) {
+                updateCategoryCreate {
+                    it.copy(
+                        submitting = false,
+                        error = apiErrorMessage(
+                            error.status,
+                            "A category with this name already exists.",
+                            "Could not create the category.",
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateCategoryCreate { it.copy(submitting = false, error = "Could not create the category.") }
+            }
+        }
+    }
+
     fun submit() {
         val modal = _uiState.value.modal ?: return
         if (!modal.canSubmit) return
@@ -479,6 +694,20 @@ class TransactionsViewModel(
     private fun updateModal(transform: (ModalState) -> ModalState) {
         _uiState.update { state ->
             state.modal?.let { state.copy(modal = transform(it)) } ?: state
+        }
+    }
+
+    private fun updateWalletCreate(transform: (WalletModalState) -> WalletModalState) {
+        _uiState.update { state ->
+            state.walletCreate?.let { state.copy(walletCreate = it.copy(modal = transform(it.modal))) } ?: state
+        }
+    }
+
+    private fun updateCategoryCreate(transform: (CategoryModalState) -> CategoryModalState) {
+        _uiState.update { state ->
+            state.categoryCreate?.let {
+                state.copy(categoryCreate = it.copy(modal = transform(it.modal)))
+            } ?: state
         }
     }
 

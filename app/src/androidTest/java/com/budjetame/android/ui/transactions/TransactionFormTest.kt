@@ -16,9 +16,11 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
+import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,6 +49,8 @@ class TransactionFormTest {
         initial: TransactionsViewModel.ModalState,
         wallets: List<WalletDto>,
         categories: List<CategoryDto>,
+        onAddWallet: (WalletFieldTarget) -> Unit = {},
+        onAddCategory: () -> Unit = {},
     ) {
         composeRule.setContent {
             var modal by remember { mutableStateOf(initial) }
@@ -62,11 +66,148 @@ class TransactionFormTest {
                 onDestinationWalletChange = { modal = modal.copy(destinationWalletId = it) },
                 onCategoryChange = { modal = modal.copy(categoryId = it) },
                 onDescriptionChange = { modal = modal.copy(description = it) },
+                onAddWallet = onAddWallet,
+                onAddCategory = onAddCategory,
                 onSubmit = {},
                 onDelete = {},
                 onClose = {},
             )
         }
+    }
+
+    @Test
+    fun the_wallet_select_offers_new_wallet_never_selecting_it() {
+        var added: WalletFieldTarget? = null
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.EXPENSE,
+                amount = "5.00",
+                date = "2026-08-01",
+                walletId = 1,
+            ),
+            wallets = listOf(cash),
+            categories = emptyList(),
+            onAddWallet = { added = it },
+        )
+
+        composeRule.onNodeWithTag("tx-wallet").performClick()
+        composeRule.onNodeWithText(ADD_WALLET_OPTION).assertIsDisplayed().performClick()
+
+        // Revert-on-pick (ADR-0013): the sentinel never becomes the field's
+        // value — it only reports which field wants a new Wallet.
+        assertEquals(WalletFieldTarget.WALLET, added)
+        composeRule.onNodeWithText("Cash (€100.00)").assertIsDisplayed()
+        composeRule.onNodeWithText("Save transaction").assertIsEnabled()
+    }
+
+    @Test
+    fun the_wallet_sentinel_still_offers_creation_when_no_wallets_exist() {
+        var added: WalletFieldTarget? = null
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.EXPENSE,
+                amount = "5.00",
+                date = "2026-08-01",
+                walletId = null,
+            ),
+            wallets = emptyList(),
+            categories = emptyList(),
+            onAddWallet = { added = it },
+        )
+
+        composeRule.onNodeWithTag("tx-wallet").performClick()
+        composeRule.onNodeWithText(ADD_WALLET_OPTION).assertIsDisplayed().performClick()
+        assertEquals(WalletFieldTarget.WALLET, added)
+    }
+
+    @Test
+    fun a_transfers_from_and_to_each_offer_the_new_wallet_sentinel_with_their_own_target() {
+        val added = mutableListOf<WalletFieldTarget>()
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.TRANSFER,
+                amount = "10.00",
+                date = "2026-08-01",
+                sourceWalletId = 1,
+                destinationWalletId = 2,
+            ),
+            wallets = listOf(cash, card),
+            categories = emptyList(),
+            onAddWallet = { added.add(it) },
+        )
+
+        composeRule.onNodeWithTag("tx-source").performClick()
+        composeRule.onNodeWithText(ADD_WALLET_OPTION).performClick()
+        composeRule.onNodeWithTag("tx-destination").performClick()
+        composeRule.onNodeWithText(ADD_WALLET_OPTION).performClick()
+
+        assertEquals(listOf(WalletFieldTarget.SOURCE, WalletFieldTarget.DESTINATION), added)
+        // Neither pick changed the draft's wallets.
+        composeRule.onNodeWithText("Cash (€100.00)").assertIsDisplayed()
+        composeRule.onNodeWithText("Save transaction").assertIsEnabled()
+    }
+
+    @Test
+    fun the_category_select_offers_new_category_after_none_and_the_options() {
+        var added = 0
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.EXPENSE,
+                amount = "5.00",
+                date = "2026-08-01",
+                walletId = 1,
+                categoryId = null,
+            ),
+            wallets = listOf(cash),
+            categories = listOf(food),
+            onAddCategory = { added++ },
+        )
+
+        composeRule.onNodeWithTag("tx-category").performClick()
+        composeRule.onNodeWithText("None").assertIsDisplayed()
+        composeRule.onNodeWithText("🍕 Food").assertIsDisplayed()
+        composeRule.onNodeWithText(ADD_CATEGORY_OPTION).assertIsDisplayed().performClick()
+
+        // Revert-on-pick: the Category field stays on None (its prior value).
+        assertEquals(1, added)
+        composeRule.onNodeWithText("None").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_wallet_select_is_locked_while_editing_but_the_category_sentinel_stays_live() {
+        val transaction = TransactionDto(
+            id = 1,
+            type = TransactionType.EXPENSE,
+            amount = "5.00",
+            date = "2026-08-01",
+            wallet_id = 1,
+            category_id = null,
+            description = null,
+            created_at = "2026-08-01T10:00:00Z",
+        )
+        setForm(
+            TransactionsViewModel.ModalState(
+                editing = transaction,
+                type = TransactionType.EXPENSE,
+                amount = "5.00",
+                date = "2026-08-01",
+                walletId = 1,
+                categoryId = null,
+            ),
+            wallets = listOf(cash),
+            categories = listOf(food),
+        )
+
+        // The Wallet fields freeze while editing (like the web app's
+        // `disabled={isEditing}`): the sentinel is inert — the menu never
+        // opens, so no inline creation can happen from a locked field.
+        composeRule.onNodeWithTag("tx-wallet").assertIsNotEnabled()
+        composeRule.onNodeWithTag("tx-wallet").performClick()
+        composeRule.onNodeWithText(ADD_WALLET_OPTION).assertDoesNotExist()
+
+        // The Category field stays live while editing, sentinel included.
+        composeRule.onNodeWithTag("tx-category").performClick()
+        composeRule.onNodeWithText(ADD_CATEGORY_OPTION).assertIsDisplayed()
     }
 
     @Test
