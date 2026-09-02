@@ -33,6 +33,25 @@ class ApiErrorMappingTest {
     }
 
     @Test
+    fun `a structured detail stays readable as an object for typed conflicts`() {
+        // The category merge conflict (ADR-0007 in the web repo): the
+        // repository reads the raw fields off the same parsed body the
+        // message came from, without a second (exhausted) read.
+        val error = httpException(
+            409,
+            """{"detail":{"message":"Name already taken","target_id":7,"transaction_count":12}}""",
+        ).toApiException()
+        assertEquals(7, error.detailObject?.get("target_id")?.toString()?.toInt())
+        assertEquals(12, error.detailObject?.get("transaction_count")?.toString()?.toInt())
+    }
+
+    @Test
+    fun `a string detail carries no structured object`() {
+        val error = httpException(409, """{"detail":"Name already taken"}""").toApiException()
+        assertNull(error.detailObject)
+    }
+
+    @Test
     fun `a non-JSON body falls back to a generic message`() {
         val error = httpException(500, "<html>gateway error</html>").toApiException()
         assertEquals(500, error.status)

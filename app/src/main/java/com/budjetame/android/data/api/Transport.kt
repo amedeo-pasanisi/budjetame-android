@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -42,11 +41,13 @@ object DataVersion {
 /**
  * A non-OK API response, carrying the backend's `detail` when it had one —
  * a string, or the `message` field of a structured detail (e.g. the category
- * merge conflict, ADR-0007 in the web repo).
+ * merge conflict, ADR-0007 in the web repo). `detailObject` keeps the whole
+ * structured detail readable for typed conflicts like the merge offer.
  */
-class ApiException(
+open class ApiException(
     val status: Int,
     val detail: String?,
+    val detailObject: JsonObject? = null,
     message: String,
 ) : Exception(message)
 
@@ -64,27 +65,34 @@ fun apiErrorMessage(status: Int?, conflictMessage: String, fallback: String): St
 /** Map a Retrofit HttpException to an ApiException with the parsed detail. */
 fun HttpException.toApiException(): ApiException {
     val detail = parseDetail(this)
-    return ApiException(code(), detail, detail ?: "Request failed (${code()})")
+    return ApiException(
+        status = code(),
+        detail = detail.message,
+        detailObject = detail.detailObject,
+        message = detail.message ?: "Request failed (${code()})",
+    )
 }
 
-private fun parseDetail(exception: HttpException): String? {
-    val body = exception.response()?.errorBody()?.string() ?: return null
+/** One parsed `detail`: its message and the raw object, from one body read. */
+private data class ParsedDetail(val message: String?, val detailObject: JsonObject?)
+
+private fun parseDetail(exception: HttpException): ParsedDetail {
+    val body = exception.response()?.errorBody()?.string() ?: return ParsedDetail(null, null)
     return try {
-        val element = Json.parseToJsonElement(body)
-        val detail = element.jsonObject["detail"] ?: return null
-        detailMessage(detail)
+        val detail = Json.parseToJsonElement(body).jsonObject["detail"] ?: return ParsedDetail(null, null)
+        when (detail) {
+            is JsonPrimitive -> if (detail.isString) ParsedDetail(detail.content, null) else ParsedDetail(null, null)
+            is JsonObject -> ParsedDetail(detailMessage(detail), detail)
+            else -> ParsedDetail(null, null)
+        }
     } catch (_: Exception) {
-        null
+        ParsedDetail(null, null)
     }
 }
 
-private fun detailMessage(detail: JsonElement): String? {
-    if (detail is JsonPrimitive && detail.isString) return detail.content
-    if (detail is JsonObject) {
-        val message = detail["message"]
-        if (message is JsonPrimitive && message.isString) return message.content
-    }
-    return null
+private fun detailMessage(detail: JsonObject): String? {
+    val message = detail["message"]
+    return if (message is JsonPrimitive && message.isString) message.content else null
 }
 
 /**

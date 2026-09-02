@@ -84,13 +84,15 @@ app/src/main/java/com/budjetame/android/
 │   ├── TokenStore.kt        # Keystore AES-GCM encrypted session JWT
 │   ├── Session.kt           # In-memory token cache for the interceptor
 │   ├── auth/                # AuthGateway + API-backed repository
-│   └── wallet/              # WalletGateway + API-backed repository
+│   ├── wallet/              # WalletGateway + API-backed repository
+│   └── category/            # CategoryGateway + API-backed repository (incl. merge conflict)
 ├── ui/
 │   ├── theme/               # Material 3, indigo/slate palette mirroring the web app
 │   ├── login/               # Login/registration/Google/forgot + ViewModel
 │   ├── wallets/             # Wallets tab: sections, create/rename/freeze, ViewModel
+│   ├── categories/          # Categories tab: sections, search, CRUD, merge-on-rename, ViewModel
 │   ├── shell/               # AppShell: header, 5-tab NavigationBar, settings/deletion
-│   └── screens/             # Remaining tab placeholders (Dashboard, Categories, …)
+│   └── screens/             # Remaining tab placeholders (Dashboard, Transactions, Recurring)
 └── util/                    # Money + date formatting (ports of the web app's format.ts)
 ```
 
