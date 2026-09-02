@@ -13,3 +13,7 @@ Five canonical roles mapped to labels `needs-triage`, `needs-info`, `ready-for-a
 ### Domain docs
 
 single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Changelog
+
+Hand-authored `CHANGELOG.md` at the repo root: after every ticket whose work lands, add one `[Unreleased]` bullet. See `docs/agents/changelog.md`.
