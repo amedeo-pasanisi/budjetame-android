@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.CategoryDto
+import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.category.CategoryGateway
@@ -71,7 +73,8 @@ private val AMBER_700 = Color(0xFFB45309)
  * The Transactions tab (ticket #19): the ledger read path — a newest-first
  * list with cursor paging (50 per page) and infinite scroll, the collapsible
  * filter bar (wallet, frozen ones included and marked, date range,
- * category), and the debounced description search. Rows on Frozen Wallets
+ * category, recurring definition (web issue #86)), and the debounced
+ * description search. Rows on Frozen Wallets
  * render read-only (dimmed, no entry points — the edit/delete entry points
  * themselves land with ticket #20's forms and honor `isEditable`).
  */
@@ -294,7 +297,8 @@ private fun SearchField(
 }
 
 /** The collapsible filter bar (closed by default): wallet, date range,
- * category — every change refetches the first page with it applied. */
+ * recurring definition, category — every change refetches the first page
+ * with it applied. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterBar(
@@ -332,6 +336,12 @@ private fun FilterBar(
                     modifier = Modifier.weight(1f),
                 )
             }
+            RecurringFilterField(
+                selected = state.filterRecurring,
+                costs = state.recurringCosts,
+                incomes = state.recurringIncomes,
+                onSelect = viewModel::onFilterRecurringChange,
+            )
             CategoryFilterField(
                 selected = state.categories.find { it.id == state.filterCategoryId },
                 categories = state.categories,
@@ -386,6 +396,94 @@ private fun WalletFilterField(
             }
         }
     }
+}
+
+/**
+ * The Recurring definition filter (web issue #86, ticket #25): one select
+ * listing the Recurring Costs and the Recurring Incomes, each under its
+ * kind caption — the web select's optgroups; names may collide across
+ * kinds — plus "All transactions". Picking a definition narrows the
+ * ledger to the Transactions linked to exactly it; every change refetches
+ * the first page like any filter.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecurringFilterField(
+    selected: RecurringFilter?,
+    costs: List<RecurringCostDto>,
+    incomes: List<RecurringIncomeDto>,
+    onSelect: (RecurringFilter?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = recurringFilterLabel(selected, costs, incomes),
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            label = { Text("Recurring") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("All transactions") },
+                onClick = {
+                    onSelect(null)
+                    expanded = false
+                },
+            )
+            if (costs.isNotEmpty()) {
+                FilterKindCaption("Recurring costs")
+                costs.forEach { cost ->
+                    DropdownMenuItem(
+                        text = { Text(cost.name) },
+                        onClick = {
+                            onSelect(RecurringFilter(RecurringFilterKind.COST, cost.id))
+                            expanded = false
+                        },
+                    )
+                }
+            }
+            if (incomes.isNotEmpty()) {
+                FilterKindCaption("Recurring incomes")
+                incomes.forEach { income ->
+                    DropdownMenuItem(
+                        text = { Text(income.name) },
+                        onClick = {
+                            onSelect(RecurringFilter(RecurringFilterKind.INCOME, income.id))
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** The Recurring filter menu's kind caption (web issue #86): the web
+ * select's optgroup label, marking which kind the rows below belong to — a
+ * Recurring Cost and a Recurring Income may share a name. A caption shows
+ * only above a non-empty group, so an empty menu holds just "All
+ * transactions". */
+@Composable
+private fun FilterKindCaption(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

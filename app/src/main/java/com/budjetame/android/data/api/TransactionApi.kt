@@ -177,8 +177,14 @@ data class TransactionDeleteResultDto(
  * Transactions resource (web issue #17): the ledger listing with cursor
  * paging and the shared filter set — a Wallet (frozen ones included,
  * matching a Transfer on either leg), a Category, an inclusive Europe/Rome
- * date range, and the Description needle (case-insensitive, accent-exact,
- * literal). Absent query params are omitted by Retrofit.
+ * date range, the Description needle (case-insensitive, accent-exact,
+ * literal), and the Recurring link (web issue #86): a specific definition
+ * id narrows to the Transactions linked to exactly that Recurring Cost or
+ * Recurring Income. At most one of the two recurring keys is ever sent —
+ * the filter bar's Recurring select is a single pick, and a Transaction is
+ * one type, so the two can never both apply; a missing or foreign
+ * definition id answers 403 like the other filters. Absent query params
+ * are omitted by Retrofit.
  */
 interface TransactionApi {
 
@@ -188,6 +194,8 @@ interface TransactionApi {
         @Query("category_id") categoryId: Int? = null,
         @Query("from_date") fromDate: String? = null,
         @Query("to_date") toDate: String? = null,
+        @Query("recurring_cost_id") recurringCostId: Int? = null,
+        @Query("recurring_income_id") recurringIncomeId: Int? = null,
         @Query("q") q: String? = null,
         @Query("limit") limit: Int = TRANSACTION_PAGE_LIMIT,
         @Query("cursor") cursor: String? = null,

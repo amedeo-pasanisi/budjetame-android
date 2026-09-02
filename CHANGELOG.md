@@ -97,6 +97,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   skipped occurrence. Pressing repeatedly clears a backlog oldest-first —
   the badge ticks down and the Overdue mark clears — and the response's
   refreshed definition re-renders the row in place (#24).
+- **Ledger recurring filter** — the Transactions filter bar gains a
+  Recurring select listing every Recurring Cost and Recurring Income
+  (grouped by kind), narrowing the ledger to the transactions linked to
+  that one definition and composing with the wallet, date, and category
+  filters and the search (#25).
 
 ### Fixed
 

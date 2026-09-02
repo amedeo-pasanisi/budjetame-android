@@ -1,5 +1,7 @@
 package com.budjetame.android.ui.transactions
 
+import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
@@ -100,3 +102,26 @@ fun walletFilterLabel(wallet: WalletDto): String {
 /** A Category option in the filter bar: the icon leads when set. */
 fun categoryFilterLabel(name: String, icon: String?): String =
     if (icon.isNullOrBlank()) name else "$icon $name"
+
+/**
+ * The Recurring filter's collapsed field text (web issue #86): "All
+ * transactions" when no definition is picked — the web select's first
+ * option — else the picked definition's name, resolved against the list of
+ * its own kind (a Recurring Cost and a Recurring Income may share a name).
+ * A pick whose definition is gone from the refreshed lists reads empty
+ * (the pick itself is kept, like the web's held select value, until the
+ * user clears it).
+ */
+fun recurringFilterLabel(
+    selection: RecurringFilter?,
+    costs: List<RecurringCostDto>,
+    incomes: List<RecurringIncomeDto>,
+): String {
+    if (selection == null) return "All transactions"
+    // Each kind resolves against its own list: the two DTO types share no
+    // common id-holding interface, so the lookup branches by kind.
+    return when (selection.kind) {
+        RecurringFilterKind.COST -> costs.find { it.id == selection.id }?.name
+        RecurringFilterKind.INCOME -> incomes.find { it.id == selection.id }?.name
+    } ?: ""
+}

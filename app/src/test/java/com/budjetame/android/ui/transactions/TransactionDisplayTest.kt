@@ -1,5 +1,8 @@
 package com.budjetame.android.ui.transactions
 
+import com.budjetame.android.data.api.IntervalUnit
+import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
@@ -51,6 +54,28 @@ class TransactionDisplayTest {
 
     private val activeWallet = wallet(1)
     private val frozenWallet = wallet(2, frozen = true)
+
+    private fun recurringCost(id: Int, name: String) = RecurringCostDto(
+        id = id,
+        name = name,
+        amount = "10.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        next_due_date = "2026-09-01",
+        next_unpaid_occurrence_date = "2026-08-01",
+        created_at = "2026-08-01T10:00:00Z",
+    )
+
+    private fun recurringIncome(id: Int, name: String) = RecurringIncomeDto(
+        id = id,
+        name = name,
+        amount = "10.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        next_due_date = "2026-09-01",
+        next_unpaid_occurrence_date = "2026-08-01",
+        created_at = "2026-08-01T10:00:00Z",
+    )
 
     // --- Row title ---
 
@@ -182,6 +207,38 @@ class TransactionDisplayTest {
         assertEquals(
             "Old Card · Frozen (€0.00)",
             walletFilterLabel(frozenWallet.copy(name = "Old Card")),
+        )
+    }
+
+    @Test
+    fun `the recurring filter label names the picked definition or all transactions`() {
+        // A Recurring Cost and a Recurring Income may share an id: each
+        // pick resolves within its own kind's list, never the other's.
+        val rent = recurringCost(1, "Rent")
+        val salary = recurringIncome(1, "Salary")
+        val freelance = recurringIncome(2, "Freelance")
+        val costs = listOf(rent)
+        val incomes = listOf(salary, freelance)
+
+        assertEquals("All transactions", recurringFilterLabel(null, costs, incomes))
+        assertEquals(
+            "Rent",
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, rent.id), costs, incomes),
+        )
+        // The same id on the income side is the Salary, never the Rent.
+        assertEquals(
+            "Salary",
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.INCOME, salary.id), costs, incomes),
+        )
+        // An id that exists only on the other kind is no match for this pick.
+        assertEquals(
+            "",
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, freelance.id), costs, incomes),
+        )
+        // A pick whose definition is gone from the refreshed lists reads empty.
+        assertEquals(
+            "",
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, 99), costs, incomes),
         )
     }
 

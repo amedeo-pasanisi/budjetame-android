@@ -35,14 +35,33 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
+ * The Recurring definition filter's kinds (web issue #86): the filter
+ * bar's one select lists every Recurring Cost and every Recurring Income
+ * (grouped under kind captions — names may collide across kinds), so a
+ * pick names its kind alongside the definition's id.
+ */
+enum class RecurringFilterKind { COST, INCOME }
+
+/**
+ * A picked definition in the Recurring filter (web issue #86): the kind
+ * says which definition list the id belongs to and which wire key it
+ * travels under — recurring_cost_id for a Recurring Cost,
+ * recurring_income_id for a Recurring Income — so a cost and an income
+ * that share an id can never be confused, and the single pick always
+ * sends at most one key.
+ */
+data class RecurringFilter(val kind: RecurringFilterKind, val id: Int)
+
+/**
  * The Transactions ledger's state machine (ticket #19), ported from the web
  * app's TransactionsScreen read path: a newest-first list with cursor paging
  * (50 per page) and infinite scroll, the collapsible filter bar (wallet —
- * frozen ones included — date range, category), and the debounced
- * description search — any filter or search change refetches the first page
- * with everything applied, and further pages keep the filters and hand the
- * opaque cursor back verbatim. Data is refetched in the background when the
- * global data version bumps (ADR-0002).
+ * frozen ones included — date range, category, recurring definition (web
+ * issue #86, ticket #25)), and the debounced description search — any
+ * filter or search change refetches the first page with everything
+ * applied, and further pages keep the filters and hand the opaque cursor
+ * back verbatim. Data is refetched in the background when the global data
+ * version bumps (ADR-0002).
  */
 class TransactionsViewModel(
     private val transactions: TransactionGateway,
@@ -58,13 +77,15 @@ class TransactionsViewModel(
         val loadError: String? = null,
         val wallets: List<WalletDto> = emptyList(),
         val categories: List<CategoryDto> = emptyList(),
-        /** The Recurring Cost definitions the Expense form's link picker
-         * offers (web issue #57) — fetched while the form is open, never
-         * required by the ledger itself. */
+        /** The Recurring Cost definitions the filter bar's Recurring select
+         * and the Expense form's link picker offer (web issues #86/#57) —
+         * fetched on every reload, never required by the ledger itself (an
+         * empty or failed list never blocks it). */
         val recurringCosts: List<RecurringCostDto> = emptyList(),
-        /** The Recurring Income definitions the Income form's link picker
-         * offers (web issue #61), the mirror — fetched while the form is
-         * open, never required by the ledger itself. */
+        /** The Recurring Income definitions the filter bar's Recurring
+         * select and the Income form's link picker offer (web issues
+         * #86/#61), the mirror — fetched on every reload, never required by
+         * the ledger itself. */
         val recurringIncomes: List<RecurringIncomeDto> = emptyList(),
         val transactions: List<TransactionDto> = emptyList(),
         val nextCursor: String? = null,
@@ -76,6 +97,10 @@ class TransactionsViewModel(
         val filterFromDate: String? = null,
         val filterToDate: String? = null,
         val filterCategoryId: Int? = null,
+        /** The Recurring definition filter (web issue #86, ticket #25): a
+         * pick narrows the ledger to the Transactions linked to exactly
+         * that Recurring Cost or Recurring Income; null = all. */
+        val filterRecurring: RecurringFilter? = null,
         val search: String = "",
         val searchNeedle: String = "",
         val savedWarning: String? = null,
@@ -91,7 +116,7 @@ class TransactionsViewModel(
          * separate, it rides along with the bar's fields (ADR-0009). */
         val filtersActive: Boolean
             get() = filterWalletId != null || filterFromDate != null ||
-                filterToDate != null || filterCategoryId != null
+                filterToDate != null || filterCategoryId != null || filterRecurring != null
 
         /** The Wallet the Wallet filter selects, for the frozen banner. */
         val selectedWallet: WalletDto?
@@ -223,6 +248,17 @@ class TransactionsViewModel(
     fun onFilterCategoryChange(categoryId: Int?) {
         if (_uiState.value.filterCategoryId == categoryId) return
         changeFilters { it.copy(filterCategoryId = categoryId) }
+    }
+
+    /**
+     * The Recurring definition filter (web issue #86, ticket #25): null =
+     * all; a pick narrows the ledger to the Transactions linked to exactly
+     * that definition, replacing any previous pick (the bar's one select).
+     * An unchanged selection never refetches.
+     */
+    fun onFilterRecurringChange(selection: RecurringFilter?) {
+        if (_uiState.value.filterRecurring == selection) return
+        changeFilters { it.copy(filterRecurring = selection) }
     }
 
     /**
@@ -768,11 +804,17 @@ class TransactionsViewModel(
 
     private fun currentFilters(): TransactionFilters {
         val state = _uiState.value
+        val recurring = state.filterRecurring
         return TransactionFilters(
             walletId = state.filterWalletId,
             categoryId = state.filterCategoryId,
             fromDate = state.filterFromDate,
             toDate = state.filterToDate,
+            // The single pick travels under its kind's own key — a cost and
+            // an income that share an id can never be confused, and at most
+            // one key is ever on the wire (web issue #86).
+            recurringCostId = if (recurring?.kind == RecurringFilterKind.COST) recurring.id else null,
+            recurringIncomeId = if (recurring?.kind == RecurringFilterKind.INCOME) recurring.id else null,
             q = state.searchNeedle.ifEmpty { null },
         )
     }
@@ -831,20 +873,24 @@ class TransactionsViewModel(
                     }
                 }
             }
-            // The pickers ride on the form: while one is open, every reload
-            // also refreshes the definitions they list (ADR-0002) — never the
-            // other way around, a picker fetch failure is not a ledger error.
-            refreshPickersIfModalOpen()
+            // The Recurring definitions ride on every reload (ADR-0002):
+            // the filter bar's select and the form pickers list them, so a
+            // definition created, edited, skipped, or deleted anywhere
+            // reaches both without reopening anything — never the other way
+            // around, an optional fetch failure is not a ledger error.
+            refreshRecurringCosts()
+            refreshRecurringIncomes()
         }
     }
 
     /**
-     * The Expense form's Recurring Cost definitions, fetched when the form
-     * opens and again on every background reload while it stays open — so a
-     * definition created or deleted on the Recurring tab reaches the picker
-     * without reopening the form. The list is optional: a failed fetch
-     * silently keeps the held definitions (an empty picker never blocks the
-     * form), unlike the wallets/categories the screen itself renders from.
+     * The Recurring Cost definitions the filter bar's Recurring select and
+     * the Expense form's link picker list (web issues #86/#57), fetched on
+     * every reload — so a definition created, edited, skipped, or deleted
+     * anywhere reaches both without reopening anything. The list is
+     * optional: a failed fetch silently keeps the held definitions (an
+     * empty or stale picker never blocks the ledger), unlike the
+     * wallets/categories the screen itself renders from.
      */
     private fun refreshRecurringCosts() {
         viewModelScope.launch {
@@ -857,9 +903,9 @@ class TransactionsViewModel(
         }
     }
 
-    /** The Income form's Recurring Income definitions, the mirror of the
-     * cost picker's (web issue #61): fetched when the form opens and again
-     * on every background reload while it stays open; a failed fetch
+    /** The Recurring Income definitions the filter bar's Recurring select
+     * and the Income form's link picker list (web issues #86/#61), the
+     * mirror of the cost side: fetched on every reload; a failed fetch
      * silently keeps the held definitions. */
     private fun refreshRecurringIncomes() {
         viewModelScope.launch {
@@ -869,13 +915,6 @@ class TransactionsViewModel(
             } catch (_: Exception) {
                 // The picker keeps its held definitions.
             }
-        }
-    }
-
-    private fun refreshPickersIfModalOpen() {
-        if (_uiState.value.modal != null) {
-            refreshRecurringCosts()
-            refreshRecurringIncomes()
         }
     }
 

@@ -15,15 +15,25 @@ import com.budjetame.android.data.api.toApiException
 import retrofit2.HttpException
 
 /**
- * The ledger's filter set (web issues #17/#33/#54): the same names the
+ * The ledger's filter set (web issues #17/#33/#54/#86): the same names the
  * backend accepts, so the listing and the export (M3) share them. Absent
- * values mean "all".
+ * values mean "all". The Recurring definition filter (web issue #86)
+ * narrows to the Transactions linked to exactly one definition:
+ * `recurringCostId` to a Recurring Cost, `recurringIncomeId` to a
+ * Recurring Income. At most one of the two is ever set — the filter bar's
+ * Recurring select is a single pick, and a Transaction is one type — but
+ * each is its own key so a cost and an income that share an id can never
+ * be confused.
  */
 data class TransactionFilters(
     val walletId: Int? = null,
     val categoryId: Int? = null,
     val fromDate: String? = null,
     val toDate: String? = null,
+    /** The Recurring Cost definition the list narrows to (web issue #86). */
+    val recurringCostId: Int? = null,
+    /** The Recurring Income definition the list narrows to (web issue #86). */
+    val recurringIncomeId: Int? = null,
     /** The Description needle (ADR-0009): sent only when non-blank; the
      * backend matches it case-insensitively as a literal substring. */
     val q: String? = null,
@@ -31,7 +41,8 @@ data class TransactionFilters(
     /** True when any Filters-bar field is set — the search needle is not a
      * filter-bar field, it rides along with them (ADR-0009). */
     val active: Boolean
-        get() = walletId != null || categoryId != null || fromDate != null || toDate != null
+        get() = walletId != null || categoryId != null || fromDate != null || toDate != null ||
+            recurringCostId != null || recurringIncomeId != null
 }
 
 /** The transaction operations screens call (UI-independent). */
@@ -100,6 +111,8 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
             categoryId = filters.categoryId,
             fromDate = filters.fromDate,
             toDate = filters.toDate,
+            recurringCostId = filters.recurringCostId,
+            recurringIncomeId = filters.recurringIncomeId,
             // A blank or whitespace-only needle means no search (ADR-0009),
             // so the param is omitted rather than sent empty.
             q = filters.q?.takeIf { it.isNotBlank() },

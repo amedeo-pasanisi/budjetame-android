@@ -239,6 +239,12 @@ class TransactionsViewModelTest {
         query["category_id"]?.let { id -> filtered = filtered.filter { it.category_id == id.toInt() } }
         query["from_date"]?.let { bound -> filtered = filtered.filter { it.date >= bound } }
         query["to_date"]?.let { bound -> filtered = filtered.filter { it.date <= bound } }
+        query["recurring_cost_id"]?.let { id ->
+            filtered = filtered.filter { it.recurring_cost_id == id.toInt() }
+        }
+        query["recurring_income_id"]?.let { id ->
+            filtered = filtered.filter { it.recurring_income_id == id.toInt() }
+        }
         query["q"]?.let { needle ->
             filtered = filtered.filter { it.description?.contains(needle, ignoreCase = true) == true }
         }
@@ -743,6 +749,173 @@ class TransactionsViewModelTest {
         withTimeout(5_000) {
             while (listCalls().size < 3) delay(10)
         }
+    }
+
+    // --- Recurring definition filter (web issue #86, ticket #25) ---
+
+    @Test
+    fun `the recurring filter narrows to exactly the picked definition under its own key`() = runBlocking {
+        // A Recurring Cost and a Recurring Income may share an id (and a
+        // name): the pick's kind decides the wire key, so the two can
+        // never be confused.
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        seedRecurringCosts(recurringCost(1, "Rent"))
+        seedRecurringIncomes(recurringIncome(1, "Salary"))
+        seedTransactions(
+            transaction(1, TransactionType.EXPENSE, "800.00", "2026-08-01", walletId = 1, recurringCostId = 1, occurrenceDate = "2026-08-01", description = "Linked rent"),
+            transaction(2, TransactionType.INCOME, "2500.00", "2026-08-02", walletId = 1, recurringIncomeId = 1, occurrenceDate = "2026-08-02", description = "Linked salary"),
+            transaction(3, TransactionType.EXPENSE, "5.00", "2026-08-03", walletId = 1, description = "Coffee"),
+        )
+        createViewModel()
+        awaitLoaded()
+        assertEquals(listOf(3, 2, 1), viewModel.uiState.value.transactions.map { it.id })
+
+        // Picking the Rent cost narrows to its linked Expense and sends
+        // recurring_cost_id — never the income key, despite the shared id.
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
+        awaitState { it.transactions.map { t -> t.id } == listOf(1) }
+
+        var last = listCalls().last()
+        assertEquals("1", last.query["recurring_cost_id"])
+        assertNull(last.query["recurring_income_id"])
+        assertNull(last.query["cursor"])
+        assertTrue(viewModel.uiState.value.filtersActive)
+        assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage)
+
+        // Picking the same-id Salary income narrows to its own linked
+        // Income and sends the income key instead.
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.INCOME, 1))
+        awaitState { it.transactions.map { t -> t.id } == listOf(2) }
+
+        last = listCalls().last()
+        assertEquals("1", last.query["recurring_income_id"])
+        assertNull(last.query["recurring_cost_id"])
+        assertNull(last.query["cursor"])
+
+        // Clearing restores the full ledger with neither key.
+        viewModel.onFilterRecurringChange(null)
+        awaitState { it.transactions.map { t -> t.id } == listOf(3, 2, 1) }
+
+        last = listCalls().last()
+        assertNull(last.query["recurring_cost_id"])
+        assertNull(last.query["recurring_income_id"])
+        assertFalse(viewModel.uiState.value.filtersActive)
+    }
+
+    @Test
+    fun `the recurring filter composes with wallet category date and search`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "0.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedCategories(category(1, "Housing", CategoryType.EXPENSE), category(2, "Food", CategoryType.EXPENSE))
+        seedRecurringCosts(recurringCost(1, "Rent"))
+        seedTransactions(
+            transaction(1, TransactionType.EXPENSE, "800.00", "2026-08-01", walletId = 1, categoryId = 1, recurringCostId = 1, description = "Rent August"),
+            transaction(2, TransactionType.EXPENSE, "800.00", "2026-08-02", walletId = 1, categoryId = 1, recurringCostId = 1, description = "Rent September"),
+            transaction(3, TransactionType.EXPENSE, "6.00", "2026-08-01", walletId = 2, categoryId = 2, description = "Lunch"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.onFilterWalletChange(1)
+        viewModel.onFilterCategoryChange(1)
+        viewModel.onFilterFromDateChange("2026-08-01")
+        viewModel.onFilterToDateChange("2026-08-01")
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
+        viewModel.onSearchChange("august")
+        // Only the row matching every bound survives: wallet 1 ∧ category 1
+        // ∧ 2026-08-01 ∧ cost 1 ∧ the "august" needle.
+        awaitState { it.transactions.map { t -> t.id } == listOf(1) }
+
+        val last = listCalls().last()
+        assertEquals("1", last.query["wallet_id"])
+        assertEquals("1", last.query["category_id"])
+        assertEquals("2026-08-01", last.query["from_date"])
+        assertEquals("2026-08-01", last.query["to_date"])
+        assertEquals("1", last.query["recurring_cost_id"])
+        assertNull(last.query["recurring_income_id"])
+        assertEquals("august", last.query["q"])
+        assertNull(last.query["cursor"])
+    }
+
+    @Test
+    fun `paging under a recurring filter keeps the key and hands the cursor back`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        seedRecurringCosts(recurringCost(1, "Rent"))
+        seedTransactions(
+            *(1..55).map {
+                transaction(it, TransactionType.EXPENSE, "800.00", "2026-08-01", walletId = 1, recurringCostId = 1)
+            }.toTypedArray() + transaction(56, TransactionType.EXPENSE, "5.00", "2026-08-02", walletId = 1),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
+        // The unlinked row never appears: only the definition's rows page.
+        // (The predicate awaits the *filtered* first page — the unfiltered
+        // load also holds 50 rows plus a cursor.)
+        awaitState {
+            it.transactions.size == 50 && it.nextCursor != null && it.transactions.none { t -> t.id == 56 }
+        }
+        val cursor = viewModel.uiState.value.nextCursor ?: error("expected a next cursor")
+
+        viewModel.loadMore()
+        awaitState { it.transactions.size == 55 }
+
+        val calls = listCalls()
+        assertEquals(3, calls.size)
+        // The filter key rides on every page, and the first page's opaque
+        // cursor travels back verbatim.
+        assertEquals("1", calls[1].query["recurring_cost_id"])
+        assertEquals("1", calls[2].query["recurring_cost_id"])
+        assertEquals(cursor, calls[2].query["cursor"])
+        assertNull(calls[2].query["recurring_income_id"])
+        assertTrue(viewModel.uiState.value.transactions.all { it.recurring_cost_id == 1 })
+        assertNull(viewModel.uiState.value.nextCursor)
+    }
+
+    @Test
+    fun `reselecting the same recurring definition does not refetch`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        seedRecurringCosts(recurringCost(1, "Rent"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
+        withTimeout(5_000) {
+            while (listCalls().size < 2) delay(10)
+        }
+        // The same pick again is a no-op, like the web's React bail-out.
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
+        delay(100)
+        assertEquals(2, listCalls().size)
+
+        // A real change refetches.
+        viewModel.onFilterRecurringChange(null)
+        withTimeout(5_000) {
+            while (listCalls().size < 3) delay(10)
+        }
+    }
+
+    @Test
+    fun `the recurring options ride on the ledger load and every bump refreshes them`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        seedRecurringCosts(recurringCost(1, "Rent"))
+        seedRecurringIncomes(recurringIncome(1, "Salary"))
+        createViewModel()
+        awaitLoaded()
+
+        // No form is open: the filter bar's select is what the definitions
+        // serve, so the ledger load fetches them like the wallets and the
+        // categories.
+        awaitState { it.recurringCosts.any { c -> c.name == "Rent" } && it.recurringIncomes.any { i -> i.name == "Salary" } }
+
+        // A write elsewhere (the Recurring tab creating a definition) bumps
+        // the data version; the background reload refreshes the options too.
+        seedRecurringCosts(recurringCost(1, "Rent"), recurringCost(2, "Gym"))
+        DataVersion.bump()
+        awaitState { it.recurringCosts.any { c -> c.name == "Gym" } }
     }
 
     // --- Search ---
