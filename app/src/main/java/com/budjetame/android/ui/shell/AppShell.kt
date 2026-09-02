@@ -47,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
+import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -76,6 +77,7 @@ fun AppShell(
     categoryRepository: CategoryGateway,
     dashboardRepository: DashboardGateway,
     transactionRepository: TransactionGateway,
+    importRepository: ImportGateway,
     recurringCostRepository: RecurringCostGateway,
     recurringIncomeRepository: RecurringIncomeGateway,
     onSignOut: () -> Unit,
@@ -104,6 +106,7 @@ fun AppShell(
             composable("transactions") {
                 TransactionsScreen(
                     transactionRepository,
+                    importRepository,
                     walletRepository,
                     categoryRepository,
                     recurringCostRepository,

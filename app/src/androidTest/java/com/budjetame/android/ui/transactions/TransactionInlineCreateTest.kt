@@ -21,6 +21,10 @@ import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.imports.ImportGateway
+import com.budjetame.android.data.api.ImportPreviewDto
+import com.budjetame.android.data.api.ImportRowInput
+import com.budjetame.android.data.api.ImportRowValidationDto
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
@@ -52,11 +56,13 @@ class TransactionInlineCreateTest {
     private val transactionGateway = FakeTransactionGateway()
     private val recurringCostGateway = FakeRecurringCostGateway()
     private val recurringIncomeGateway = FakeRecurringIncomeGateway()
+    private val importGateway = FakeImportGateway()
 
     private fun launchScreen() {
         composeRule.setContent {
             TransactionsScreen(
                 transactions = transactionGateway,
+                imports = importGateway,
                 wallets = walletGateway,
                 categories = categoryGateway,
                 recurringCosts = recurringCostGateway,
@@ -207,8 +213,20 @@ class TransactionInlineCreateTest {
         override suspend fun deleteCategory(id: Int) = error("unused")
     }
 
+    /** The screen never opens the import flow in these tests, but the
+     * gateway must exist for the screen's ViewModel. */
+    private class FakeImportGateway : ImportGateway {
+        override suspend fun preview(fileName: String, content: ByteArray): ImportPreviewDto = error("unused")
+        override suspend fun validateRow(
+            row: ImportRowInput,
+            earlierRows: List<ImportRowInput>,
+        ): ImportRowValidationDto = error("unused")
+        override suspend fun confirm(rows: List<ImportRowInput>): List<TransactionDto> = error("unused")
+    }
+
     /** The ledger: empty until a Transaction is created through the form. */
     private class FakeTransactionGateway : TransactionGateway {
+
         var createdDraft: TransactionDraft? = null
             private set
 

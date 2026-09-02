@@ -303,7 +303,7 @@ internal fun TransactionForm(
 }
 
 @Composable
-private fun TypeSelector(
+internal fun TypeSelector(
     selected: TransactionType,
     enabled: Boolean,
     onSelect: (TransactionType) -> Unit,
@@ -337,7 +337,7 @@ private fun TypeSelector(
 }
 
 /** The type picker's word — "Expense", "Income", or "Transfer". */
-private fun transactionTypeLabel(type: TransactionType): String = when (type) {
+internal fun transactionTypeLabel(type: TransactionType): String = when (type) {
     TransactionType.EXPENSE -> "Expense"
     TransactionType.INCOME -> "Income"
     TransactionType.TRANSFER -> "Transfer"

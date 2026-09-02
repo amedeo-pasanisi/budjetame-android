@@ -102,6 +102,21 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   (grouped by kind), narrowing the ledger to the transactions linked to
   that one definition and composing with the wallet, date, and category
   filters and the search (#25).
+- **Import: preview, verify, confirm** — the Transactions header's Import
+  button starts a bulk import from a .csv/.xlsx file picked through the
+  system file picker: the Preview classifies every row Ready, Duplicate,
+  or Problem (with the backend's message) and counts them in a sticky
+  bar; every Ready row is preselected, duplicates and problems never are.
+  Tapping any row opens the row editor — type, amount, date, wallet(s),
+  category, description, location — and saving re-validates the row
+  (duplicates detectable by a changed description alone, a blank one
+  matching a missing one) and flips it in place, auto-selecting it when
+  it turns Ready. Import sends exactly the kept rows; the backend inserts
+  them transactionally, and any invalid row rejects the batch with its
+  message. Nothing is written before that confirmation, and the draft
+  survives tab switches — discarded only by Cancel, picking another file,
+  or a successful import, which then reports what was imported and
+  refreshes the ledger (#26).
 
 ### Fixed
 

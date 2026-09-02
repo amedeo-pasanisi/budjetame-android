@@ -54,6 +54,7 @@ import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -61,6 +62,8 @@ import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.imports.ImportScreen
+import com.budjetame.android.ui.imports.ImportViewModel
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Dates
 import java.time.Instant
@@ -76,11 +79,16 @@ private val AMBER_700 = Color(0xFFB45309)
  * category, recurring definition (web issue #86)), and the debounced
  * description search. Rows on Frozen Wallets
  * render read-only (dimmed, no entry points — the edit/delete entry points
- * themselves land with ticket #20's forms and honor `isEditable`).
+ * themselves land with ticket #20's forms and honor `isEditable`). The
+ * header's Import button opens the bulk Import flow (ticket #26), which
+ * replaces the tab's content while its Draft is open — the web screen's
+ * shape; the draft lives in its own ViewModel on this tab's back-stack
+ * entry, so it survives tab switches (ADR-0002).
  */
 @Composable
 fun TransactionsScreen(
     transactions: TransactionGateway,
+    imports: ImportGateway,
     wallets: WalletGateway,
     categories: CategoryGateway,
     recurringCosts: RecurringCostGateway,
@@ -90,6 +98,30 @@ fun TransactionsScreen(
         TransactionsViewModel(transactions, wallets, categories, recurringCosts, recurringIncomes)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The Import Draft (web issue #43, ticket #26): its own ViewModel on
+    // the Transactions tab's back-stack entry — the draft survives tab
+    // switches with the entry (ADR-0002's keep-alive), discarded only by
+    // Cancel, picking another file, or a successful import.
+    val importViewModel: ImportViewModel = viewModel { ImportViewModel(imports) }
+    val importUi by importViewModel.uiState.collectAsStateWithLifecycle()
+    val importDraft = importUi.draft
+
+    if (importDraft != null) {
+        // While a Draft is open the Import flow replaces the tab's content
+        // (the web screen's shape): the header's New transaction and Import
+        // buttons give way to the flow's own Cancel/Back. The ledger below
+        // keeps its state and refetches in the background (ADR-0002), so a
+        // successful import's write bump refreshes it before Back returns.
+        ImportScreen(
+            draft = importDraft,
+            wallets = state.wallets,
+            categories = state.categories,
+            viewModel = importViewModel,
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -110,6 +142,12 @@ fun TransactionsScreen(
                 enabled = !state.loading && state.loadError == null,
             ) {
                 Text("New transaction")
+            }
+            OutlinedButton(
+                onClick = importViewModel::open,
+                modifier = Modifier.padding(start = 8.dp),
+            ) {
+                Text("Import")
             }
         }
 
