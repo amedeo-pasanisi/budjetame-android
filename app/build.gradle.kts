@@ -44,6 +44,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    testOptions {
+        // android.util.Log is a no-op in JVM unit tests (no device to log to).
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 // AGP 9 built-in Kotlin DSL (replaces the removed android.kotlinOptions {})

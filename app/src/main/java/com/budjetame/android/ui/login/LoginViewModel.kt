@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.login
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budjetame.android.data.api.AccountDto
@@ -71,8 +72,10 @@ class LoginViewModel(private val auth: AuthGateway) : ViewModel() {
                     Mode.SignUp -> _uiState.update { it.copy(account = auth.signUp(it.email, it.password)) }
                 }
             } catch (error: ApiException) {
+                Log.e(TAG, "Auth request failed with HTTP ${error.status}", error)
                 _uiState.update { it.copy(error = messageFor(error, _uiState.value.mode)) }
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                Log.e(TAG, "Auth request failed", error)
                 _uiState.update { it.copy(error = genericMessageFor(_uiState.value.mode)) }
             } finally {
                 _uiState.update { it.copy(submitting = false) }
@@ -85,7 +88,8 @@ class LoginViewModel(private val auth: AuthGateway) : ViewModel() {
             _uiState.update { it.copy(error = null) }
             try {
                 _uiState.update { it.copy(account = auth.signInWithGoogle(idToken)) }
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                Log.e(TAG, "Google sign-in failed", error)
                 // A rejected Google token (clock skew, wrong origin) leaves
                 // the user on the auth screen; the password form remains the
                 // fallback.
@@ -132,6 +136,7 @@ class LoginViewModel(private val auth: AuthGateway) : ViewModel() {
     }
 
     companion object {
+        private const val TAG = "LoginViewModel"
         private const val MIN_PASSWORD_LENGTH = 8
     }
 }
