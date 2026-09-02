@@ -8,8 +8,12 @@ import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.TransactionApi
+import com.budjetame.android.data.api.TransactionCreateRequest
+import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
+import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
 import com.budjetame.android.data.api.TransactionPageDto
+import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.api.WalletDto
@@ -17,10 +21,12 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.transaction.ApiTransactionRepository
+import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.util.Dates
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -47,11 +53,13 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * The Transactions ledger tested at the single seam (the HTTP API): the
  * ViewModel is driven through the real repository, Retrofit, OkHttp, and a
  * MockWebServer whose dispatcher is a small stateful fake of the
- * /transactions listing — newest-first keyset paging over the same filter
- * set the backend applies (wallet on either leg of a Transfer, category,
- * inclusive date range, case-insensitive literal q) — plus the /wallets and
- * /categories resources the rows and filter bar render from. Requests are
- * captured for assertions (the cursor must be handed back verbatim).
+ * /transactions resource — the newest-first keyset paging listing over the
+ * same filter set the backend applies (wallet on either leg of a Transfer,
+ * category, inclusive date range, case-insensitive literal q), plus the
+ * create/PATCH/delete writes with the backend's type rules (ticket #20), and
+ * the /wallets and /categories resources the rows and the form render from.
+ * Requests are captured for assertions (the cursor must be handed back
+ * verbatim; the write bodies must carry exactly the type's fields).
  */
 class TransactionsViewModelTest {
 
@@ -62,6 +70,7 @@ class TransactionsViewModelTest {
         val method: String,
         val path: String,
         val query: Map<String, String>,
+        val body: String = "",
     )
 
     private lateinit var server: MockWebServer
@@ -75,6 +84,12 @@ class TransactionsViewModelTest {
     private var loadMoreStatus = 200
     private var walletsStatus = 200
     private var categoriesStatus = 200
+    private var createStatus = 201
+    private var updateStatus = 200
+    private var deleteStatus = 200
+    private var createWarning = false
+    private var updateWarning = false
+    private var deleteWarning = false
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -90,6 +105,12 @@ class TransactionsViewModelTest {
         loadMoreStatus = 200
         walletsStatus = 200
         categoriesStatus = 200
+        createStatus = 201
+        updateStatus = 200
+        deleteStatus = 200
+        createWarning = false
+        updateWarning = false
+        deleteWarning = false
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
         }
@@ -123,7 +144,8 @@ class TransactionsViewModelTest {
         val url = request.requestUrl
         val query = url?.queryParameterNames.orEmpty()
             .associateWith { name -> url!!.queryParameter(name) ?: "" }
-        calls.add(RecordedCall(method, path, query))
+        val body = request.body.readUtf8()
+        calls.add(RecordedCall(method, path, query, body))
 
         return when {
             method == "GET" && path == "/api/wallets" -> when {
@@ -137,6 +159,13 @@ class TransactionsViewModelTest {
             }
 
             method == "GET" && path == "/api/transactions" -> listPage(query)
+
+            method == "POST" && path == "/api/transactions" -> createTransaction(body)
+
+            method == "PATCH" && path.matches(Regex("/api/transactions/\\d+")) -> updateTransaction(path, body)
+
+            method == "DELETE" && path.matches(Regex("/api/transactions/\\d+")) -> deleteTransaction(path)
+
             else -> MockResponse().setResponseCode(404)
         }
     }
@@ -174,6 +203,136 @@ class TransactionsViewModelTest {
         val nextCursor = if (nextStart < sorted.size) "cursor-$nextStart" else null
         return jsonResponse(200, json.encodeToString(TransactionPageDto(page, nextCursor)))
     }
+
+    /** The fake create, mirroring the backend's type rules just far enough
+     * for the seam: the form itself gates the rest client-side. */
+    private fun createTransaction(body: String): MockResponse {
+        if (createStatus != 201) return jsonResponse(createStatus, """{"detail":"boom"}""")
+        val create = json.decodeFromString<TransactionCreateRequest>(body)
+        createRuleError(create)?.let { error ->
+            return jsonResponse(422, """{"detail":"$error"}""")
+        }
+        val id = (transactionStore.maxOfOrNull { it.id } ?: 0) + 1
+        val created = TransactionDto(
+            id = id,
+            type = create.type,
+            amount = create.amount,
+            date = create.date,
+            wallet_id = create.wallet_id,
+            source_wallet_id = create.source_wallet_id,
+            destination_wallet_id = create.destination_wallet_id,
+            category_id = create.category_id,
+            description = create.description,
+            warning = createWarning,
+            created_at = "2026-08-01T10:00:00Z",
+        )
+        transactionStore.add(created)
+        return jsonResponse(201, json.encodeToString(created))
+    }
+
+    private fun createRuleError(create: TransactionCreateRequest): String? {
+        if (create.type == TransactionType.OPENING_BALANCE) {
+            return "Type must be expense, income, or transfer"
+        }
+        if (create.type == TransactionType.TRANSFER) {
+            if (create.wallet_id != null || create.category_id != null) {
+                return "Transfers use source and destination Wallets and never carry a Category"
+            }
+            val source = create.source_wallet_id
+            val destination = create.destination_wallet_id
+            if (source == null || destination == null) {
+                return "Transfers need source and destination Wallets"
+            }
+            if (source == destination) {
+                return "Source and Destination must be different Wallets"
+            }
+            if (walletStore.find { it.id == source }?.frozen == true ||
+                walletStore.find { it.id == destination }?.frozen == true
+            ) {
+                return "Frozen Wallets are read-only"
+            }
+            return null
+        }
+        val walletId = create.wallet_id ?: return "wallet_id is required for Expense and Income"
+        if (create.source_wallet_id != null || create.destination_wallet_id != null) {
+            return "source and destination Wallets are only for Transfers"
+        }
+        val wallet = walletStore.find { it.id == walletId } ?: return "Wallet not found"
+        if (wallet.frozen) return "Frozen Wallets are read-only"
+        if (wallet.type == WalletType.CONTACT && create.type != TransactionType.EXPENSE) {
+            return "Incomes can't be recorded on Contact Wallets"
+        }
+        create.category_id?.let { categoryId ->
+            val category = categoryStore.find { it.id == categoryId } ?: return "Category not found"
+            val expected = if (create.type == TransactionType.EXPENSE) {
+                CategoryType.EXPENSE
+            } else {
+                CategoryType.INCOME
+            }
+            if (category.type != expected) {
+                return "A Category attaches only to Transactions of its Type"
+            }
+        }
+        return null
+    }
+
+    /** The fake update, mirroring the PATCH contract: the right body shape per
+     * type, frozen/Opening Balance rejected, and the warning flag echoed. */
+    private fun updateTransaction(path: String, body: String): MockResponse {
+        if (updateStatus != 200) return jsonResponse(updateStatus, """{"detail":"boom"}""")
+        val id = path.removePrefix("/api/transactions/").toInt()
+        val index = transactionStore.indexOfFirst { it.id == id }
+        if (index < 0) return jsonResponse(403, """{"detail":"Transaction not found"}""")
+        val current = transactionStore[index]
+        if (current.type == TransactionType.OPENING_BALANCE) {
+            return jsonResponse(422, """{"detail":"Opening Balance Transactions are read-only"}""")
+        }
+        if (isFrozen(current)) return jsonResponse(422, """{"detail":"Frozen Wallets are read-only"}""")
+
+        val updated = if (current.type == TransactionType.TRANSFER) {
+            val update = json.decodeFromString<TransactionTransferUpdateRequest>(body)
+            current.copy(
+                amount = update.amount,
+                date = update.date,
+                description = update.description,
+                warning = updateWarning,
+            )
+        } else {
+            val update = json.decodeFromString<TransactionExpenseIncomeUpdateRequest>(body)
+            current.copy(
+                amount = update.amount,
+                date = update.date,
+                category_id = update.category_id,
+                description = update.description,
+                warning = updateWarning,
+            )
+        }
+        transactionStore[index] = updated
+        return jsonResponse(200, json.encodeToString(updated))
+    }
+
+    private fun deleteTransaction(path: String): MockResponse {
+        if (deleteStatus != 200) return jsonResponse(deleteStatus, """{"detail":"boom"}""")
+        val id = path.removePrefix("/api/transactions/").toInt()
+        val index = transactionStore.indexOfFirst { it.id == id }
+        if (index < 0) return jsonResponse(403, """{"detail":"Transaction not found"}""")
+        val current = transactionStore[index]
+        if (current.type == TransactionType.OPENING_BALANCE) {
+            return jsonResponse(422, """{"detail":"Opening Balance Transactions are read-only"}""")
+        }
+        if (isFrozen(current)) return jsonResponse(422, """{"detail":"Frozen Wallets are read-only"}""")
+        transactionStore.removeAt(index)
+        return jsonResponse(200, """{"warning":$deleteWarning}""")
+    }
+
+    private fun isFrozen(transaction: TransactionDto): Boolean =
+        if (transaction.type == TransactionType.TRANSFER) {
+            val source = walletStore.find { it.id == transaction.source_wallet_id }
+            val destination = walletStore.find { it.id == transaction.destination_wallet_id }
+            source?.frozen == true || destination?.frozen == true
+        } else {
+            walletStore.find { it.id == transaction.wallet_id }?.frozen == true
+        }
 
     private fun jsonResponse(code: Int, body: String): MockResponse =
         MockResponse()
@@ -232,6 +391,9 @@ class TransactionsViewModelTest {
 
     private fun listCalls(): List<RecordedCall> =
         calls.toList().filter { it.path == "/api/transactions" }
+
+    private fun call(method: String, path: String): RecordedCall =
+        calls.toList().first { it.method == method && it.path == path }
 
     // --- Initial load: newest first, with the wallets and categories ---
 
@@ -556,6 +718,227 @@ class TransactionsViewModelTest {
         assertFalse(viewModel.uiState.value.loading)
     }
 
+    // --- Transaction form write path (ticket #20) ---
+
+    @Test
+    fun `create an expense sends wallet and category and refetches via the data-version bump`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedCategories(category(1, "Food", CategoryType.EXPENSE))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.onDateChange("2026-08-05")
+        viewModel.onWalletChange(1)
+        viewModel.onCategoryChange(1)
+        viewModel.onDescriptionChange("Lunch")
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(TransactionType.EXPENSE, create.type)
+        assertEquals("5.00", create.amount)
+        assertEquals("2026-08-05", create.date)
+        assertEquals(1, create.wallet_id)
+        assertEquals(1, create.category_id)
+        assertNull(create.source_wallet_id)
+        assertNull(create.destination_wallet_id)
+        assertEquals("Lunch", create.description)
+        assertNull(viewModel.uiState.value.savedWarning)
+        // The transport bumped the data version after the write, so the
+        // ledger refetched in the background (ADR-0002).
+        assertTrue(listCalls().size >= 2)
+    }
+
+    @Test
+    fun `create a transfer sends the legs and never wallet or category`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "100.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedCategories(category(1, "Food", CategoryType.EXPENSE))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        viewModel.onAmountChange("50.00")
+        viewModel.onSourceWalletChange(1)
+        viewModel.onDestinationWalletChange(2)
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.type == TransactionType.TRANSFER } }
+
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(TransactionType.TRANSFER, create.type)
+        assertEquals(1, create.source_wallet_id)
+        assertEquals(2, create.destination_wallet_id)
+        assertNull(create.wallet_id)
+        assertNull(create.category_id)
+    }
+
+    @Test
+    fun `a transfer with the same source and destination never submits`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "100.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        viewModel.onAmountChange("10.00")
+        viewModel.onSourceWalletChange(1)
+        viewModel.onDestinationWalletChange(1)
+        viewModel.submit()
+
+        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
+    }
+
+    @Test
+    fun `switching an expense that picked a contact wallet to income resets the wallet`() = runBlocking {
+        seedWallets(
+            wallet(1, "Marco", WalletType.CONTACT, "0.00"),
+            wallet(2, "Cash", WalletType.CASH, "100.00"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onWalletChange(1)
+        viewModel.onTypeChange(TransactionType.INCOME)
+
+        assertEquals(2, viewModel.uiState.value.modal?.walletId)
+    }
+
+    @Test
+    fun `the create draft defaults the date to today in Europe Rome and the first spendable wallet`() = runBlocking {
+        seedWallets(
+            wallet(1, "Marco", WalletType.CONTACT, "0.00"),
+            wallet(2, "Cash", WalletType.CASH, "100.00"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+
+        val modal = viewModel.uiState.value.modal
+        assertEquals(Dates.toApiDay(Dates.todayInRome()), modal?.date)
+        assertEquals(TransactionType.EXPENSE, modal?.type)
+        // The default Wallet is the first spendable one — a Contact Wallet
+        // never defaults (ADR-0017: an Expense on one is a deliberate pick).
+        assertEquals(2, modal?.walletId)
+    }
+
+    @Test
+    fun `update an expense sends category id null to clear it`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedCategories(category(1, "Food", CategoryType.EXPENSE))
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1, categoryId = 1))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onAmountChange("6.00")
+        viewModel.onCategoryChange(null)
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val patch = call("PATCH", "/api/transactions/1")
+        assertTrue(patch.body.contains("\"category_id\":null"))
+        val update = json.decodeFromString<TransactionExpenseIncomeUpdateRequest>(patch.body)
+        assertNull(update.category_id)
+        assertEquals("6.00", update.amount)
+    }
+
+    @Test
+    fun `update a transfer omits category id entirely`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "100.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedTransactions(
+            transaction(1, TransactionType.TRANSFER, "20.00", "2026-08-01", sourceWalletId = 1, destinationWalletId = 2),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onAmountChange("30.00")
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val patch = call("PATCH", "/api/transactions/1")
+        assertFalse(patch.body.contains("category_id"))
+        val update = json.decodeFromString<TransactionTransferUpdateRequest>(patch.body)
+        assertEquals("30.00", update.amount)
+    }
+
+    @Test
+    fun `delete is tap-again confirmed and the warning flag surfaces`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        deleteWarning = true
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        assertTrue(viewModel.uiState.value.modal!!.confirmingDelete)
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && !it.transactions.any { t -> t.id == 1 } }
+
+        assertEquals("Deleted — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning)
+        assertTrue(calls.toList().any { it.method == "DELETE" && it.path == "/api/transactions/1" })
+    }
+
+    @Test
+    fun `create warning flag surfaces as the saved banner`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "10.00"))
+        createWarning = true
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("50.00")
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+
+        assertEquals("Saved — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning)
+    }
+
+    @Test
+    fun `create and update failures map through the web's error contract`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        createStatus = 409
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal?.error != null }
+        assertEquals("A wallet or category with this name already exists.", viewModel.uiState.value.modal?.error)
+
+        createStatus = 422
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal?.error == "Check the fields and try again." }
+        viewModel.closeModal()
+
+        updateStatus = 500
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        DataVersion.bump()
+        awaitState { it.transactions.any { t -> t.id == 1 } }
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onAmountChange("6.00")
+        viewModel.submit()
+        awaitState { it.modal?.error == "Could not save the transaction." }
+    }
+
     /** A stub triple gateway for the pure-timing debounce test: the seam
      * tests drive the real repositories; this one only counts fetches. */
     private class RecordingGateway : TransactionGateway, WalletGateway, CategoryGateway {
@@ -598,5 +981,14 @@ class TransactionsViewModelTest {
             error("unused in the debounce test")
 
         override suspend fun deleteCategory(id: Int) = error("unused in the debounce test")
+
+        override suspend fun createTransaction(draft: TransactionDraft): TransactionDto =
+            error("unused in the debounce test")
+
+        override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto =
+            error("unused in the debounce test")
+
+        override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
+            error("unused in the debounce test")
     }
 }

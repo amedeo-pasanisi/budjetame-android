@@ -2,14 +2,20 @@ package com.budjetame.android.ui.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.TransactionDto
+import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.util.Dates
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -54,6 +60,8 @@ class TransactionsViewModel(
         val filterCategoryId: Int? = null,
         val search: String = "",
         val searchNeedle: String = "",
+        val savedWarning: String? = null,
+        val modal: ModalState? = null,
     ) {
         /** True when any Filters-bar field is set — the search needle is
          * separate, it rides along with the bar's fields (ADR-0009). */
@@ -76,6 +84,50 @@ class TransactionsViewModel(
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    /**
+     * The create/edit/delete Transaction form's draft (null = modal closed).
+     * Create and edit share one modal: the Type selector appears only while
+     * creating (type is immutable once recorded), and the tap-again delete
+     * confirmation only while editing.
+     */
+    data class ModalState(
+        val editing: TransactionDto? = null,
+        val type: TransactionType = TransactionType.EXPENSE,
+        val amount: String = "",
+        val date: String = "",
+        val walletId: Int? = null,
+        val sourceWalletId: Int? = null,
+        val destinationWalletId: Int? = null,
+        val categoryId: Int? = null,
+        val description: String = "",
+        val error: String? = null,
+        val submitting: Boolean = false,
+        val confirmingDelete: Boolean = false,
+        val deleting: Boolean = false,
+    ) {
+        val isEditing: Boolean get() = editing != null
+
+        val isTransfer: Boolean get() = type == TransactionType.TRANSFER
+
+        val busy: Boolean get() = submitting || deleting
+
+        /** Mandatory fields gate Save: a strictly positive amount and the
+         * Wallet(s) the type needs — a Transfer also needs two distinct
+         * Wallets. The date defaults to today in Europe/Rome and cannot be
+         * cleared, so it is always set. */
+        val canSubmit: Boolean
+            get() {
+                if (busy || parseAmount(amount) == null) return false
+                return if (isTransfer) {
+                    sourceWalletId != null &&
+                        destinationWalletId != null &&
+                        sourceWalletId != destinationWalletId
+                } else {
+                    walletId != null
+                }
+            }
+    }
 
     /**
      * Monotonic reset counter: every reload (filter/search change, version
@@ -185,9 +237,249 @@ class TransactionsViewModel(
         reload()
     }
 
+    // --- Transaction form (ticket #20) ---
+
+    fun openCreate() {
+        _uiState.update { state ->
+            val active = activeWallets(state.wallets)
+            val spendable = spendableWallets(state.wallets)
+            state.copy(
+                modal = ModalState(
+                    type = TransactionType.EXPENSE,
+                    date = Dates.toApiDay(Dates.todayInRome()),
+                    walletId = spendable.firstOrNull()?.id,
+                    sourceWalletId = active.firstOrNull()?.id,
+                    destinationWalletId = active.getOrNull(1)?.id ?: active.firstOrNull()?.id,
+                ),
+            )
+        }
+    }
+
+    fun openEdit(transaction: TransactionDto) {
+        _uiState.update { state ->
+            state.copy(
+                modal = ModalState(
+                    editing = transaction,
+                    type = when (transaction.type) {
+                        TransactionType.TRANSFER -> TransactionType.TRANSFER
+                        TransactionType.INCOME -> TransactionType.INCOME
+                        else -> TransactionType.EXPENSE
+                    },
+                    amount = transaction.amount,
+                    date = transaction.date,
+                    walletId = if (transaction.type == TransactionType.TRANSFER) null else transaction.wallet_id,
+                    sourceWalletId = transaction.source_wallet_id,
+                    destinationWalletId = transaction.destination_wallet_id,
+                    categoryId = transaction.category_id,
+                    description = transaction.description.orEmpty(),
+                ),
+            )
+        }
+    }
+
+    fun closeModal() {
+        _uiState.update { it.copy(modal = null) }
+    }
+
+    fun onTypeChange(value: TransactionType) {
+        if (value == TransactionType.OPENING_BALANCE) return
+        updateModal { modal ->
+            if (modal.isEditing) {
+                modal
+            } else {
+                val active = activeWallets(_uiState.value.wallets)
+                val spendable = spendableWallets(_uiState.value.wallets)
+                when (value) {
+                    TransactionType.TRANSFER -> modal.copy(
+                        type = value,
+                        categoryId = null,
+                        sourceWalletId = modal.sourceWalletId ?: active.firstOrNull()?.id,
+                        destinationWalletId = modal.destinationWalletId
+                            ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id),
+                        error = null,
+                    )
+                    TransactionType.INCOME -> {
+                        // ADR-0017: an Income never rides a stale Contact
+                        // Wallet selection to the API — reset to a spendable
+                        // Wallet, like the initial seed.
+                        val selected = modal.walletId
+                            ?.let { id -> _uiState.value.wallets.find { it.id == id } }
+                        modal.copy(
+                            type = value,
+                            walletId = if (selected?.type == WalletType.CONTACT) {
+                                spendable.firstOrNull()?.id
+                            } else {
+                                modal.walletId ?: spendable.firstOrNull()?.id
+                            },
+                            categoryId = null,
+                            error = null,
+                        )
+                    }
+                    TransactionType.EXPENSE -> modal.copy(
+                        type = value,
+                        categoryId = null,
+                        error = null,
+                    )
+                    TransactionType.OPENING_BALANCE -> modal
+                }
+            }
+        }
+    }
+
+    fun onAmountChange(value: String) = updateModal { it.copy(amount = value, error = null) }
+
+    fun onDateChange(value: String) = updateModal { it.copy(date = value, error = null) }
+
+    fun onWalletChange(walletId: Int) = updateModal { it.copy(walletId = walletId, error = null) }
+
+    fun onSourceWalletChange(walletId: Int) =
+        updateModal { it.copy(sourceWalletId = walletId, error = null) }
+
+    fun onDestinationWalletChange(walletId: Int) =
+        updateModal { it.copy(destinationWalletId = walletId, error = null) }
+
+    fun onCategoryChange(categoryId: Int?) = updateModal { it.copy(categoryId = categoryId, error = null) }
+
+    fun onDescriptionChange(value: String) =
+        updateModal { it.copy(description = value.take(DESCRIPTION_MAX_LENGTH), error = null) }
+
+    fun submit() {
+        val modal = _uiState.value.modal ?: return
+        if (!modal.canSubmit) return
+        if (modal.isEditing) update(modal) else create(modal)
+    }
+
+    fun onDeleteTap() {
+        val modal = _uiState.value.modal ?: return
+        val transaction = modal.editing ?: return
+        if (modal.busy) return
+        if (!modal.confirmingDelete) {
+            updateModal { it.copy(confirmingDelete = true, error = null) }
+            return
+        }
+        viewModelScope.launch {
+            updateModal { it.copy(deleting = true, error = null) }
+            try {
+                val result = transactions.deleteTransaction(transaction.id)
+                _uiState.update { state ->
+                    state.copy(
+                        modal = null,
+                        savedWarning = if (result.warning) {
+                            "Deleted — this made a Cash wallet negative."
+                        } else {
+                            null
+                        },
+                    )
+                }
+            } catch (error: ApiException) {
+                updateModal {
+                    it.copy(
+                        confirmingDelete = false,
+                        deleting = false,
+                        error = apiErrorMessage(
+                            error.status,
+                            "A wallet or category with this name already exists.",
+                            "Could not delete the transaction.",
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateModal {
+                    it.copy(
+                        confirmingDelete = false,
+                        deleting = false,
+                        error = "Could not delete the transaction.",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun create(modal: ModalState) {
+        viewModelScope.launch {
+            updateModal { it.copy(submitting = true, error = null) }
+            try {
+                val saved = transactions.createTransaction(draftOf(modal))
+                _uiState.update { state ->
+                    state.copy(
+                        modal = null,
+                        savedWarning = if (saved.warning) {
+                            "Saved — this made a Cash wallet negative."
+                        } else {
+                            null
+                        },
+                    )
+                }
+            } catch (error: ApiException) {
+                updateModal {
+                    it.copy(
+                        submitting = false,
+                        error = apiErrorMessage(
+                            error.status,
+                            "A wallet or category with this name already exists.",
+                            "Could not create the transaction.",
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateModal { it.copy(submitting = false, error = "Could not create the transaction.") }
+            }
+        }
+    }
+
+    private fun update(modal: ModalState) {
+        val transaction = modal.editing ?: return
+        viewModelScope.launch {
+            updateModal { it.copy(submitting = true, error = null) }
+            try {
+                val saved = transactions.updateTransaction(transaction.id, draftOf(modal))
+                _uiState.update { state ->
+                    state.copy(
+                        modal = null,
+                        savedWarning = if (saved.warning) {
+                            "Saved — this made a Cash wallet negative."
+                        } else {
+                            null
+                        },
+                    )
+                }
+            } catch (error: ApiException) {
+                updateModal {
+                    it.copy(
+                        submitting = false,
+                        error = apiErrorMessage(
+                            error.status,
+                            "A wallet or category with this name already exists.",
+                            "Could not save the transaction.",
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateModal { it.copy(submitting = false, error = "Could not save the transaction.") }
+            }
+        }
+    }
+
+    private fun draftOf(modal: ModalState): TransactionDraft = TransactionDraft(
+        type = modal.type,
+        amount = modal.amount.trim(),
+        date = modal.date,
+        walletId = if (modal.isTransfer) null else modal.walletId,
+        sourceWalletId = if (modal.isTransfer) modal.sourceWalletId else null,
+        destinationWalletId = if (modal.isTransfer) modal.destinationWalletId else null,
+        categoryId = if (modal.isTransfer) null else modal.categoryId,
+        description = modal.description.trim().ifEmpty { null },
+    )
+
     private fun changeFilters(transform: (UiState) -> UiState) {
         _uiState.update(transform)
         reload()
+    }
+
+    private fun updateModal(transform: (ModalState) -> ModalState) {
+        _uiState.update { state ->
+            state.modal?.let { state.copy(modal = transform(it)) } ?: state
+        }
     }
 
     private fun applyNeedle(needle: String) {
@@ -267,5 +559,8 @@ class TransactionsViewModel(
     companion object {
         /** The web app's ~300ms debounce for the search needle. */
         const val SEARCH_DEBOUNCE_MILLIS = 300L
+
+        /** The Description field's cap (CONTEXT.md: up to 500 characters). */
+        const val DESCRIPTION_MAX_LENGTH = 500
     }
 }

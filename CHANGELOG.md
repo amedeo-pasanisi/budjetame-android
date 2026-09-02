@@ -46,6 +46,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   included and marked "Frozen", date range, category) with the debounced
   description search composed in, "Uncategorized" on category-less Expenses,
   and rows on frozen wallets rendered read-only (#19).
+- **Transaction forms** — create, edit, and delete Expenses, Incomes, and
+  Transfers from the ledger: the type-specific rules (a Transfer's distinct
+  From/To wallets and no category, Contact wallets selectable on an Expense
+  only), the Europe/Rome-defaulted date, a live balance preview with the Cash
+  negative-balance warning, and the API's post-write warning banner; delete
+  sits behind a tap-again confirmation, rows on frozen wallets stay
+  read-only, and the ledger refreshes through the data-version bump (#20).
 
 ### Fixed
 

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -58,6 +59,10 @@ import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.util.Dates
 import java.time.Instant
 
+private val AMBER_50 = Color(0xFFFFFBEB)
+private val AMBER_200 = Color(0xFFFDE68A)
+private val AMBER_700 = Color(0xFFB45309)
+
 /**
  * The Transactions tab (ticket #19): the ledger read path — a newest-first
  * list with cursor paging (50 per page) and infinite scroll, the collapsible
@@ -78,13 +83,35 @@ fun TransactionsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "Transactions",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = "Transactions",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Button(
+                onClick = viewModel::openCreate,
+                enabled = !state.loading && state.loadError == null,
+            ) {
+                Text("New transaction")
+            }
+        }
+
+        state.savedWarning?.let { warning ->
+            WarningBanner(
+                text = warning,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
 
         val loadError = state.loadError
         when {
@@ -103,6 +130,25 @@ fun TransactionsScreen(
                 modifier = Modifier.weight(1f),
             )
         }
+    }
+
+    state.modal?.let { modal ->
+        TransactionModal(
+            modal = modal,
+            wallets = state.wallets,
+            categories = state.categories,
+            onTypeChange = viewModel::onTypeChange,
+            onAmountChange = viewModel::onAmountChange,
+            onDateChange = viewModel::onDateChange,
+            onWalletChange = viewModel::onWalletChange,
+            onSourceWalletChange = viewModel::onSourceWalletChange,
+            onDestinationWalletChange = viewModel::onDestinationWalletChange,
+            onCategoryChange = viewModel::onCategoryChange,
+            onDescriptionChange = viewModel::onDescriptionChange,
+            onSubmit = viewModel::submit,
+            onDelete = viewModel::onDeleteTap,
+            onClose = viewModel::closeModal,
+        )
     }
 }
 
@@ -166,7 +212,11 @@ private fun Ledger(
             }
         } else {
             items(state.transactions, key = { it.id }) { transaction ->
-                TransactionRow(transaction = transaction, state = state)
+                TransactionRow(
+                    transaction = transaction,
+                    state = state,
+                    onOpenEdit = { viewModel.openEdit(transaction) },
+                )
             }
             if (state.nextCursor != null || state.loadMoreError != null) {
                 item(key = "load-more") {
@@ -429,6 +479,7 @@ private fun DateFilterField(
 private fun TransactionRow(
     transaction: TransactionDto,
     state: TransactionsViewModel.UiState,
+    onOpenEdit: () -> Unit,
 ) {
     val categoryName = transaction.category_id
         ?.let { id -> state.categories.find { it.id == id }?.name }
@@ -441,7 +492,8 @@ private fun TransactionRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .alpha(if (editable) 1f else 0.7f),
+            .alpha(if (editable) 1f else 0.7f)
+            .clickable(enabled = editable, onClick = onOpenEdit),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -488,6 +540,25 @@ private fun FrozenBanner(text: String, modifier: Modifier = Modifier) {
             text = text,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** The post-write Cash negative-balance banner (ticket #20): amber, like the
+ * web app's, and cleared or replaced only by the next write. */
+@Composable
+private fun WarningBanner(text: String, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = AMBER_50,
+        border = BorderStroke(1.dp, AMBER_200),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = AMBER_700,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
         )
     }
