@@ -89,6 +89,12 @@ interface TransactionGateway {
  * applies even when null (unlinking, freeing the Occurrence); absent leaves
  * the stored pin untouched — a mere amount or date edit never reassigns the
  * Occurrence a link pays.
+ * `location` is the optional Geographic Location's coordinates (ticket
+ * #29); `place` is its optional Place reference (ADR-0005 parity). The
+ * location keys are always sent on the wire — values or explicit nulls
+ * (the backend applies a present key even when null, so a removed location
+ * clears); the Place never travels without coordinates, and a
+ * coordinates-only pick or GPS clears it.
  */
 data class TransactionDraft(
     val type: TransactionType,
@@ -103,6 +109,12 @@ data class TransactionDraft(
     val recurringIncomeId: Int? = null,
     val recurringIncomeTouched: Boolean = false,
     val description: String? = null,
+    /** The Geographic Location's coordinates (ticket #29), null = none. */
+    val location: LatLng? = null,
+    /** The optional Place reference (ADR-0005 parity); only meaningful
+     * with `location` — the wire mapping never sends it without
+     * coordinates. */
+    val place: Place? = null,
 )
 
 /** The API-backed TransactionGateway (web issues #17/#30, #20's write path). */
@@ -130,6 +142,7 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
 
     override suspend fun createTransaction(draft: TransactionDraft): TransactionDto =
         call {
+            val location = locationFields(draft)
             api.create(
                 TransactionCreateRequest(
                     type = draft.type,
@@ -142,12 +155,26 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                     recurring_cost_id = draft.recurringCostId,
                     recurring_income_id = draft.recurringIncomeId,
                     description = draft.description,
+                    // The location's four keys travel whenever the form
+                    // carries a location (a fresh create has nothing to
+                    // clear, so a locationless create omits them).
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    place_name = location.place_name,
+                    place_id = location.place_id,
                 ),
             )
         }
 
-    override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto =
-        call {
+    override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto {
+        // The location is always sent on an edit — values set it, explicit
+        // nulls clear it (the backend applies a present key even when null,
+        // ADR-0005): the form holds the whole location state, so the stored
+        // keys can never stay behind. The Place never travels without
+        // coordinates: a coordinates-only pick (free-map tap, GPS) or a
+        // Remove clears it with them.
+        val wire = locationFields(draft)
+        return call {
             when {
                 draft.type == TransactionType.TRANSFER -> {
                     api.updateTransfer(
@@ -156,6 +183,10 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                             amount = draft.amount,
                             date = draft.date,
                             description = draft.description,
+                            latitude = wire.latitude,
+                            longitude = wire.longitude,
+                            place_name = wire.place_name,
+                            place_id = wire.place_id,
                         ),
                     )
                 }
@@ -170,6 +201,10 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                             category_id = draft.categoryId,
                             description = draft.description,
                             recurring_cost_id = draft.recurringCostId,
+                            latitude = wire.latitude,
+                            longitude = wire.longitude,
+                            place_name = wire.place_name,
+                            place_id = wire.place_id,
                         ),
                     )
                 }
@@ -185,6 +220,10 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                             category_id = draft.categoryId,
                             description = draft.description,
                             recurring_income_id = draft.recurringIncomeId,
+                            latitude = wire.latitude,
+                            longitude = wire.longitude,
+                            place_name = wire.place_name,
+                            place_id = wire.place_id,
                         ),
                     )
                 }
@@ -198,11 +237,16 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                             date = draft.date,
                             category_id = draft.categoryId,
                             description = draft.description,
+                            latitude = wire.latitude,
+                            longitude = wire.longitude,
+                            place_name = wire.place_name,
+                            place_id = wire.place_id,
                         ),
                     )
                 }
             }
         }
+    }
 
     override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
         call { api.delete(id) }
@@ -234,4 +278,27 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
     } catch (error: HttpException) {
         throw error.toApiException()
     }
+
+    /** The wire's four location keys for a draft (ticket #29): coordinates
+     * serialized through the shared helpers, and the Place only when it can
+     * accompany them — a Place without coordinates is outside the model
+     * (CONTEXT.md), so a locationless draft clears the place keys too. */
+    private fun locationFields(draft: TransactionDraft): LocationFields {
+        val wire = latLngToWire(draft.location)
+        val place = draft.place.takeIf { draft.location != null }
+        return LocationFields(
+            latitude = wire.latitude,
+            longitude = wire.longitude,
+            place_name = place?.name,
+            place_id = place?.placeId,
+        )
+    }
+
+    /** The four location keys of a request body. */
+    private data class LocationFields(
+        val latitude: String?,
+        val longitude: String?,
+        val place_name: String?,
+        val place_id: String?,
+    )
 }

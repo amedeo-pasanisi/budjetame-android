@@ -14,17 +14,23 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.ExportFile
+import com.budjetame.android.data.transaction.LatLng
+import com.budjetame.android.data.transaction.Place
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
+import com.budjetame.android.data.transaction.latLngFromWire
+import com.budjetame.android.data.transaction.placeFromWire
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
 import com.budjetame.android.ui.wallets.WalletModalState
 import com.budjetame.android.ui.wallets.normalizeOpeningBalance
 import com.budjetame.android.util.Dates
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -71,6 +77,13 @@ class TransactionsViewModel(
     private val recurringCosts: RecurringCostGateway,
     private val recurringIncomes: RecurringIncomeGateway,
     private val searchDebounceMillis: Long = SEARCH_DEBOUNCE_MILLIS,
+    /** The device GPS (ticket #29): the form's "Use my location" pick and
+     * its first-save prefill. The permission *prompt* is a screen concern —
+     * the ViewModel asks by raising the modal's
+     * `requestingLocationPermission` flag, the screen launches the system
+     * dialog, and reports the answer back through
+     * `onLocationPermissionResult`. */
+    private val location: DeviceLocation,
 ) : ViewModel() {
 
     data class UiState(
@@ -168,6 +181,35 @@ class TransactionsViewModel(
         val recurringCostId: Int? = null,
         val recurringIncomeId: Int? = null,
         val description: String = "",
+        /** The Geographic Location's coordinates (ticket #29), null = none. */
+        val location: LatLng? = null,
+        /** The optional Place reference (ADR-0005): set by a pick that
+         * carries one (a Google search pick or POI tap), cleared by a
+         * coordinates-only pick (free-map tap, GPS) or a Remove. It always
+         * accompanies coordinates — never the reverse. */
+        val place: Place? = null,
+        /** Set once the user changed the location themselves (a pick, GPS,
+         * or Remove): a pending GPS prefill can never overwrite an explicit
+         * choice. */
+        val locationTouched: Boolean = false,
+        /** Set once the user removes the location from a new Transaction:
+         * the first-save prompt must not silently re-attach a position the
+         * user opted out of. Seeded from the session flag so the opt-out
+         * survives the modal being closed and reopened; a fresh ViewModel
+         * (a new app session) clears it and the prefill returns. */
+        val locationOptedOut: Boolean = false,
+        /** True while the "Use my location" lookup runs, so the button can
+         * disable and read "Locating…" instead of failing silently. */
+        val locating: Boolean = false,
+        /** Inline GPS failure message (denied, timeout, unavailable),
+         * cleared by a successful GPS pick, a map pick, or a Remove. */
+        val gpsError: String? = null,
+        /** True while the map picker dialog is open (the seam content). */
+        val showingPicker: Boolean = false,
+        /** True while the platform location-permission prompt is pending:
+         * the screen watches this flag, launches the system request, and
+         * reports the answer back through `onLocationPermissionResult`. */
+        val requestingLocationPermission: Boolean = false,
         val error: String? = null,
         val submitting: Boolean = false,
         val confirmingDelete: Boolean = false,
@@ -229,6 +271,21 @@ class TransactionsViewModel(
     private var generation = 0
 
     private var searchDebounceJob: Job? = null
+
+    /** The session's location opt-out (web issue #25, ticket #29): once the
+     * user removes a location from a new Transaction, the GPS prefill stays
+     * off for the rest of the ViewModel's life (the app session) — a fresh
+     * session clears it and the prefill returns. The modal state survives
+     * tab switches in the ViewModel, so unlike the web's sessionStorage no
+     * storage is needed for the form's own lifetime; the flag covers the
+     * next form the user opens. */
+    private var sessionLocationOptedOut = false
+
+    /** The in-flight location-permission prompt (ticket #29): one request at
+     * a time — the screen launches the system dialog while the modal's
+     * `requestingLocationPermission` flag is up and completes this with the
+     * user's answer. */
+    private var pendingLocationPermission: CompletableDeferred<Boolean>? = null
 
     init {
         // ADR-0002: the transport bumps the data version after every write,
@@ -352,11 +409,17 @@ class TransactionsViewModel(
                     walletId = spendable.firstOrNull()?.id,
                     sourceWalletId = active.firstOrNull()?.id,
                     destinationWalletId = active.getOrNull(1)?.id ?: active.firstOrNull()?.id,
+                    // A location removed from an earlier create form opts the
+                    // session out of the GPS prefill (web issue #25): the
+                    // first-save prompt must not re-attach a position the
+                    // user rejected.
+                    locationOptedOut = sessionLocationOptedOut,
                 ),
             )
         }
         refreshRecurringCosts()
         refreshRecurringIncomes()
+        maybeGpsPrefill()
     }
 
     fun openEdit(transaction: TransactionDto) {
@@ -378,6 +441,11 @@ class TransactionsViewModel(
                     recurringCostId = transaction.recurring_cost_id,
                     recurringIncomeId = transaction.recurring_income_id,
                     description = transaction.description.orEmpty(),
+                    // The stored Geographic Location seeds the form's
+                    // location and its Place reference (ADR-0005) — an edit
+                    // shows what the row carries until the user changes it.
+                    location = latLngFromWire(transaction.latitude, transaction.longitude),
+                    place = placeFromWire(transaction.place_name, transaction.place_id),
                 ),
             )
         }
@@ -464,6 +532,148 @@ class TransactionsViewModel(
 
     fun onDescriptionChange(value: String) =
         updateModal { it.copy(description = value.take(DESCRIPTION_MAX_LENGTH), error = null) }
+
+    // --- Location (ticket #29) ---
+
+    /**
+     * A pick from the map picker: the position always lands, and a pick
+     * that carries a Place sets it — a coordinates-only pick (free-map tap
+     * or a Google bare-map tap) clears any stored Place (ADR-0005), the
+     * name must always match the coordinates. The pick closes the picker
+     * and clears a GPS failure line.
+     */
+    fun onLocationPick(picked: LatLng, pickedPlace: Place?) =
+        updateModal {
+            it.copy(
+                location = picked,
+                place = pickedPlace,
+                locationTouched = true,
+                showingPicker = false,
+                gpsError = null,
+            )
+        }
+
+    /** The map picker's Cancel: the form's location is left untouched. */
+    fun onLocationPickerCancel() = updateModal { it.copy(showingPicker = false) }
+
+    /** The "Add location"/"Change location" press: opens the map picker
+     * dialog behind the provider seam (ADR-0004). */
+    fun onOpenLocationPicker() = updateModal { it.copy(showingPicker = true) }
+
+    /**
+     * Remove the location from the form: its Place goes with it (ADR-0005 —
+     * a Place never survives without coordinates). On a new Transaction the
+     * removal also opts the session out of the GPS prefill (web issue #25):
+     * the first-save prompt must not silently re-attach a position the
+     * user opted out of.
+     */
+    fun onRemoveLocation() {
+        val editing = _uiState.value.modal?.isEditing == true
+        if (!editing) sessionLocationOptedOut = true
+        updateModal {
+            it.copy(
+                location = null,
+                place = null,
+                locationOptedOut = true,
+                locationTouched = true,
+                showingPicker = false,
+                gpsError = null,
+            )
+        }
+    }
+
+    /**
+     * The "Use my location" press: asks for the location permission when
+     * it is not granted yet, then attaches the current position — a
+     * coordinates-only pick that clears any stored Place (ADR-0005). While
+     * the lookup runs the button reads "Locating…"; a denial, timeout, or
+     * unavailable fix surfaces as the inline failure message, with the map
+     * picker still one tap away.
+     */
+    fun onUseMyLocation() {
+        val modal = _uiState.value.modal ?: return
+        if (modal.locating || modal.busy) return
+        updateModal { it.copy(locating = true, gpsError = null) }
+        viewModelScope.launch {
+            val granted = ensureLocationPermission()
+            val position = if (granted) location.currentPosition() else null
+            updateModal { current ->
+                if (position == null) {
+                    // Denied, timed out, or unavailable: say so instead of
+                    // failing silently (the web form's exact copy).
+                    current.copy(locating = false, gpsError = GPS_ERROR_TEXT)
+                } else {
+                    current.copy(
+                        locating = false,
+                        location = position,
+                        // GPS is coordinates-only: any stored Place is stale
+                        // the moment the coordinates move (ADR-0005).
+                        place = null,
+                        locationTouched = true,
+                        showingPicker = false,
+                        gpsError = null,
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * The screen's answer to the system location-permission prompt (the
+     * modal's `requestingLocationPermission` flag raised it): completes the
+     * pending request so the waiting GPS flow continues with the answer.
+     */
+    fun onLocationPermissionResult(granted: Boolean) {
+        pendingLocationPermission?.let { request ->
+            pendingLocationPermission = null
+            request.complete(granted)
+        }
+        updateModal { it.copy(requestingLocationPermission = false) }
+    }
+
+    /** Ask the platform for the location permission when it is not granted
+     * yet: raises the modal's prompt flag for the screen and suspends until
+     * the answer arrives. A second caller while a prompt is already up
+     * waits on the same request — one system dialog at a time. */
+    private suspend fun ensureLocationPermission(): Boolean {
+        if (location.permissionGranted()) return true
+        val pending = pendingLocationPermission
+        if (pending != null) return pending.await()
+        val request = CompletableDeferred<Boolean>()
+        pendingLocationPermission = request
+        updateModal { it.copy(requestingLocationPermission = true) }
+        try {
+            return request.await()
+        } finally {
+            if (pendingLocationPermission === request) pendingLocationPermission = null
+        }
+    }
+
+    /**
+     * GPS prefill (web parity): when a new Transaction form opens and the
+     * device already holds the location permission, prefill the location
+     * from the current position so recording takes one tap. No prompt is
+     * raised here — the browser never prompts either; it only prompts on
+     * the first save. A user-chosen or user-removed location is never
+     * overwritten by a pending prefill.
+     */
+    private fun maybeGpsPrefill() {
+        if (sessionLocationOptedOut) return
+        viewModelScope.launch {
+            if (!location.permissionGranted()) return@launch
+            val position = location.currentPosition() ?: return@launch
+            _uiState.update { state ->
+                val modal = state.modal
+                if (modal == null || modal.isEditing || modal.locationTouched ||
+                    modal.locationOptedOut || modal.location != null
+                ) {
+                    state
+                } else {
+                    state.copy(modal = modal.copy(location = position))
+                }
+            }
+        }
+    }
 
     // --- Inline entity creation (ADR-0013, ticket #21) ---
 
@@ -701,7 +911,7 @@ class TransactionsViewModel(
     fun submit() {
         val modal = _uiState.value.modal ?: return
         if (!modal.canSubmit) return
-        if (modal.isEditing) update(modal) else create(modal)
+        if (modal.isEditing) update(modal) else create()
     }
 
     fun onDeleteTap() {
@@ -750,9 +960,24 @@ class TransactionsViewModel(
         }
     }
 
-    private fun create(modal: ModalState) {
+    private fun create() {
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
+            // First-save permission (web parity): when creating without a
+            // location, ask for the location permission — the platform
+            // prompts once — and attach the position when granted. A
+            // location the user removed (locationOptedOut) is never
+            // overridden, and a denial saves without a location.
+            var modal = _uiState.value.modal ?: return@launch
+            if (modal.location == null && !modal.locationOptedOut) {
+                if (ensureLocationPermission()) {
+                    val position = location.currentPosition()
+                    if (position != null) {
+                        updateModal { it.copy(location = position) }
+                    }
+                }
+                modal = _uiState.value.modal ?: return@launch
+            }
             try {
                 val saved = transactions.createTransaction(draftOf(modal))
                 _uiState.update { state ->
@@ -834,6 +1059,12 @@ class TransactionsViewModel(
         recurringIncomeId = if (modal.type == TransactionType.INCOME) modal.recurringIncomeId else null,
         recurringIncomeTouched = modal.recurringIncomeId != modal.editing?.recurring_income_id,
         description = modal.description.trim().ifEmpty { null },
+        // The form's location rides as-is; the Place only ever travels with
+        // coordinates — a locationless form clears the place keys on the
+        // wire (ADR-0005: a Place without coordinates is outside the
+        // model).
+        location = modal.location,
+        place = modal.place.takeIf { modal.location != null },
     )
 
     private fun changeFilters(transform: (UiState) -> UiState) {
@@ -989,5 +1220,11 @@ class TransactionsViewModel(
 
         /** The Description field's cap (CONTEXT.md: up to 500 characters). */
         const val DESCRIPTION_MAX_LENGTH = 500
+
+        /** The inline GPS failure line (the web form's exact copy): a
+         * denied, timed-out, or unavailable fix — the map picker stays one
+         * tap away. */
+        const val GPS_ERROR_TEXT =
+            "Couldn't get your location — check permissions or pick it on the map."
     }
 }

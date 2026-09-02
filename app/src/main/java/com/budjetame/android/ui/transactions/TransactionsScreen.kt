@@ -1,8 +1,11 @@
 package com.budjetame.android.ui.transactions
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +63,7 @@ import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.imports.ImportGateway
+import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.ExportFile
@@ -106,11 +110,36 @@ fun TransactionsScreen(
     categories: CategoryGateway,
     recurringCosts: RecurringCostGateway,
     recurringIncomes: RecurringIncomeGateway,
+    /** The device GPS (ticket #29): backs the Transaction form's "Use my
+     * location" pick, its prefill, and the first-save attach. */
+    location: DeviceLocation,
 ) {
     val viewModel: TransactionsViewModel = viewModel {
-        TransactionsViewModel(transactions, wallets, categories, recurringCosts, recurringIncomes)
+        TransactionsViewModel(
+            transactions,
+            wallets,
+            categories,
+            recurringCosts,
+            recurringIncomes,
+            location = location,
+        )
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The location-permission prompt (ticket #29): the ViewModel raises the
+    // modal's requestingLocationPermission flag when a GPS flow needs the
+    // platform permission ("Use my location" or the first save of a new
+    // Transaction); this launcher shows the one-time system dialog and
+    // reports the answer back so the flow continues.
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted -> viewModel.onLocationPermissionResult(granted) }
+    val askingLocationPermission = state.modal?.requestingLocationPermission == true
+    LaunchedEffect(askingLocationPermission) {
+        if (askingLocationPermission) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
 
     // The Import Draft (web issue #43, ticket #26): its own ViewModel on
     // the Transactions tab's back-stack entry — the draft survives tab
@@ -265,6 +294,12 @@ fun TransactionsScreen(
             onSubmit = viewModel::submit,
             onDelete = viewModel::onDeleteTap,
             onClose = viewModel::closeModal,
+            onLocationPick = viewModel::onLocationPick,
+            onRemoveLocation = viewModel::onRemoveLocation,
+            onUseMyLocation = viewModel::onUseMyLocation,
+            onOpenLocationPicker = viewModel::onOpenLocationPicker,
+            onCloseLocationPicker = viewModel::onLocationPickerCancel,
+            onOpenMapLink = { url -> openMapLink(context, url) },
         )
     }
 
@@ -861,5 +896,16 @@ private fun cacheExportFile(context: Context, export: ExportFile): Uri? = try {
  * accepted set. */
 private const val EXPORT_MIME_TYPE =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+/** Open a built maps link (ticket #29): the URL is the client-built Google
+ * Maps search link (CONTEXT.md — never stored as text), handed to the
+ * system — the Google Maps app when installed, the browser otherwise, like
+ * the web's target=_blank anchor. A device with no handler silently
+ * ignores the tap. */
+private fun openMapLink(context: Context, url: String) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+}
 
 private const val MILLIS_PER_DAY = 86_400_000L

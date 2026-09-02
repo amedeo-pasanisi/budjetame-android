@@ -94,6 +94,14 @@ data class TransactionCreateRequest(
     val recurring_cost_id: Int? = null,
     val recurring_income_id: Int? = null,
     val description: String? = null,
+    // The optional Geographic Location (ticket #29): coordinates as decimal
+    // strings plus the Place reference (ADR-0005). Null = omitted from the
+    // wire body (the converter skips default-valued fields) — a fresh
+    // create carries no location at all; a located one sends the four keys.
+    val latitude: String? = null,
+    val longitude: String? = null,
+    val place_name: String? = null,
+    val place_id: String? = null,
 )
 
 /**
@@ -108,6 +116,11 @@ data class TransactionCreateRequest(
  * unchanged — the backend rejects a mismatched link key (a cost key on an
  * Income, an income key on an Expense), so the key a type never carries
  * must not exist on the wire.
+ * The location's four keys are always on the wire (no defaults): values
+ * set the Geographic Location, explicit nulls clear it — the backend
+ * applies a present key even when null (ADR-0005 parity, ticket #29), so
+ * an edit that removes the location clears it, and an untouched one keeps
+ * it.
  */
 @Serializable
 data class TransactionExpenseIncomeUpdateRequest(
@@ -115,6 +128,10 @@ data class TransactionExpenseIncomeUpdateRequest(
     val date: String,
     val category_id: Int?,
     val description: String?,
+    val latitude: String?,
+    val longitude: String?,
+    val place_name: String?,
+    val place_id: String?,
 )
 
 /**
@@ -134,6 +151,10 @@ data class TransactionExpenseLinkUpdateRequest(
     val category_id: Int?,
     val description: String?,
     val recurring_cost_id: Int?,
+    val latitude: String?,
+    val longitude: String?,
+    val place_name: String?,
+    val place_id: String?,
 )
 
 /**
@@ -154,18 +175,28 @@ data class TransactionIncomeLinkUpdateRequest(
     val category_id: Int?,
     val description: String?,
     val recurring_income_id: Int?,
+    val latitude: String?,
+    val longitude: String?,
+    val place_name: String?,
+    val place_id: String?,
 )
 
 /**
  * Edit a Transfer: amount, date, and description are always sent;
  * `category_id` is absent — the backend rejects a `category_id` key on a
  * Transfer even when it is null, so the field must not exist on the wire.
+ * The location's four keys are always on the wire, like the other edit
+ * shapes (see TransactionExpenseIncomeUpdateRequest).
  */
 @Serializable
 data class TransactionTransferUpdateRequest(
     val amount: String,
     val date: String,
     val description: String?,
+    val latitude: String?,
+    val longitude: String?,
+    val place_name: String?,
+    val place_id: String?,
 )
 
 /** The result of a Transaction delete (US10/ID8): the Cash negative-balance

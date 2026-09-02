@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The Transaction form's GPS pick and first-save prefill (ticket #29):
+         fine location is what "Use my location" asks for; coarse is enough
+         for the network fix and is granted alongside on older Android. The
+         runtime prompt is requested only on a user save or a GPS press. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:allowBackup="false"
@@ -11,6 +17,13 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Budjetame">
 
+        <!-- The Google map provider's key (ADR-0004 parity): the Maps and
+             Places SDKs read this meta-data. Empty by default (the free
+             osmdroid picker is the default provider); set the
+             GOOGLE_MAPS_API_KEY Gradle property to configure it. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${GOOGLE_MAPS_API_KEY}" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

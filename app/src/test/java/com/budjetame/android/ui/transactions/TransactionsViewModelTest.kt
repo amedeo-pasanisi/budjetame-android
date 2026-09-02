@@ -31,6 +31,7 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
@@ -39,6 +40,8 @@ import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.ApiTransactionRepository
 import com.budjetame.android.data.transaction.ExportFile
+import com.budjetame.android.data.transaction.LatLng
+import com.budjetame.android.data.transaction.Place
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -46,6 +49,7 @@ import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.util.Dates
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -125,6 +129,27 @@ class TransactionsViewModelTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** The fake device GPS (ticket #29): permission state and a canned
+     * position, plus an optional "ask" mode — when `granted` is false the
+     * ViewModel raises the modal's requestingLocationPermission flag and
+     * suspends until the test answers through `onLocationPermissionResult`
+     * (the screen's half of the bridge). */
+    private class FakeLocation : DeviceLocation {
+        var granted = true
+        var position: LatLng? = null
+        var fetchCount = 0
+            private set
+
+        override fun permissionGranted(): Boolean = granted
+
+        override suspend fun currentPosition(): LatLng? {
+            fetchCount++
+            return position
+        }
+    }
+
+    private var location = FakeLocation()
+
     @Before
     fun setUp() {
         server = MockWebServer()
@@ -150,6 +175,7 @@ class TransactionsViewModelTest {
         createWarning = false
         updateWarning = false
         deleteWarning = false
+        location = FakeLocation()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
         }
@@ -178,6 +204,7 @@ class TransactionsViewModelTest {
             recurringCosts = recurringCosts,
             recurringIncomes = recurringIncomes,
             searchDebounceMillis = searchDebounceMillis,
+            location = location,
         )
     }
 
@@ -348,6 +375,10 @@ class TransactionsViewModelTest {
             recurring_income_id = create.recurring_income_id,
             occurrence_date = pin,
             description = create.description,
+            latitude = create.latitude,
+            longitude = create.longitude,
+            place_name = create.place_name,
+            place_id = create.place_id,
             warning = createWarning,
             created_at = "2026-08-01T10:00:00Z",
         )
@@ -420,6 +451,10 @@ class TransactionsViewModelTest {
                 amount = update.amount,
                 date = update.date,
                 description = update.description,
+                latitude = update.latitude,
+                longitude = update.longitude,
+                place_name = update.place_name,
+                place_id = update.place_id,
                 warning = updateWarning,
             )
         } else {
@@ -454,6 +489,10 @@ class TransactionsViewModelTest {
                     recurring_cost_id = update.recurring_cost_id,
                     occurrence_date = pin,
                     description = update.description,
+                    latitude = update.latitude,
+                    longitude = update.longitude,
+                    place_name = update.place_name,
+                    place_id = update.place_id,
                     warning = updateWarning,
                 )
             } else if (current.type == TransactionType.INCOME && bodyObject.containsKey("recurring_income_id")) {
@@ -468,6 +507,10 @@ class TransactionsViewModelTest {
                     recurring_income_id = update.recurring_income_id,
                     occurrence_date = pin,
                     description = update.description,
+                    latitude = update.latitude,
+                    longitude = update.longitude,
+                    place_name = update.place_name,
+                    place_id = update.place_id,
                     warning = updateWarning,
                 )
             } else {
@@ -477,6 +520,10 @@ class TransactionsViewModelTest {
                     date = update.date,
                     category_id = update.category_id,
                     description = update.description,
+                    latitude = update.latitude,
+                    longitude = update.longitude,
+                    place_name = update.place_name,
+                    place_id = update.place_id,
                     warning = updateWarning,
                 )
             }
@@ -572,6 +619,10 @@ class TransactionsViewModelTest {
         recurringIncomeId: Int? = null,
         occurrenceDate: String? = null,
         description: String? = null,
+        latitude: String? = null,
+        longitude: String? = null,
+        placeName: String? = null,
+        placeId: String? = null,
     ) = TransactionDto(
         id = id,
         type = type,
@@ -585,6 +636,10 @@ class TransactionsViewModelTest {
         recurring_income_id = recurringIncomeId,
         occurrence_date = occurrenceDate,
         description = description,
+        latitude = latitude,
+        longitude = longitude,
+        place_name = placeName,
+        place_id = placeId,
         created_at = "2026-08-01T10:00:00Z",
     )
 
@@ -639,6 +694,10 @@ class TransactionsViewModelTest {
 
     private fun call(method: String, path: String): RecordedCall =
         calls.toList().first { it.method == method && it.path == path }
+
+    /** The most recent request to a URL — later rounds hit the same path. */
+    private fun lastCall(method: String, path: String): RecordedCall =
+        calls.toList().last { it.method == method && it.path == path }
 
     // --- Initial load: newest first, with the wallets and categories ---
 
@@ -1022,7 +1081,7 @@ class TransactionsViewModelTest {
     @Test
     fun `the search needle is debounced across rapid typing into one refetch`() {
         val gateway = RecordingGateway()
-        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway)
+        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway, location = location)
         mainRule.dispatcher.scheduler.runCurrent()
         val callsBefore = gateway.transactionCalls
 
@@ -2096,6 +2155,400 @@ class TransactionsViewModelTest {
             call("PATCH", "/api/transactions/1").body,
         )
         assertEquals(1, patch.category_id)
+    }
+
+    // --- Location and Place (ticket #29) ---
+
+    @Test
+    fun `editing seeds the location and its Place from the row`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1,
+                latitude = "41.9028", longitude = "12.4964",
+                placeName = "Esselunga", placeId = "ChIJabc",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+
+        val modal = viewModel.uiState.value.modal
+        assertEquals(LatLng(41.9028, 12.4964), modal?.location)
+        assertEquals(Place("Esselunga", "ChIJabc"), modal?.place)
+    }
+
+    @Test
+    fun `a located edit sends the four keys and a removed location clears them with explicit nulls`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1,
+                latitude = "41.9028", longitude = "12.4964",
+                placeName = "Esselunga", placeId = "ChIJabc",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        // An untouched save keeps the location: the patch carries the four
+        // keys as values.
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.submit()
+        awaitState { it.modal == null }
+        var patch = call("PATCH", "/api/transactions/1").body
+        assertTrue(patch.contains("\"latitude\":\"41.9028\""))
+        assertTrue(patch.contains("\"longitude\":\"12.4964\""))
+        assertTrue(patch.contains("\"place_name\":\"Esselunga\""))
+        assertTrue(patch.contains("\"place_id\":\"ChIJabc\""))
+        assertEquals(
+            transactionStore.first { it.id == 1 }.let { t ->
+                Triple(t.latitude, t.longitude, t.place_id)
+            },
+            Triple("41.9028", "12.4964", "ChIJabc"),
+        )
+
+        // Removing the location clears the Place with it (ADR-0005): the
+        // next patch carries explicit nulls — the backend applies a present
+        // key even when null.
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onRemoveLocation()
+        viewModel.submit()
+        awaitState { it.modal == null }
+        patch = lastCall("PATCH", "/api/transactions/1").body
+        assertTrue(patch.contains("\"latitude\":null"))
+        assertTrue(patch.contains("\"longitude\":null"))
+        assertTrue(patch.contains("\"place_name\":null"))
+        assertTrue(patch.contains("\"place_id\":null"))
+        assertNull(transactionStore.first { it.id == 1 }.latitude)
+        assertNull(transactionStore.first { it.id == 1 }.place_name)
+    }
+
+    @Test
+    fun `a map pick carrying a Place sets it and a coordinates-only pick clears it`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1,
+                latitude = "41.9028", longitude = "12.4964",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        // A search pick: name and place_id land together (ADR-0005).
+        viewModel.onLocationPick(LatLng(41.9001, 12.5001), Place("Colosseo", "ChIJxyz"))
+        viewModel.submit()
+        awaitState { it.modal == null }
+        var patch = call("PATCH", "/api/transactions/1").body
+        assertTrue(patch.contains("\"latitude\":\"41.9001\""))
+        assertTrue(patch.contains("\"place_name\":\"Colosseo\""))
+
+        // A bare-map coordinates-only pick (the free picker's tap) clears
+        // the stored Place: the name must always match the coordinates.
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onLocationPick(LatLng(41.8999, 12.4999), null)
+        viewModel.submit()
+        awaitState { it.modal == null }
+        patch = lastCall("PATCH", "/api/transactions/1").body
+        assertTrue(patch.contains("\"latitude\":\"41.8999\""))
+        assertTrue(patch.contains("\"place_name\":null"))
+        assertTrue(patch.contains("\"place_id\":null"))
+    }
+
+    @Test
+    fun `a create with a picked place carries the four keys`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.onLocationPick(LatLng(41.9028, 12.4964), Place("Esselunga", "ChIJabc"))
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals("41.9028", create.latitude)
+        assertEquals("12.4964", create.longitude)
+        assertEquals("Esselunga", create.place_name)
+        assertEquals("ChIJabc", create.place_id)
+        // The write round-trips: the ledger's fresh row carries the keys.
+        // The write bump's background refetch (ADR-0002) brings the row
+        // into the held list with the location keys echoed.
+        awaitState { it.transactions.any { t -> t.id == 1 } }
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals("41.9028", saved.latitude)
+        assertEquals("Esselunga", saved.place_name)
+    }
+
+    @Test
+    fun `a place in the row without coordinates never reaches the wire`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        // A Place without coordinates is outside the model (CONTEXT.md); a
+        // legacy row that somehow carries one is edited as locationless —
+        // the form seeds the name but shows no location — and the wire
+        // guard clears the place keys with the location's nulls.
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1,
+                placeName = "Ghost", placeId = "ChIJghost",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        assertNull(viewModel.uiState.value.modal?.location)
+        assertEquals(Place("Ghost", "ChIJghost"), viewModel.uiState.value.modal?.place)
+        viewModel.submit()
+        awaitState { it.modal == null }
+        val patch = call("PATCH", "/api/transactions/1").body
+        assertTrue(patch.contains("\"latitude\":null"))
+        assertTrue(patch.contains("\"place_name\":null"))
+    }
+
+    @Test
+    fun `a locationless create never carries the location keys`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val body = call("POST", "/api/transactions").body
+        assertFalse(body.contains("latitude"))
+        assertFalse(body.contains("longitude"))
+        assertFalse(body.contains("place_name"))
+        assertFalse(body.contains("place_id"))
+    }
+
+    @Test
+    fun `the gps prefill attaches the current position to a fresh create form`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = true
+        location.position = LatLng(41.9028, 12.4964)
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        awaitState { it.modal?.location == LatLng(41.9028, 12.4964) }
+    }
+
+    @Test
+    fun `use my location attaches the coordinates and clears a stored Place`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = true
+        location.position = LatLng(41.9028, 12.4964)
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1,
+                latitude = "41.9001", longitude = "12.5001",
+                placeName = "Colosseo", placeId = "ChIJxyz",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onUseMyLocation()
+        awaitState {
+            it.modal?.location == LatLng(41.9028, 12.4964) && it.modal?.locating == false
+        }
+        // GPS is coordinates-only (ADR-0005): the stored Place clears.
+        assertNull(viewModel.uiState.value.modal?.place)
+        assertNull(viewModel.uiState.value.modal?.gpsError)
+        // A save now carries the GPS fix and no place keys.
+        viewModel.submit()
+        awaitState { it.modal == null }
+        val patch = call("PATCH", "/api/transactions/1").body
+        assertTrue(patch.contains("\"latitude\":\"41.9028\""))
+        assertTrue(patch.contains("\"place_name\":null"))
+    }
+
+    @Test
+    fun `a denied or failing gps pick shows the web's message and keeps the location`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = false
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onUseMyLocation()
+        // The permission prompt goes up through the screen bridge; while it
+        // is pending the button reads Locating… (locating=true).
+        awaitState { it.modal?.requestingLocationPermission == true }
+        assertTrue(viewModel.uiState.value.modal?.locating == true)
+        viewModel.onLocationPermissionResult(false)
+        awaitState { it.modal?.requestingLocationPermission == false }
+
+        val modal = viewModel.uiState.value.modal
+        assertNull(modal?.location)
+        assertFalse(modal?.locating == true)
+        assertEquals(TransactionsViewModel.GPS_ERROR_TEXT, modal?.gpsError)
+    }
+
+    @Test
+    fun `a granted gps pick attaches the position without a second prompt`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = false
+        location.position = LatLng(41.9, 12.4)
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onUseMyLocation()
+        awaitState { it.modal?.requestingLocationPermission == true }
+        viewModel.onLocationPermissionResult(true)
+        awaitState { it.modal?.location == LatLng(41.9, 12.4) }
+        assertNull(viewModel.uiState.value.modal?.gpsError)
+        assertEquals(1, location.fetchCount)
+    }
+
+    @Test
+    fun `the first save asks permission once and a denial saves without a location`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = false
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal?.requestingLocationPermission == true }
+        // The modal is busy while the prompt is up: no second save can fire.
+        assertTrue(viewModel.uiState.value.modal?.submitting == true)
+        viewModel.onLocationPermissionResult(false)
+        awaitState { it.modal == null }
+
+        // A denial saves without a location — exactly the web's browser
+        // prompt answered "no".
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertNull(create.latitude)
+        assertNull(create.longitude)
+        assertEquals(0, location.fetchCount)
+    }
+
+    @Test
+    fun `the first save attaches the position when the prompt is granted`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = false
+        location.position = LatLng(41.9028, 12.4964)
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal?.requestingLocationPermission == true }
+        viewModel.onLocationPermissionResult(true)
+        awaitState { it.modal == null }
+
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals("41.9028", create.latitude)
+        assertEquals("12.4964", create.longitude)
+    }
+
+    @Test
+    fun `a removed location opts the session out of the prefill and the first-save prompt`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = true
+        location.position = LatLng(41.9028, 12.4964)
+        createViewModel()
+        awaitLoaded()
+
+        // The prefill lands, the user removes it: the save must not
+        // re-attach a position the user opted out of.
+        viewModel.openCreate()
+        awaitState { it.modal?.location == LatLng(41.9028, 12.4964) }
+        viewModel.onRemoveLocation()
+        assertEquals(1, location.fetchCount)
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal == null }
+        var create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertNull(create.latitude)
+        // The opt-out outlives the form: the next create form opens with no
+        // prefill and its save never prompts either.
+        assertEquals(1, location.fetchCount)
+        viewModel.openCreate()
+        assertNull(viewModel.uiState.value.modal?.location)
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal == null }
+        create = json.decodeFromString<TransactionCreateRequest>(
+            calls.toList().last { it.method == "POST" && it.path == "/api/transactions" }.body,
+        )
+        assertNull(create.latitude)
+        assertEquals(1, location.fetchCount)
+    }
+
+    @Test
+    fun `an edit never prefills and never asks on save`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = true
+        location.position = LatLng(41.9028, 12.4964)
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        assertNull(viewModel.uiState.value.modal?.location)
+        viewModel.onAmountChange("6.00")
+        viewModel.submit()
+        awaitState { it.modal == null }
+        // No GPS fetch happened at all — location keys clear explicitly.
+        assertEquals(0, location.fetchCount)
+        assertTrue(call("PATCH", "/api/transactions/1").body.contains("\"latitude\":null"))
+    }
+
+    @Test
+    fun `removing a location on an edit does not opt the session out`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        location.granted = true
+        location.position = LatLng(41.9028, 12.4964)
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1,
+                latitude = "41.9001", longitude = "12.5001",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onRemoveLocation()
+        viewModel.closeModal()
+        // A fresh create form still prefills: the edit's removal was a
+        // one-off decision, not a session opt-out (web issue #25).
+        viewModel.openCreate()
+        awaitState { it.modal?.location == LatLng(41.9028, 12.4964) }
+    }
+
+    @Test
+    fun `the picker opens and cancels without touching the location`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1,
+                latitude = "41.9001", longitude = "12.5001",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onOpenLocationPicker()
+        assertTrue(viewModel.uiState.value.modal?.showingPicker == true)
+        viewModel.onLocationPickerCancel()
+        val modal = viewModel.uiState.value.modal
+        assertFalse(modal?.showingPicker == true)
+        assertEquals(LatLng(41.9001, 12.5001), modal?.location)
     }
 
     /** A stub quintuple gateway for the pure-timing debounce test: the seam

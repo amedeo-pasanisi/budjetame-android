@@ -10,12 +10,26 @@ android {
     namespace = "com.budjetame.android"
     compileSdk = 37 // Android 17
 
+    // Map provider seam (ADR-0004 parity, ticket #29): the picker's provider
+    // comes from Gradle properties at build time, mirroring the web's
+    // VITE_MAP_PROVIDER / VITE_GOOGLE_MAPS_API_KEY. Anything that is not
+    // exactly `google` selects the free osmdroid picker (no key needed);
+    // `google` requires GOOGLE_MAPS_API_KEY and fails loudly at render time
+    // without it — the resolver's contract. Set them in gradle.properties
+    // (or ~/.gradle/gradle.properties for a private key) and never commit a
+    // key.
+    val mapProvider = providers.gradleProperty("MAP_PROVIDER").orElse("leaflet").get()
+    val googleMapsApiKey = providers.gradleProperty("GOOGLE_MAPS_API_KEY").orElse("").get()
+
     defaultConfig {
         applicationId = "com.budjetame.android"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "MAP_PROVIDER", "\"$mapProvider\"")
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
     }
 
     buildFeatures {
@@ -83,6 +97,10 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+
+    implementation(libs.google.maps)
+    implementation(libs.places)
+    implementation(libs.osmdroid)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

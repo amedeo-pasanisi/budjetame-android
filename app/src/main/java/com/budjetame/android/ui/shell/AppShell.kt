@@ -48,6 +48,7 @@ import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.imports.ImportGateway
+import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -80,6 +81,9 @@ fun AppShell(
     importRepository: ImportGateway,
     recurringCostRepository: RecurringCostGateway,
     recurringIncomeRepository: RecurringIncomeGateway,
+    /** The device GPS (ticket #29): the Transaction form's location pick,
+     * prefill, and first-save attach. */
+    location: DeviceLocation,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -111,6 +115,7 @@ fun AppShell(
                     categoryRepository,
                     recurringCostRepository,
                     recurringIncomeRepository,
+                    location = location,
                 )
             }
             composable("categories") { CategoriesScreen(categoryRepository) }

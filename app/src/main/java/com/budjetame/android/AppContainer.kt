@@ -16,6 +16,8 @@ import com.budjetame.android.data.auth.ApiAuthRepository
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.imports.ApiImportRepository
+import com.budjetame.android.data.location.AndroidDeviceLocation
+import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
 import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
 import com.budjetame.android.data.transaction.ApiTransactionRepository
@@ -49,4 +51,8 @@ class AppContainer(context: Context) {
     val recurringCostRepository = ApiRecurringCostRepository(api.create(RecurringCostApi::class.java))
 
     val recurringIncomeRepository = ApiRecurringIncomeRepository(api.create(RecurringIncomeApi::class.java))
+
+    /** The device GPS (ticket #29): the Transaction form's location pick,
+     * prefill, and first-save attach. */
+    val deviceLocation: DeviceLocation = AndroidDeviceLocation(context)
 }

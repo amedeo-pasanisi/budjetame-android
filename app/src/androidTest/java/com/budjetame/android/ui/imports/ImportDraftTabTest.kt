@@ -26,6 +26,8 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.imports.ImportGateway
+import com.budjetame.android.data.location.DeviceLocation
+import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
@@ -67,6 +69,7 @@ class ImportDraftTabTest {
                 importRepository = FakeImportGateway(),
                 recurringCostRepository = FakeRecurringCostGateway(),
                 recurringIncomeRepository = FakeRecurringIncomeGateway(),
+                location = SilentLocation(),
                 onSignOut = {},
                 onDeleteAccount = {},
             )
@@ -185,4 +188,14 @@ class ImportDraftTabTest {
         ): List<ImportRowRevalidationDto> = error("unused")
         override suspend fun confirm(rows: List<ImportRowInput>): List<TransactionDto> = error("unused")
     }
+}
+
+/** The device GPS for the shell tests (ticket #29): permission already
+ * held, no position — a save without a location never raises the system
+ * permission prompt these tests must not trigger, and never attaches one.
+ */
+private class SilentLocation : DeviceLocation {
+    override fun permissionGranted(): Boolean = true
+
+    override suspend fun currentPosition(): LatLng? = null
 }

@@ -36,6 +36,8 @@ same product, with the same data and the same behavior as the web app
 | Retrofit / OkHttp | 3.0.0 / 5.5.0 |
 | kotlinx.serialization | 1.11.0    |
 | Credential Manager / googleid | 1.6.0 / 1.2.0 |
+| Google Maps / Places SDKs | 20.0.0 / 5.3.0 (optional) |
+| osmdroid | 6.1.20 |
 
 ## Build
 
@@ -49,6 +51,24 @@ same product, with the same data and the same behavior as the web app
 ```
 
 Notes:
+
+- The Transaction form's map picker sits behind a provider seam (ADR-0004
+  parity): **free by default** (osmdroid/OpenStreetMap — no key, tap-only,
+  coordinates-only picks), Google Maps behind a build-time switch. To
+  enable the Google picker — a billing account and API key are required,
+  never commit a key — set these Gradle properties (e.g. in
+  `~/.gradle/gradle.properties` for a private key):
+
+  ```properties
+  MAP_PROVIDER=google
+  GOOGLE_MAPS_API_KEY=AIza…
+  ```
+
+  Anything that is not exactly `google` selects the free picker; a
+  `google` build without a key fails loudly at render time instead of
+  showing a broken map. Google picks (place search, POI taps) carry a
+  Place reference; the free picker, GPS, and imports attach coordinates
+  alone (ADR-0005).
 
 - AGP 9 has **built-in Kotlin**: `org.jetbrains.kotlin.android` is not applied.
   Kotlin compiler options go in the `kotlin { compilerOptions { } }` block.

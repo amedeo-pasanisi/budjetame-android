@@ -134,6 +134,19 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   the search applied, not just the visible page — as the import template's
   .xlsx under the backend's dated name, and opens it in the system share
   sheet, ready to share or save through SAF-backed targets (#28).
+- **Map provider seam** — the Transaction form's Location section: a
+  picked or GPS-attached position shows as a chip with the Place's name
+  when the row carries one, an "Open in Google Maps" link built
+  client-side (place_id → name → coordinates, never stored as text), and a
+  Remove that clears the coordinates and the Place together. "Use my
+  location" populates the current coordinates (permission asked on the
+  first save of a new transaction, never overriding an opted-out user); a
+  create form prefills the GPS position when permission is already
+  granted. The map picker sits behind a provider seam (ADR-0004): the free
+  OpenStreetMap (osmdroid) tap-to-pick map by default, a Google Maps
+  picker with place search and POI taps when a MAP_PROVIDER=google build
+  carries a key — only Google picks produce a Place; a coordinates-only
+  pick clears it (#29).
 
 ### Fixed
 

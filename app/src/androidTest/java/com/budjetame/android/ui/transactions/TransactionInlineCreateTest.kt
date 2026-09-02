@@ -22,6 +22,8 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.imports.ImportGateway
+import com.budjetame.android.data.location.DeviceLocation
+import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.api.ImportPreviewDto
 import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.ImportRowRevalidationDto
@@ -69,6 +71,7 @@ class TransactionInlineCreateTest {
                 categories = categoryGateway,
                 recurringCosts = recurringCostGateway,
                 recurringIncomes = recurringIncomeGateway,
+                location = InlineSilentLocation(),
             )
         }
     }
@@ -287,4 +290,14 @@ class TransactionInlineCreateTest {
         override suspend fun deleteRecurringIncome(id: Int) = error("unused")
         override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
     }
+}
+
+/** The device GPS for the shell tests (ticket #29): permission already
+ * held, no position — a save without a location never raises the system
+ * permission prompt these tests must not trigger, and never attaches one.
+ */
+private class InlineSilentLocation : DeviceLocation {
+    override fun permissionGranted(): Boolean = true
+
+    override suspend fun currentPosition(): LatLng? = null
 }

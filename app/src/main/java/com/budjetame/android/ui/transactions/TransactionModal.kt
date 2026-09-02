@@ -51,6 +51,11 @@ import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.data.transaction.LatLng
+import com.budjetame.android.data.transaction.Place
+import com.budjetame.android.data.transaction.formatLocation
+import com.budjetame.android.data.transaction.mapLink
+import com.budjetame.android.ui.maps.MapPickerDialog
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 import java.time.Instant
@@ -100,6 +105,24 @@ fun TransactionModal(
     onSubmit: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
+    // --- Location (ticket #29) ---
+    onLocationPick: (LatLng, Place?) -> Unit = { _, _ -> },
+    onRemoveLocation: () -> Unit = {},
+    onUseMyLocation: () -> Unit = {},
+    onOpenLocationPicker: () -> Unit = {},
+    onCloseLocationPicker: () -> Unit = {},
+    /** Opens the built maps link (CONTEXT.md: built client-side, never
+     * stored as text) in the system browser/maps app. */
+    onOpenMapLink: (String) -> Unit = {},
+    /** The map picker behind the provider seam (ADR-0004): the default is
+     * the real seam dialog; tests swap in a fake picker. */
+    mapPicker: @Composable (
+        position: LatLng?,
+        onPick: (LatLng, Place?) -> Unit,
+        onCancel: () -> Unit,
+    ) -> Unit = { position, onPick, onCancel ->
+        MapPickerDialog(position = position, onPick = onPick, onCancel = onCancel)
+    },
 ) {
     val editing = modal.isEditing
     AlertDialog(
@@ -124,6 +147,10 @@ fun TransactionModal(
                 onDescriptionChange = onDescriptionChange,
                 onAddWallet = onAddWallet,
                 onAddCategory = onAddCategory,
+                onRemoveLocation = onRemoveLocation,
+                onUseMyLocation = onUseMyLocation,
+                onOpenLocationPicker = onOpenLocationPicker,
+                onOpenMapLink = onOpenMapLink,
                 onDelete = onDelete,
             )
         },
@@ -144,6 +171,13 @@ fun TransactionModal(
             }
         },
     )
+
+    // The map picker hosts its own window (the seam's dialog) above the
+    // form; composed after the AlertDialog so it renders on top. A pick or
+    // the Cancel closes it through the callbacks — the form draft stays.
+    if (modal.showingPicker) {
+        mapPicker(modal.location, onLocationPick, onCloseLocationPicker)
+    }
 }
 
 /** The form body, split out so Compose UI tests can drive it directly. */
@@ -167,6 +201,10 @@ internal fun TransactionForm(
     onAddWallet: (WalletFieldTarget) -> Unit = {},
     onAddCategory: () -> Unit = {},
     onDelete: () -> Unit,
+    onRemoveLocation: () -> Unit = {},
+    onUseMyLocation: () -> Unit = {},
+    onOpenLocationPicker: () -> Unit = {},
+    onOpenMapLink: (String) -> Unit = {},
 ) {
     val editing = modal.isEditing
 
@@ -285,6 +323,19 @@ internal fun TransactionForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
+        )
+
+        LocationSection(
+            location = modal.location,
+            place = modal.place,
+            locating = modal.locating,
+            gpsError = modal.gpsError,
+            showingPicker = modal.showingPicker,
+            onRemove = onRemoveLocation,
+            onUseMyLocation = onUseMyLocation,
+            onOpenPicker = onOpenLocationPicker,
+            onOpenMapLink = onOpenMapLink,
+            modifier = Modifier.padding(top = 12.dp),
         )
 
         modal.error?.let { error ->
@@ -795,6 +846,114 @@ private fun BalancePreviewCard(
                     text = "⚠ This will make your Cash wallet negative.",
                     style = MaterialTheme.typography.bodySmall,
                     color = AMBER_700,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The Transaction form's Location section (ticket #29), mirroring the web
+ * form's block: the attached location's chip — the Place's name when the
+ * location carries one, else the coordinates — with the client-built maps
+ * link (place_id → name → coordinates, never stored as text) and the
+ * Remove action, then the Add/Change location and "Use my location"
+ * buttons with the locating state and the inline GPS failure line. While
+ * the map picker dialog is open the buttons give way to it, like the web's
+ * inline picker area.
+ */
+@Composable
+private fun LocationSection(
+    location: LatLng?,
+    place: Place?,
+    locating: Boolean,
+    gpsError: String?,
+    showingPicker: Boolean,
+    onRemove: () -> Unit,
+    onUseMyLocation: () -> Unit,
+    onOpenPicker: () -> Unit,
+    onOpenMapLink: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "Location",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+        if (location != null) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            ) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 0.dp)) {
+                    Text(
+                        text = "📍 ${place?.name ?: formatLocation(location)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+                    )
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        TextButton(
+                            onClick = { onOpenMapLink(mapLink(location, place)) },
+                            contentPadding = ButtonDefaults.TextButtonContentPadding,
+                            modifier = Modifier.testTag("tx-location-link"),
+                        ) {
+                            Text("Open in Google Maps ↗")
+                        }
+                        TextButton(
+                            onClick = onRemove,
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = RED_600,
+                            ),
+                            contentPadding = ButtonDefaults.TextButtonContentPadding,
+                            modifier = Modifier.testTag("tx-location-remove"),
+                        ) {
+                            Text("Remove")
+                        }
+                    }
+                }
+            }
+        } else {
+            Text(
+                text = "No location attached.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        if (!showingPicker) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onOpenPicker,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("tx-location-open"),
+                ) {
+                    Text(if (location != null) "Change location" else "Add location")
+                }
+                OutlinedButton(
+                    onClick = onUseMyLocation,
+                    enabled = !locating,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("tx-location-gps"),
+                ) {
+                    Text(if (locating) "Locating…" else "Use my location")
+                }
+            }
+            gpsError?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
