@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.util.Dates
@@ -74,6 +75,8 @@ private val RED_600 = Color(0xFFDC2626)
  * the Recurring Cost link picker (web issue #57): `recurringCosts` is the
  * definitions list it offers, `onRecurringCostChange` applies the pick — a
  * pick pays the definition's oldest Unpaid Occurrence on save, None unlinks.
+ * An Income carries the mirror picker (web issue #61): `recurringIncomes`
+ * and `onRecurringIncomeChange`, the same contract on the income side.
  */
 @Composable
 fun TransactionModal(
@@ -81,6 +84,7 @@ fun TransactionModal(
     wallets: List<WalletDto>,
     categories: List<CategoryDto>,
     recurringCosts: List<RecurringCostDto> = emptyList(),
+    recurringIncomes: List<RecurringIncomeDto> = emptyList(),
     onTypeChange: (TransactionType) -> Unit,
     onAmountChange: (String) -> Unit,
     onDateChange: (String) -> Unit,
@@ -89,6 +93,7 @@ fun TransactionModal(
     onDestinationWalletChange: (Int) -> Unit,
     onCategoryChange: (Int?) -> Unit,
     onRecurringCostChange: (Int?) -> Unit = {},
+    onRecurringIncomeChange: (Int?) -> Unit = {},
     onDescriptionChange: (String) -> Unit,
     onAddWallet: (WalletFieldTarget) -> Unit = {},
     onAddCategory: () -> Unit = {},
@@ -106,6 +111,7 @@ fun TransactionModal(
                 wallets = wallets,
                 categories = categories,
                 recurringCosts = recurringCosts,
+                recurringIncomes = recurringIncomes,
                 onTypeChange = onTypeChange,
                 onAmountChange = onAmountChange,
                 onDateChange = onDateChange,
@@ -114,6 +120,7 @@ fun TransactionModal(
                 onDestinationWalletChange = onDestinationWalletChange,
                 onCategoryChange = onCategoryChange,
                 onRecurringCostChange = onRecurringCostChange,
+                onRecurringIncomeChange = onRecurringIncomeChange,
                 onDescriptionChange = onDescriptionChange,
                 onAddWallet = onAddWallet,
                 onAddCategory = onAddCategory,
@@ -146,6 +153,7 @@ internal fun TransactionForm(
     wallets: List<WalletDto>,
     categories: List<CategoryDto>,
     recurringCosts: List<RecurringCostDto> = emptyList(),
+    recurringIncomes: List<RecurringIncomeDto> = emptyList(),
     onTypeChange: (TransactionType) -> Unit,
     onAmountChange: (String) -> Unit,
     onDateChange: (String) -> Unit,
@@ -154,6 +162,7 @@ internal fun TransactionForm(
     onDestinationWalletChange: (Int) -> Unit,
     onCategoryChange: (Int?) -> Unit,
     onRecurringCostChange: (Int?) -> Unit = {},
+    onRecurringIncomeChange: (Int?) -> Unit = {},
     onDescriptionChange: (String) -> Unit,
     onAddWallet: (WalletFieldTarget) -> Unit = {},
     onAddCategory: () -> Unit = {},
@@ -251,6 +260,19 @@ internal fun TransactionForm(
                     costs = recurringCosts,
                 ),
                 onChange = onRecurringCostChange,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        } else if (modal.type == TransactionType.INCOME) {
+            RecurringIncomeField(
+                incomes = recurringIncomes,
+                value = modal.recurringIncomeId,
+                occurrenceDate = payingIncomeOccurrenceDate(
+                    storedLinkId = modal.editing?.recurring_income_id,
+                    storedPin = modal.editing?.occurrence_date,
+                    pickedId = modal.recurringIncomeId,
+                    incomes = recurringIncomes,
+                ),
+                onChange = onRecurringIncomeChange,
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
@@ -614,6 +636,79 @@ private fun RecurringCostField(
                         text = { Text(cost.name) },
                         onClick = {
                             onChange(cost.id)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+        if (value != null && occurrenceDate != null) {
+            Text(
+                text = "Pays the occurrence of $occurrenceDate.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The Recurring Income select an Income carries (web issue #61), the mirror
+ * of the Recurring Cost select: Incomes only — Expense and Transfer never
+ * render it (the type reset clears a pick, and the backend rejects the key
+ * on anything but an Income). Picking an income signs the Occurrence the
+ * helper names as paid on save: the stored pin when the form is editing the
+ * very link already on the row (which must never be reassigned by a mere
+ * date edit), else the selected definition's oldest Unpaid Occurrence — the
+ * one a new link pays. The None option unlinks (freeing the Occurrence on
+ * save). The field is hidden until there is a definition to pick or a link
+ * to drop — an empty picker with nothing but None would be noise.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecurringIncomeField(
+    incomes: List<RecurringIncomeDto>,
+    value: Int?,
+    occurrenceDate: String?,
+    onChange: (Int?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (incomes.isEmpty() && value == null) return
+    var expanded by remember { mutableStateOf(false) }
+    Column(modifier = modifier) {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+        ) {
+            OutlinedTextField(
+                value = value?.let { id -> incomes.find { it.id == id }?.name } ?: "None",
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                label = { Text("Recurring Income") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    .testTag("tx-recurring-income"),
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("None") },
+                    onClick = {
+                        onChange(null)
+                        expanded = false
+                    },
+                )
+                incomes.forEach { income ->
+                    DropdownMenuItem(
+                        text = { Text(income.name) },
+                        onClick = {
+                            onChange(income.id)
                             expanded = false
                         },
                     )

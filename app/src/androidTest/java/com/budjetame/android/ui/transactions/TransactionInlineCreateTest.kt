@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionPageDto
@@ -22,6 +23,8 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -48,6 +51,7 @@ class TransactionInlineCreateTest {
     private val categoryGateway = FakeCategoryGateway()
     private val transactionGateway = FakeTransactionGateway()
     private val recurringCostGateway = FakeRecurringCostGateway()
+    private val recurringIncomeGateway = FakeRecurringIncomeGateway()
 
     private fun launchScreen() {
         composeRule.setContent {
@@ -56,6 +60,7 @@ class TransactionInlineCreateTest {
                 wallets = walletGateway,
                 categories = categoryGateway,
                 recurringCosts = recurringCostGateway,
+                recurringIncomes = recurringIncomeGateway,
             )
         }
     }
@@ -243,5 +248,16 @@ class TransactionInlineCreateTest {
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun deleteRecurringCost(id: Int) = error("unused")
+    }
+
+    /** The Income form's Recurring Income picker: the mirror — no
+     * definitions exist, so its field stays hidden too. */
+    private class FakeRecurringIncomeGateway : RecurringIncomeGateway {
+        override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> = emptyList()
+        override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
+            error("unused")
+        override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
+            error("unused")
+        override suspend fun deleteRecurringIncome(id: Int) = error("unused")
     }
 }

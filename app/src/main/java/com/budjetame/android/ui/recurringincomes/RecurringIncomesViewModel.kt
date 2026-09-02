@@ -1,14 +1,18 @@
-package com.budjetame.android.ui.recurringcosts
+package com.budjetame.android.ui.recurringincomes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.IntervalUnit
-import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.apiErrorMessage
-import com.budjetame.android.data.recurringcost.RecurringCostDraft
-import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.ui.recurringcosts.dueOverrideFor
+import com.budjetame.android.ui.recurringcosts.parseIntervalValue
+import com.budjetame.android.ui.recurringcosts.sortByNextDue
+import com.budjetame.android.ui.recurringcosts.yearOverrideIncomplete
 import com.budjetame.android.ui.transactions.parseAmount
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,16 +21,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * The create/edit/delete Recurring Cost modal's draft (null = modal closed)
+ * The create/edit/delete Recurring Income modal's draft (null = modal closed)
  * — one modal serves create and edit, like the Wallets and Categories
- * forms. `startDate` is "" when unset (the creation date); `dueDay` and
- * `dueMonth` are the due-date override draft — null = unset — whose shape
- * follows the interval unit: a day-of-month for months, a month+day pair
- * for years, nothing for days/weeks (the fields render only for the unit
- * that carries them, and a stale pick is dropped at submit, never sent).
+ * forms, mirroring the Recurring Cost modal's draft (ADR-0011). `startDate`
+ * is "" when unset (the creation date); `dueDay` and `dueMonth` are the
+ * due-date override draft — null = unset — whose shape follows the interval
+ * unit: a day-of-month for months, a month+day pair for years, nothing for
+ * days/weeks (the fields render only for the unit that carries them, and a
+ * stale pick is dropped at submit, never sent).
  */
-data class RecurringCostModalState(
-    val cost: RecurringCostDto? = null,
+data class RecurringIncomeModalState(
+    val income: RecurringIncomeDto? = null,
     val name: String = "",
     val amount: String = "",
     val intervalValue: String = "1",
@@ -39,7 +44,7 @@ data class RecurringCostModalState(
     val confirmingDelete: Boolean = false,
     val deleting: Boolean = false,
 ) {
-    val editing: Boolean get() = cost != null
+    val editing: Boolean get() = income != null
 
     val busy: Boolean get() = submitting || deleting
 
@@ -62,29 +67,30 @@ data class RecurringCostModalState(
 }
 
 /**
- * The Recurring Costs screen's state machine (ticket #22), ported from the
- * web app's RecurringCostsScreen + RecurringCostForm (web issues #56/#58):
- * the list of definitions sorted by next due date — each row naming the
- * amount, the interval, the next due date, the next Unpaid Occurrence date,
- * the Backlog badge, and the Overdue mark — plus create/edit/delete in a
- * modal, with the names unique case-insensitively (409 → the web's exact
- * message). Data is refetched in the background when the global data
- * version bumps (ADR-0002), so a link paid or severed elsewhere re-renders
- * the derived state.
+ * The Recurring Incomes screen's state machine (ticket #23), mirroring the
+ * Recurring Costs side (web issue #60, ADR-0011): the list of definitions
+ * sorted by next due date — each row naming the amount, the interval, the
+ * next due date, the next Unpaid Occurrence date, the Backlog badge, and
+ * the Overdue mark — plus create/edit/delete in a modal, with the names
+ * unique case-insensitively (409 → the web's exact message). Data is
+ * refetched in the background when the global data version bumps (ADR-0002),
+ * so a link paid or severed elsewhere re-renders the derived state.
  */
-class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) : ViewModel() {
+class RecurringIncomesViewModel(
+    private val recurringIncomes: RecurringIncomeGateway,
+) : ViewModel() {
 
     data class UiState(
         val loading: Boolean = true,
         val loadError: String? = null,
-        val costs: List<RecurringCostDto> = emptyList(),
-        val modal: RecurringCostModalState? = null,
+        val incomes: List<RecurringIncomeDto> = emptyList(),
+        val modal: RecurringIncomeModalState? = null,
     ) {
-        /** The summary line's counts (web issue #58): only shown when there
-         * is at least one cost — the empty state already answers the
+        /** The summary line's counts (web issue #62): only shown when there
+         * is at least one income — the empty state already answers the
          * screen for a definition-less Account. */
-        val overdueCount: Int get() = costs.count { it.overdue }
-        val unpaidCount: Int get() = costs.sumOf { it.backlog_count }
+        val overdueCount: Int get() = incomes.count { it.overdue }
+        val unpaidCount: Int get() = incomes.sumOf { it.backlog_count }
     }
 
     private val _uiState = MutableStateFlow(UiState())
@@ -100,21 +106,21 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
     }
 
     fun openCreate() {
-        _uiState.update { it.copy(modal = RecurringCostModalState()) }
+        _uiState.update { it.copy(modal = RecurringIncomeModalState()) }
     }
 
-    fun openEdit(cost: RecurringCostDto) {
+    fun openEdit(income: RecurringIncomeDto) {
         _uiState.update {
             it.copy(
-                modal = RecurringCostModalState(
-                    cost = cost,
-                    name = cost.name,
-                    amount = cost.amount,
-                    intervalValue = cost.interval_value.toString(),
-                    intervalUnit = cost.interval_unit,
-                    startDate = cost.start_date ?: "",
-                    dueDay = cost.due_day,
-                    dueMonth = cost.due_month,
+                modal = RecurringIncomeModalState(
+                    income = income,
+                    name = income.name,
+                    amount = income.amount,
+                    intervalValue = income.interval_value.toString(),
+                    intervalUnit = income.interval_unit,
+                    startDate = income.start_date ?: "",
+                    dueDay = income.due_day,
+                    dueMonth = income.due_month,
                 ),
             )
         }
@@ -149,7 +155,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
 
     fun onDeleteTap() {
         val modal = _uiState.value.modal ?: return
-        val cost = modal.cost ?: return
+        val income = modal.income ?: return
         if (modal.busy) return
         if (!modal.confirmingDelete) {
             updateModal { it.copy(confirmingDelete = true, error = null) }
@@ -158,10 +164,10 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         viewModelScope.launch {
             updateModal { it.copy(deleting = true, error = null) }
             try {
-                recurringCosts.deleteRecurringCost(cost.id)
+                recurringIncomes.deleteRecurringIncome(income.id)
                 _uiState.update { state ->
                     state.copy(
-                        costs = state.costs.filterNot { it.id == cost.id },
+                        incomes = state.incomes.filterNot { it.id == income.id },
                         modal = null,
                     )
                 }
@@ -173,7 +179,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                         error = apiErrorMessage(
                             error.status,
                             CONFLICT_MESSAGE,
-                            "Could not delete the recurring cost.",
+                            "Could not delete the recurring income.",
                         ),
                     )
                 }
@@ -182,7 +188,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                     it.copy(
                         confirmingDelete = false,
                         deleting = false,
-                        error = "Could not delete the recurring cost.",
+                        error = "Could not delete the recurring income.",
                     )
                 }
             }
@@ -196,19 +202,19 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         }
     }
 
-    private fun create(modal: RecurringCostModalState) {
+    private fun create(modal: RecurringIncomeModalState) {
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
             try {
-                val created = recurringCosts.createRecurringCost(draftOf(modal))
+                val created = recurringIncomes.createRecurringIncome(draftOf(modal))
                 _uiState.update { state ->
                     state.copy(
                         // In place: the next-due order is the screen's one
                         // order (web sortByNextDue), so an upsert re-sorts.
                         // The id-guard drops a duplicate when the write's
                         // own data-version bump refetched the list first.
-                        costs = sortByNextDue(
-                            state.costs.filterNot { it.id == created.id } + created,
+                        incomes = sortByNextDue(
+                            state.incomes.filterNot { it.id == created.id } + created,
                         ),
                         modal = null,
                     )
@@ -220,26 +226,26 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                         error = apiErrorMessage(
                             error.status,
                             CONFLICT_MESSAGE,
-                            "Could not create the recurring cost.",
+                            "Could not create the recurring income.",
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not create the recurring cost.") }
+                updateModal { it.copy(submitting = false, error = "Could not create the recurring income.") }
             }
         }
     }
 
-    private fun update(modal: RecurringCostModalState) {
-        val cost = modal.cost ?: return
+    private fun update(modal: RecurringIncomeModalState) {
+        val income = modal.income ?: return
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
             try {
-                val saved = recurringCosts.updateRecurringCost(cost.id, draftOf(modal))
+                val saved = recurringIncomes.updateRecurringIncome(income.id, draftOf(modal))
                 _uiState.update { state ->
                     state.copy(
-                        costs = sortByNextDue(
-                            state.costs.map { if (it.id == saved.id) saved else it },
+                        incomes = sortByNextDue(
+                            state.incomes.map { if (it.id == saved.id) saved else it },
                         ),
                         modal = null,
                     )
@@ -251,19 +257,19 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                         error = apiErrorMessage(
                             error.status,
                             CONFLICT_MESSAGE,
-                            "Could not save the recurring cost.",
+                            "Could not save the recurring income.",
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not save the recurring cost.") }
+                updateModal { it.copy(submitting = false, error = "Could not save the recurring income.") }
             }
         }
     }
 
-    private fun draftOf(modal: RecurringCostModalState): RecurringCostDraft {
+    private fun draftOf(modal: RecurringIncomeModalState): RecurringIncomeDraft {
         val (dueDay, dueMonth) = dueOverrideFor(modal.intervalUnit, modal.dueDay, modal.dueMonth)
-        return RecurringCostDraft(
+        return RecurringIncomeDraft(
             name = modal.name.trim(),
             amount = modal.amount.trim(),
             intervalValue = parseIntervalValue(modal.intervalValue) ?: 0,
@@ -280,12 +286,12 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
      */
     private suspend fun reload() {
         try {
-            val loaded = sortByNextDue(recurringCosts.fetchRecurringCosts())
-            _uiState.update { it.copy(costs = loaded, loadError = null, loading = false) }
+            val loaded = sortByNextDue(recurringIncomes.fetchRecurringIncomes())
+            _uiState.update { it.copy(incomes = loaded, loadError = null, loading = false) }
         } catch (_: Exception) {
             _uiState.update { state ->
-                if (state.costs.isEmpty()) {
-                    state.copy(loadError = "Could not load your recurring costs.", loading = false)
+                if (state.incomes.isEmpty()) {
+                    state.copy(loadError = "Could not load your recurring incomes.", loading = false)
                 } else {
                     state.copy(loading = false)
                 }
@@ -293,7 +299,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         }
     }
 
-    private fun updateModal(transform: (RecurringCostModalState) -> RecurringCostModalState) {
+    private fun updateModal(transform: (RecurringIncomeModalState) -> RecurringIncomeModalState) {
         _uiState.update { state ->
             state.modal?.let { state.copy(modal = transform(it)) } ?: state
         }
@@ -303,7 +309,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         /** The Name field's cap (CONTEXT.md: names up to 80 characters). */
         const val NAME_MAX_LENGTH = 80
 
-        /** The web app's exact duplicate-name message (409 contract). */
-        const val CONFLICT_MESSAGE = "A recurring cost with this name already exists."
+        /** The web's exact duplicate-name message (409 contract). */
+        const val CONFLICT_MESSAGE = "A recurring income with this name already exists."
     }
 }

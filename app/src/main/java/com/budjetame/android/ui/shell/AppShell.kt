@@ -48,11 +48,12 @@ import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoriesScreen
 import com.budjetame.android.ui.dashboard.DashboardScreen
-import com.budjetame.android.ui.recurringcosts.RecurringCostsScreen
+import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.transactions.TransactionsScreen
 import com.budjetame.android.ui.wallets.WalletsScreen
 import kotlinx.coroutines.launch
@@ -76,6 +77,7 @@ fun AppShell(
     dashboardRepository: DashboardGateway,
     transactionRepository: TransactionGateway,
     recurringCostRepository: RecurringCostGateway,
+    recurringIncomeRepository: RecurringIncomeGateway,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -100,10 +102,18 @@ fun AppShell(
             composable("dashboard") { DashboardScreen(dashboardRepository) }
             composable("wallets") { WalletsScreen(walletRepository) }
             composable("transactions") {
-                TransactionsScreen(transactionRepository, walletRepository, categoryRepository, recurringCostRepository)
+                TransactionsScreen(
+                    transactionRepository,
+                    walletRepository,
+                    categoryRepository,
+                    recurringCostRepository,
+                    recurringIncomeRepository,
+                )
             }
             composable("categories") { CategoriesScreen(categoryRepository) }
-            composable("recurring") { RecurringCostsScreen(recurringCostRepository) }
+            composable("recurring") {
+                RecurringScreen(recurringCostRepository, recurringIncomeRepository)
+            }
         }
     }
 

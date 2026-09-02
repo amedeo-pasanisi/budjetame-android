@@ -2,16 +2,25 @@ package com.budjetame.android.ui.recurringcosts
 
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringDefinition
 
 /**
  * Presentation-only logic for the Recurring Costs screen and form (ticket
  * #22), ported from the web app's recurringCosts.ts + RecurringCostForm.tsx:
  * the interval display text, the due-date override's shape per interval
  * unit, and the next-due ordering. These are the cheap spots where porting
- * bugs hide, so they get direct JVM tests.
+ * bugs hide, so they get direct JVM tests. The reads are type-agnostic and
+ * shared with the Recurring Incomes side (web issue #60, ADR-0011), exactly
+ * like the web's recurringIncomes.ts re-exporting them from recurringCosts.ts.
  */
 
-/** The unit options the form offers, in the web app's order. */
+/**
+ * The unit options the form offers, in the web app's order. Shared with the
+ * Recurring Incomes side (web issue #60): the interval reads are the same on
+ * both sides, like the web's recurringIncomes.ts re-exporting them from
+ * recurringCosts.ts (ADR-0011 leaves the display layer free to reuse pure
+ * logic).
+ */
 val INTERVAL_UNIT_OPTIONS: List<IntervalUnit> =
     listOf(IntervalUnit.DAYS, IntervalUnit.WEEKS, IntervalUnit.MONTHS, IntervalUnit.YEARS)
 
@@ -68,9 +77,11 @@ fun yearOverrideIncomplete(dueDay: Int?, dueMonth: Int?): Boolean =
  * Definitions ordered by next due date ascending, ties by name
  * case-insensitively — the one order the Recurring screen renders (the
  * backend list arrives sorted too; this keeps locally upserted rows in
- * place), shared later with the Recurring Incomes side.
+ * place). One implementation serves both the Costs and the Incomes sides
+ * through the RecurringDefinition fields the ordering reads (web issue
+ * #60's shared `sortByNextDue`; the web's recurringIncomes.ts re-exports it).
  */
-fun sortRecurringCostsByNextDue(costs: List<RecurringCostDto>): List<RecurringCostDto> =
-    costs.sortedWith(
-        compareBy<RecurringCostDto> { it.next_due_date }.thenBy { it.name.lowercase() },
+fun <T : RecurringDefinition> sortByNextDue(definitions: List<T>): List<T> =
+    definitions.sortedWith(
+        compareBy<RecurringDefinition> { it.next_due_date }.thenBy { it.name.lowercase() },
     )

@@ -76,6 +76,20 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   definition's oldest unpaid occurrence as paid, unlinking frees it, and a
   mere amount or date edit never reassigns a link's occurrence (#22).
 
+- **Recurring Incomes + income link** — the Recurring tab's incomes side
+  (a Costs | Incomes toggle above the two sides, remembering the last side
+  for the session): every definition sorted by next due date, each row
+  showing the amount, the interval, the next due date, the next unpaid
+  occurrence date, an "N unpaid" backlog badge, and an Overdue mark, with
+  an "incomes overdue · unpaid occurrences" summary line. Create, edit,
+  and delete in one modal mirroring the costs side (name unique
+  case-insensitively, deleting leaves linked incomes as ordinary ones).
+  The transaction form's Income branch carries the Recurring Income
+  picker (never Expenses or Transfers): it lists the definitions and names
+  the occurrence the link would pay, linking an Income signs the
+  definition's oldest unpaid occurrence as paid, unlinking frees it, and a
+  mere amount or date edit never reassigns a link's occurrence (#23).
+
 ### Fixed
 
 - **Auth** — sign-in and sign-up failed with "please try again" on devices

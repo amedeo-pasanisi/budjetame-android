@@ -22,6 +22,18 @@ enum class IntervalUnit {
 }
 
 /**
+ * The two fields the Recurring screen's one order reads — next due date
+ * ascending, ties by name (the web app's generic `sortByNextDue`, shared by
+ * the Costs and the Incomes sides). Both definition DTOs implement it so the
+ * one ordering function serves the two sides (ADR-0011 leaves the display
+ * layer free to share pure logic).
+ */
+interface RecurringDefinition {
+    val next_due_date: String
+    val name: String
+}
+
+/**
  * A Recurring Cost as seen through the API (web issue #56): the editable
  * definition (name, amount, interval, optional start date, optional due-date
  * override) plus the derived state — never stored, computed on the backend
@@ -33,24 +45,25 @@ enum class IntervalUnit {
  * Backlog (web issue #58) — Unpaid Occurrences due today or earlier, the "N
  * unpaid" badge; `overdue` is true exactly when the Backlog is non-empty.
  * `start_date` is the stored value — null when unset, meaning the creation
- * date.
+ * date. The backend also sends `next_skip_action` (ADR-0016, a later
+ * ticket); this client ignores it until the skip feature lands.
  */
 @Serializable
 data class RecurringCostDto(
     val id: Int,
-    val name: String,
+    override val name: String,
     val amount: String,
     val interval_value: Int,
     val interval_unit: IntervalUnit,
     val start_date: String? = null,
     val due_day: Int? = null,
     val due_month: Int? = null,
-    val next_due_date: String,
+    override val next_due_date: String,
     val next_unpaid_occurrence_date: String,
     val backlog_count: Int = 0,
     val overdue: Boolean = false,
     val created_at: String,
-)
+) : RecurringDefinition
 
 /**
  * Create a Recurring Cost: name (unique per Account, case-insensitively),

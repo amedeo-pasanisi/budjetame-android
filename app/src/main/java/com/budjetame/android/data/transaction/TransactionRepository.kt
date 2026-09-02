@@ -7,6 +7,7 @@ import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
 import com.budjetame.android.data.api.TransactionExpenseLinkUpdateRequest
+import com.budjetame.android.data.api.TransactionIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionPageDto
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
@@ -62,11 +63,14 @@ interface TransactionGateway {
  * or edited here). Expense/Income fill `walletId` (plus an optional
  * `categoryId`); a Transfer fills `sourceWalletId` and `destinationWalletId`.
  * `recurringCostId` is the optional Recurring Cost link (web issue #57) —
- * Expenses only. On create it travels whenever set. On edit the key travels
- * only when the form changed it (`linkTouched`), mirroring the web form: a
- * PATCH field present applies even when null (unlinking, freeing the
- * Occurrence); absent leaves the stored pin untouched — a mere amount or
- * date edit never reassigns the Occurrence a link pays.
+ * Expenses only; `recurringIncomeId` is the optional Recurring Income link
+ * (web issue #61), the mirror — Incomes only. On create a picked link
+ * travels whenever set. On edit the link key travels only when the form
+ * changed it (`recurringCostTouched`/`recurringIncomeTouched`, the flag of
+ * the type's own link), mirroring the web form: a PATCH field present
+ * applies even when null (unlinking, freeing the Occurrence); absent leaves
+ * the stored pin untouched — a mere amount or date edit never reassigns the
+ * Occurrence a link pays.
  */
 data class TransactionDraft(
     val type: TransactionType,
@@ -77,7 +81,9 @@ data class TransactionDraft(
     val destinationWalletId: Int? = null,
     val categoryId: Int? = null,
     val recurringCostId: Int? = null,
-    val linkTouched: Boolean = false,
+    val recurringCostTouched: Boolean = false,
+    val recurringIncomeId: Int? = null,
+    val recurringIncomeTouched: Boolean = false,
     val description: String? = null,
 )
 
@@ -114,6 +120,7 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                     destination_wallet_id = draft.destinationWalletId,
                     category_id = draft.categoryId,
                     recurring_cost_id = draft.recurringCostId,
+                    recurring_income_id = draft.recurringIncomeId,
                     description = draft.description,
                 ),
             )
@@ -134,7 +141,7 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                 }
                 // An Expense whose Recurring Cost link the form changed
                 // carries the key — null unlinking, a value (re)linking.
-                draft.type == TransactionType.EXPENSE && draft.linkTouched -> {
+                draft.type == TransactionType.EXPENSE && draft.recurringCostTouched -> {
                     api.updateExpenseLink(
                         id,
                         TransactionExpenseLinkUpdateRequest(
@@ -146,8 +153,23 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
                         ),
                     )
                 }
-                // Income always, and Expense with the link untouched: no
-                // recurring_cost_id key on the wire.
+                // An Income whose Recurring Income link the form changed
+                // carries the income key — null unlinking, a value
+                // (re)linking; never the cost key (the backend rejects it).
+                draft.type == TransactionType.INCOME && draft.recurringIncomeTouched -> {
+                    api.updateIncomeLink(
+                        id,
+                        TransactionIncomeLinkUpdateRequest(
+                            amount = draft.amount,
+                            date = draft.date,
+                            category_id = draft.categoryId,
+                            description = draft.description,
+                            recurring_income_id = draft.recurringIncomeId,
+                        ),
+                    )
+                }
+                // Transfer, and Expense/Income with their link untouched: no
+                // recurring link key on the wire.
                 else -> {
                     api.updateExpenseIncome(
                         id,

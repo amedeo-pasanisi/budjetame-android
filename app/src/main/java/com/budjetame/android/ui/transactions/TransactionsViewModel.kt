@@ -7,6 +7,7 @@ import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
@@ -14,6 +15,7 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -47,6 +49,7 @@ class TransactionsViewModel(
     private val wallets: WalletGateway,
     private val categories: CategoryGateway,
     private val recurringCosts: RecurringCostGateway,
+    private val recurringIncomes: RecurringIncomeGateway,
     private val searchDebounceMillis: Long = SEARCH_DEBOUNCE_MILLIS,
 ) : ViewModel() {
 
@@ -59,6 +62,10 @@ class TransactionsViewModel(
          * offers (web issue #57) — fetched while the form is open, never
          * required by the ledger itself. */
         val recurringCosts: List<RecurringCostDto> = emptyList(),
+        /** The Recurring Income definitions the Income form's link picker
+         * offers (web issue #61), the mirror — fetched while the form is
+         * open, never required by the ledger itself. */
+        val recurringIncomes: List<RecurringIncomeDto> = emptyList(),
         val transactions: List<TransactionDto> = emptyList(),
         val nextCursor: String? = null,
         val loadingMore: Boolean = false,
@@ -107,7 +114,9 @@ class TransactionsViewModel(
      * Create and edit share one modal: the Type selector appears only while
      * creating (type is immutable once recorded), and the tap-again delete
      * confirmation only while editing. `recurringCostId` is the Expense
-     * form's Recurring Cost link pick — null = none (web issue #57).
+     * form's Recurring Cost link pick — null = none (web issue #57);
+     * `recurringIncomeId` is the Income form's Recurring Income link pick,
+     * the mirror (web issue #61).
      */
     data class ModalState(
         val editing: TransactionDto? = null,
@@ -119,6 +128,7 @@ class TransactionsViewModel(
         val destinationWalletId: Int? = null,
         val categoryId: Int? = null,
         val recurringCostId: Int? = null,
+        val recurringIncomeId: Int? = null,
         val description: String = "",
         val error: String? = null,
         val submitting: Boolean = false,
@@ -297,6 +307,7 @@ class TransactionsViewModel(
             )
         }
         refreshRecurringCosts()
+        refreshRecurringIncomes()
     }
 
     fun openEdit(transaction: TransactionDto) {
@@ -316,11 +327,13 @@ class TransactionsViewModel(
                     destinationWalletId = transaction.destination_wallet_id,
                     categoryId = transaction.category_id,
                     recurringCostId = transaction.recurring_cost_id,
+                    recurringIncomeId = transaction.recurring_income_id,
                     description = transaction.description.orEmpty(),
                 ),
             )
         }
         refreshRecurringCosts()
+        refreshRecurringIncomes()
     }
 
     fun closeModal() {
@@ -340,6 +353,7 @@ class TransactionsViewModel(
                         type = value,
                         categoryId = null,
                         recurringCostId = null,
+                        recurringIncomeId = null,
                         sourceWalletId = modal.sourceWalletId ?: active.firstOrNull()?.id,
                         destinationWalletId = modal.destinationWalletId
                             ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id),
@@ -366,6 +380,7 @@ class TransactionsViewModel(
                     TransactionType.EXPENSE -> modal.copy(
                         type = value,
                         categoryId = null,
+                        recurringIncomeId = null,
                         error = null,
                     )
                     TransactionType.OPENING_BALANCE -> modal
@@ -392,6 +407,11 @@ class TransactionsViewModel(
      * no link (or, on an edit of a linked Expense, unlinking). */
     fun onRecurringCostChange(costId: Int?) =
         updateModal { it.copy(recurringCostId = costId, error = null) }
+
+    /** The Income form's Recurring Income link pick (web issue #61), the
+     * mirror: null = no link (or, on an edit of a linked Income, unlinking). */
+    fun onRecurringIncomeChange(incomeId: Int?) =
+        updateModal { it.copy(recurringIncomeId = incomeId, error = null) }
 
     fun onDescriptionChange(value: String) =
         updateModal { it.copy(description = value.take(DESCRIPTION_MAX_LENGTH), error = null) }
@@ -702,11 +722,16 @@ class TransactionsViewModel(
         sourceWalletId = if (modal.isTransfer) modal.sourceWalletId else null,
         destinationWalletId = if (modal.isTransfer) modal.destinationWalletId else null,
         categoryId = if (modal.isTransfer) null else modal.categoryId,
-        // A picked link rides only on an Expense; a link change is a PATCH
-        // key the form sends only when the pick actually changed (the
-        // stored pin must survive a mere amount/date edit).
-        recurringCostId = if (modal.isTransfer) null else modal.recurringCostId,
-        linkTouched = modal.recurringCostId != modal.editing?.recurring_cost_id,
+        // A picked link rides only on its own type — an Expense on a
+        // Recurring Cost, an Income on a Recurring Income (the type reset
+        // drops a pick, and this guard keeps a stray pick off the wire); a
+        // link change is a PATCH key the form sends only when the pick
+        // actually changed (the stored pin must survive a mere
+        // amount/date edit).
+        recurringCostId = if (modal.type == TransactionType.EXPENSE) modal.recurringCostId else null,
+        recurringCostTouched = modal.recurringCostId != modal.editing?.recurring_cost_id,
+        recurringIncomeId = if (modal.type == TransactionType.INCOME) modal.recurringIncomeId else null,
+        recurringIncomeTouched = modal.recurringIncomeId != modal.editing?.recurring_income_id,
         description = modal.description.trim().ifEmpty { null },
     )
 
@@ -806,10 +831,10 @@ class TransactionsViewModel(
                     }
                 }
             }
-            // The picker rides on the form: while one is open, every reload
-            // also refreshes the definitions it lists (ADR-0002) — never the
+            // The pickers ride on the form: while one is open, every reload
+            // also refreshes the definitions they list (ADR-0002) — never the
             // other way around, a picker fetch failure is not a ledger error.
-            refreshRecurringCostsIfModalOpen()
+            refreshPickersIfModalOpen()
         }
     }
 
@@ -832,8 +857,26 @@ class TransactionsViewModel(
         }
     }
 
-    private fun refreshRecurringCostsIfModalOpen() {
-        if (_uiState.value.modal != null) refreshRecurringCosts()
+    /** The Income form's Recurring Income definitions, the mirror of the
+     * cost picker's (web issue #61): fetched when the form opens and again
+     * on every background reload while it stays open; a failed fetch
+     * silently keeps the held definitions. */
+    private fun refreshRecurringIncomes() {
+        viewModelScope.launch {
+            try {
+                val loaded = recurringIncomes.fetchRecurringIncomes()
+                _uiState.update { it.copy(recurringIncomes = loaded) }
+            } catch (_: Exception) {
+                // The picker keeps its held definitions.
+            }
+        }
+    }
+
+    private fun refreshPickersIfModalOpen() {
+        if (_uiState.value.modal != null) {
+            refreshRecurringCosts()
+            refreshRecurringIncomes()
+        }
     }
 
     companion object {

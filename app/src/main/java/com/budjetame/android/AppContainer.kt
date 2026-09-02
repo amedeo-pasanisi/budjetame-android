@@ -8,12 +8,14 @@ import com.budjetame.android.data.api.AuthApi
 import com.budjetame.android.data.api.CategoryApi
 import com.budjetame.android.data.api.DashboardApi
 import com.budjetame.android.data.api.RecurringCostApi
+import com.budjetame.android.data.api.RecurringIncomeApi
 import com.budjetame.android.data.api.TransactionApi
 import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.auth.ApiAuthRepository
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
+import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
 import com.budjetame.android.data.transaction.ApiTransactionRepository
 import com.budjetame.android.data.wallet.ApiWalletRepository
 
@@ -41,4 +43,6 @@ class AppContainer(context: Context) {
     val transactionRepository = ApiTransactionRepository(api.create(TransactionApi::class.java))
 
     val recurringCostRepository = ApiRecurringCostRepository(api.create(RecurringCostApi::class.java))
+
+    val recurringIncomeRepository = ApiRecurringIncomeRepository(api.create(RecurringIncomeApi::class.java))
 }

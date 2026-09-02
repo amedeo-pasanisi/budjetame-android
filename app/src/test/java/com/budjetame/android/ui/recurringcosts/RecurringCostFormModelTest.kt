@@ -87,7 +87,7 @@ class RecurringCostFormModelTest {
             cost(3, "Gym", "2026-08-15"),
             cost(4, "gym", "2026-08-15"),
         )
-        val sorted = sortRecurringCostsByNextDue(seeded)
+        val sorted = sortByNextDue(seeded)
         assertEquals(listOf(3, 4, 2, 1), sorted.map { it.id })
     }
 

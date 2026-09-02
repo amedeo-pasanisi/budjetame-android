@@ -12,12 +12,16 @@ import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostApi
 import com.budjetame.android.data.api.RecurringCostCreateRequest
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeApi
+import com.budjetame.android.data.api.RecurringIncomeCreateRequest
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionApi
 import com.budjetame.android.data.api.TransactionCreateRequest
 import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
 import com.budjetame.android.data.api.TransactionExpenseLinkUpdateRequest
+import com.budjetame.android.data.api.TransactionIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionPageDto
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
@@ -30,6 +34,9 @@ import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
+import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.ApiTransactionRepository
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
@@ -91,12 +98,14 @@ class TransactionsViewModelTest {
     private val walletStore = mutableListOf<WalletDto>()
     private val categoryStore = mutableListOf<CategoryDto>()
     private val recurringCostStore = mutableListOf<RecurringCostDto>()
+    private val recurringIncomeStore = mutableListOf<RecurringIncomeDto>()
     private val calls = ConcurrentLinkedQueue<RecordedCall>()
     private var listStatus = 200
     private var loadMoreStatus = 200
     private var walletsStatus = 200
     private var categoriesStatus = 200
     private var recurringCostsStatus = 200
+    private var recurringIncomesStatus = 200
     private var createStatus = 201
     private var walletCreateStatus = 201
     private var categoryCreateStatus = 201
@@ -116,12 +125,14 @@ class TransactionsViewModelTest {
         walletStore.clear()
         categoryStore.clear()
         recurringCostStore.clear()
+        recurringIncomeStore.clear()
         calls.clear()
         listStatus = 200
         loadMoreStatus = 200
         walletsStatus = 200
         categoriesStatus = 200
         recurringCostsStatus = 200
+        recurringIncomesStatus = 200
         createStatus = 201
         walletCreateStatus = 201
         categoryCreateStatus = 201
@@ -150,11 +161,13 @@ class TransactionsViewModelTest {
         val wallets = ApiWalletRepository(client.create(WalletApi::class.java))
         val categories = ApiCategoryRepository(client.create(CategoryApi::class.java))
         val recurringCosts = ApiRecurringCostRepository(client.create(RecurringCostApi::class.java))
+        val recurringIncomes = ApiRecurringIncomeRepository(client.create(RecurringIncomeApi::class.java))
         viewModel = TransactionsViewModel(
             transactions = transactions,
             wallets = wallets,
             categories = categories,
             recurringCosts = recurringCosts,
+            recurringIncomes = recurringIncomes,
             searchDebounceMillis = searchDebounceMillis,
         )
     }
@@ -182,6 +195,11 @@ class TransactionsViewModelTest {
             method == "GET" && path == "/api/recurring-costs" -> when {
                 recurringCostsStatus != 200 -> jsonResponse(recurringCostsStatus, """{"detail":"boom"}""")
                 else -> jsonResponse(200, json.encodeToString(recurringCostStore))
+            }
+
+            method == "GET" && path == "/api/recurring-incomes" -> when {
+                recurringIncomesStatus != 200 -> jsonResponse(recurringIncomesStatus, """{"detail":"boom"}""")
+                else -> jsonResponse(200, json.encodeToString(recurringIncomeStore))
             }
 
             method == "GET" && path == "/api/transactions" -> listPage(query)
@@ -291,9 +309,14 @@ class TransactionsViewModelTest {
         if (create.recurring_cost_id != null && create.type != TransactionType.EXPENSE) {
             return jsonResponse(422, """{"detail":"Only Expenses can be linked to a Recurring Cost"}""")
         }
+        if (create.recurring_income_id != null && create.type != TransactionType.INCOME) {
+            return jsonResponse(422, """{"detail":"Only Incomes can be linked to a Recurring Income"}""")
+        }
         val id = (transactionStore.maxOfOrNull { it.id } ?: 0) + 1
         val pin = create.recurring_cost_id?.let { costId ->
             recurringCostStore.find { it.id == costId }?.next_unpaid_occurrence_date
+        } ?: create.recurring_income_id?.let { incomeId ->
+            recurringIncomeStore.find { it.id == incomeId }?.next_unpaid_occurrence_date
         }
         val created = TransactionDto(
             id = id,
@@ -305,6 +328,7 @@ class TransactionsViewModelTest {
             destination_wallet_id = create.destination_wallet_id,
             category_id = create.category_id,
             recurring_cost_id = create.recurring_cost_id,
+            recurring_income_id = create.recurring_income_id,
             occurrence_date = pin,
             description = create.description,
             warning = createWarning,
@@ -384,10 +408,23 @@ class TransactionsViewModelTest {
         } else {
             // The Expense link PATCH carries the recurring_cost_id key — a
             // value links (paying the cost's oldest Unpaid Occurrence, the
-            // pin the list advertises), null unlinks, freeing the pin;
-            // without the key the stored link is untouched. Income PATCHes
-            // never carry the key, like the backend's contract.
+            // pin the list advertises), null unlinks, freeing the pin; the
+            // Income link PATCH carries the recurring_income_id key under
+            // the same contract; without the key the stored link is
+            // untouched. Expense PATCHes never carry the income key and
+            // Income PATCHes never the cost key, like the backend's
+            // contract (a mismatched key is rejected).
             val bodyObject = json.parseToJsonElement(body).jsonObject
+            if (bodyObject.containsKey("recurring_income_id") &&
+                current.type != TransactionType.INCOME
+            ) {
+                return jsonResponse(422, """{"detail":"Only Incomes can be linked to a Recurring Income"}""")
+            }
+            if (bodyObject.containsKey("recurring_cost_id") &&
+                current.type != TransactionType.EXPENSE
+            ) {
+                return jsonResponse(422, """{"detail":"Only Expenses can be linked to a Recurring Cost"}""")
+            }
             if (current.type == TransactionType.EXPENSE && bodyObject.containsKey("recurring_cost_id")) {
                 val update = json.decodeFromString<TransactionExpenseLinkUpdateRequest>(body)
                 val pin = update.recurring_cost_id?.let { costId ->
@@ -398,6 +435,20 @@ class TransactionsViewModelTest {
                     date = update.date,
                     category_id = update.category_id,
                     recurring_cost_id = update.recurring_cost_id,
+                    occurrence_date = pin,
+                    description = update.description,
+                    warning = updateWarning,
+                )
+            } else if (current.type == TransactionType.INCOME && bodyObject.containsKey("recurring_income_id")) {
+                val update = json.decodeFromString<TransactionIncomeLinkUpdateRequest>(body)
+                val pin = update.recurring_income_id?.let { incomeId ->
+                    recurringIncomeStore.find { it.id == incomeId }?.next_unpaid_occurrence_date
+                }
+                current.copy(
+                    amount = update.amount,
+                    date = update.date,
+                    category_id = update.category_id,
+                    recurring_income_id = update.recurring_income_id,
                     occurrence_date = pin,
                     description = update.description,
                     warning = updateWarning,
@@ -462,6 +513,10 @@ class TransactionsViewModelTest {
         recurringCostStore.addAll(costs)
     }
 
+    private fun seedRecurringIncomes(vararg incomes: RecurringIncomeDto) {
+        recurringIncomeStore.addAll(incomes)
+    }
+
     private fun transaction(
         id: Int,
         type: TransactionType,
@@ -472,6 +527,7 @@ class TransactionsViewModelTest {
         destinationWalletId: Int? = null,
         categoryId: Int? = null,
         recurringCostId: Int? = null,
+        recurringIncomeId: Int? = null,
         occurrenceDate: String? = null,
         description: String? = null,
     ) = TransactionDto(
@@ -484,6 +540,7 @@ class TransactionsViewModelTest {
         destination_wallet_id = destinationWalletId,
         category_id = categoryId,
         recurring_cost_id = recurringCostId,
+        recurring_income_id = recurringIncomeId,
         occurrence_date = occurrenceDate,
         description = description,
         created_at = "2026-08-01T10:00:00Z",
@@ -500,6 +557,21 @@ class TransactionsViewModelTest {
         name: String,
         nextUnpaid: String = "2026-08-05",
     ) = RecurringCostDto(
+        id = id,
+        name = name,
+        amount = "10.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        next_due_date = "2026-09-05",
+        next_unpaid_occurrence_date = nextUnpaid,
+        created_at = "2026-08-01T10:00:00Z",
+    )
+
+    private fun recurringIncome(
+        id: Int,
+        name: String,
+        nextUnpaid: String = "2026-08-05",
+    ) = RecurringIncomeDto(
         id = id,
         name = name,
         amount = "10.00",
@@ -738,7 +810,7 @@ class TransactionsViewModelTest {
     @Test
     fun `the search needle is debounced across rapid typing into one refetch`() {
         val gateway = RecordingGateway()
-        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway)
+        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway)
         mainRule.dispatcher.scheduler.runCurrent()
         val callsBefore = gateway.transactionCalls
 
@@ -1236,6 +1308,194 @@ class TransactionsViewModelTest {
         awaitState { it.recurringCosts.any { cost -> cost.name == "Rent" } }
     }
 
+    // --- The Recurring Income link (web issue #61, ticket #23) ---
+
+    @Test
+    fun `creating a linked income sends the recurring income id and lands the pin`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedRecurringIncomes(recurringIncome(1, "Salary", nextUnpaid = "2026-08-01"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.INCOME)
+        // The picker's definitions ride on the form: opening it fetched them.
+        awaitState { it.recurringIncomes.isNotEmpty() }
+        viewModel.onRecurringIncomeChange(1)
+        viewModel.onAmountChange("2500.00")
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(TransactionType.INCOME, create.type)
+        assertEquals(1, create.recurring_income_id)
+        assertNull(create.recurring_cost_id)
+        // The fake pays the income's oldest Unpaid Occurrence at link time and
+        // stores the pin on the row (web issue #61).
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(1, saved.recurring_income_id)
+        assertEquals("2026-08-01", saved.occurrence_date)
+    }
+
+    @Test
+    fun `switching a picked income to expense or transfer drops the link`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "100.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedRecurringIncomes(recurringIncome(1, "Salary"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.INCOME)
+        awaitState { it.recurringIncomes.isNotEmpty() }
+        viewModel.onRecurringIncomeChange(1)
+        assertEquals(1, viewModel.uiState.value.modal?.recurringIncomeId)
+
+        viewModel.onTypeChange(TransactionType.EXPENSE)
+        assertNull(viewModel.uiState.value.modal?.recurringIncomeId)
+        viewModel.onTypeChange(TransactionType.INCOME)
+        viewModel.onRecurringIncomeChange(1)
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        assertNull(viewModel.uiState.value.modal?.recurringIncomeId)
+    }
+
+    @Test
+    fun `an unlinked create never carries the recurring income key`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.INCOME)
+        viewModel.onAmountChange("5.00")
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.isNotEmpty() }
+
+        // An unlinked Income sends neither link key: the backend rejects the
+        // cost key on an Income, and an absent income key means no link.
+        val body = call("POST", "/api/transactions").body
+        assertFalse(body.contains("recurring_income_id"))
+        assertFalse(body.contains("recurring_cost_id"))
+        val create = json.decodeFromString<TransactionCreateRequest>(body)
+        assertNull(create.recurring_income_id)
+        assertNull(create.recurring_cost_id)
+    }
+
+    @Test
+    fun `editing a linked income without touching the picker leaves the link and the pin alone`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedRecurringIncomes(recurringIncome(1, "Salary"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.INCOME, "2500.00", "2026-08-01", walletId = 1,
+                recurringIncomeId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        // Editing a linked Income seeds the pick with the stored link.
+        assertEquals(1, viewModel.uiState.value.modal?.recurringIncomeId)
+        viewModel.onAmountChange("2600.00")
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        // The link key is absent: a mere amount edit never reassigns the
+        // Occurrence the link pays (web TransactionForm parity).
+        val patch = call("PATCH", "/api/transactions/1")
+        assertFalse(patch.body.contains("recurring_income_id"))
+        // The saved row lands through the write's own data-version refetch.
+        awaitState {
+            it.transactions.first { t -> t.id == 1 }.amount == "2600.00"
+        }
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(1, saved.recurring_income_id)
+        assertEquals("2026-08-01", saved.occurrence_date)
+        assertEquals("2600.00", saved.amount)
+    }
+
+    @Test
+    fun `unlinking an income sends an explicit null and frees the occurrence`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedRecurringIncomes(recurringIncome(1, "Salary"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.INCOME, "2500.00", "2026-08-01", walletId = 1,
+                recurringIncomeId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onRecurringIncomeChange(null)
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val patch = call("PATCH", "/api/transactions/1")
+        val update = json.decodeFromString<TransactionIncomeLinkUpdateRequest>(patch.body)
+        assertNull(update.recurring_income_id)
+        assertTrue(patch.body.contains("\"recurring_income_id\":null"))
+        // Unlinking frees the Occurrence: the row's pin is cleared
+        // (CONTEXT.md), landing through the write's own refetch.
+        awaitState { it.transactions.first { t -> t.id == 1 }.recurring_income_id == null }
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertNull(saved.recurring_income_id)
+        assertNull(saved.occurrence_date)
+    }
+
+    @Test
+    fun `relinking an income pays the newly picked income's oldest unpaid occurrence`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedRecurringIncomes(
+            recurringIncome(1, "Salary", nextUnpaid = "2026-08-01"),
+            recurringIncome(2, "Freelance", nextUnpaid = "2026-07-15"),
+        )
+        seedTransactions(
+            transaction(
+                1, TransactionType.INCOME, "2500.00", "2026-08-01", walletId = 1,
+                recurringIncomeId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onRecurringIncomeChange(2)
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val patch = call("PATCH", "/api/transactions/1")
+        val update = json.decodeFromString<TransactionIncomeLinkUpdateRequest>(patch.body)
+        assertEquals(2, update.recurring_income_id)
+        // The link pays the new income's oldest Unpaid Occurrence at link
+        // time; the row lands through the write's own refetch.
+        awaitState { it.transactions.first { t -> t.id == 1 }.recurring_income_id == 2 }
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(2, saved.recurring_income_id)
+        assertEquals("2026-07-15", saved.occurrence_date)
+    }
+
+    @Test
+    fun `a definition created on the recurring tab reaches the open income form`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.INCOME)
+        assertEquals(emptyList<RecurringIncomeDto>(), viewModel.uiState.value.recurringIncomes)
+
+        // A write elsewhere (the Recurring tab creating a definition) bumps
+        // the data version; the background reload refreshes the picker too.
+        seedRecurringIncomes(recurringIncome(1, "Salary"))
+        DataVersion.bump()
+        awaitState { it.recurringIncomes.any { income -> income.name == "Salary" } }
+    }
+
     // --- Inline entity creation (ADR-0013/0014, ticket #21) ---
 
     @Test
@@ -1483,9 +1743,10 @@ class TransactionsViewModelTest {
         assertEquals(1, patch.category_id)
     }
 
-    /** A stub quadruple gateway for the pure-timing debounce test: the seam
+    /** A stub quintuple gateway for the pure-timing debounce test: the seam
      * tests drive the real repositories; this one only counts fetches. */
-    private class RecordingGateway : TransactionGateway, WalletGateway, CategoryGateway, RecurringCostGateway {
+    private class RecordingGateway : TransactionGateway, WalletGateway, CategoryGateway,
+        RecurringCostGateway, RecurringIncomeGateway {
         var transactionCalls = 0
             private set
         var lastFilters = TransactionFilters()
@@ -1506,6 +1767,8 @@ class TransactionsViewModelTest {
         override suspend fun fetchCategories(): List<CategoryDto> = emptyList()
 
         override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = emptyList()
+
+        override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> = emptyList()
 
         override suspend fun createWallet(name: String, type: WalletType, openingBalance: String): WalletDto =
             error("unused in the debounce test")
@@ -1535,6 +1798,14 @@ class TransactionsViewModelTest {
             error("unused in the debounce test")
 
         override suspend fun deleteRecurringCost(id: Int) = error("unused in the debounce test")
+
+        override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
+            error("unused in the debounce test")
+
+        override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
+            error("unused in the debounce test")
+
+        override suspend fun deleteRecurringIncome(id: Int) = error("unused in the debounce test")
 
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto =
             error("unused in the debounce test")

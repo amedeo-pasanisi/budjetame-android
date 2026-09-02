@@ -18,6 +18,7 @@ import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
@@ -56,15 +57,27 @@ class TransactionFormTest {
         next_unpaid_occurrence_date = "2026-08-01",
         created_at = "2026-08-01T10:00:00Z",
     )
+    private val salary = RecurringIncomeDto(
+        id = 1,
+        name = "Salary",
+        amount = "2500.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        next_due_date = "2026-09-01",
+        next_unpaid_occurrence_date = "2026-08-01",
+        created_at = "2026-08-01T10:00:00Z",
+    )
 
     private fun setForm(
         initial: TransactionsViewModel.ModalState,
         wallets: List<WalletDto>,
         categories: List<CategoryDto>,
         recurringCosts: List<RecurringCostDto> = emptyList(),
+        recurringIncomes: List<RecurringIncomeDto> = emptyList(),
         onAddWallet: (WalletFieldTarget) -> Unit = {},
         onAddCategory: () -> Unit = {},
         onRecurringCostChange: (Int?) -> Unit = {},
+        onRecurringIncomeChange: (Int?) -> Unit = {},
     ) {
         composeRule.setContent {
             var modal by remember { mutableStateOf(initial) }
@@ -73,6 +86,7 @@ class TransactionFormTest {
                 wallets = wallets,
                 categories = categories,
                 recurringCosts = recurringCosts,
+                recurringIncomes = recurringIncomes,
                 onTypeChange = { modal = modal.copy(type = it) },
                 onAmountChange = { modal = modal.copy(amount = it) },
                 onDateChange = { modal = modal.copy(date = it) },
@@ -80,7 +94,14 @@ class TransactionFormTest {
                 onSourceWalletChange = { modal = modal.copy(sourceWalletId = it) },
                 onDestinationWalletChange = { modal = modal.copy(destinationWalletId = it) },
                 onCategoryChange = { modal = modal.copy(categoryId = it) },
-                onRecurringCostChange = { modal = modal.copy(recurringCostId = it) },
+                onRecurringCostChange = { id ->
+                    modal = modal.copy(recurringCostId = id)
+                    onRecurringCostChange(id)
+                },
+                onRecurringIncomeChange = { id ->
+                    modal = modal.copy(recurringIncomeId = id)
+                    onRecurringIncomeChange(id)
+                },
                 onDescriptionChange = { modal = modal.copy(description = it) },
                 onAddWallet = onAddWallet,
                 onAddCategory = onAddCategory,
@@ -370,5 +391,57 @@ class TransactionFormTest {
             recurringCosts = listOf(rent),
         )
         composeRule.onNodeWithTag("tx-recurring-cost").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_income_recurring_income_select_offers_the_definitions_and_names_the_occurrence() {
+        val picked = mutableListOf<Int?>()
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.INCOME,
+                amount = "2500.00",
+                date = "2026-08-01",
+                walletId = 1,
+            ),
+            wallets = listOf(cash),
+            categories = emptyList(),
+            recurringIncomes = listOf(salary),
+            onRecurringIncomeChange = { picked.add(it) },
+        )
+
+        // The None option unlinks; each definition pays its oldest Unpaid
+        // Occurrence, named under the select (web issue #61).
+        composeRule.onNodeWithTag("tx-recurring-income").performClick()
+        composeRule.onNodeWithText("None").assertIsDisplayed()
+        composeRule.onNodeWithText("Salary").performClick()
+
+        assertEquals(listOf(1), picked)
+        composeRule.onNodeWithText("Pays the occurrence of 2026-08-01.").assertIsDisplayed()
+        composeRule.onNodeWithText("Save transaction").assertIsEnabled()
+
+        // Picking None unlinks again (freeing the Occurrence on save).
+        composeRule.onNodeWithTag("tx-recurring-income").performClick()
+        composeRule.onNodeWithText("None").performClick()
+        assertEquals(listOf(1, null), picked)
+    }
+
+    @Test
+    fun expense_and_transfer_forms_never_carry_the_recurring_income_field() {
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.EXPENSE,
+                amount = "800.00",
+                date = "2026-08-01",
+                walletId = 1,
+            ),
+            wallets = listOf(cash, card),
+            categories = emptyList(),
+            recurringIncomes = listOf(salary),
+        )
+        composeRule.onNodeWithTag("tx-recurring-income").assertDoesNotExist()
+
+        // The same draft as a Transfer carries no income link either.
+        composeRule.onNodeWithText("Transfer").performClick()
+        composeRule.onNodeWithTag("tx-recurring-income").assertDoesNotExist()
     }
 }

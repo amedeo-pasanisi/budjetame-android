@@ -3,6 +3,7 @@ package com.budjetame.android.ui.transactions
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
@@ -70,10 +71,34 @@ fun payingOccurrenceDate(
     storedPin: String?,
     pickedId: Int?,
     costs: List<RecurringCostDto>,
+): String? = payingOccurrenceDateOf(storedLinkId, storedPin, pickedId) { id ->
+    costs.find { it.id == id }?.next_unpaid_occurrence_date
+}
+
+/** The same read on the income side (web issue #61), mirroring the cost
+ * side: the caption under an Income form's Recurring Income pick names the
+ * Occurrence the link pays — the stored pin when editing the very link
+ * already on the row, else the picked definition's oldest Unpaid Occurrence. */
+fun payingIncomeOccurrenceDate(
+    storedLinkId: Int?,
+    storedPin: String?,
+    pickedId: Int?,
+    incomes: List<RecurringIncomeDto>,
+): String? = payingOccurrenceDateOf(storedLinkId, storedPin, pickedId) { id ->
+    incomes.find { it.id == id }?.next_unpaid_occurrence_date
+}
+
+/** The one pin-selection rule both captions read (the web form's ternary),
+ * parameterized by the list lookup so the two sides cannot drift. */
+private fun payingOccurrenceDateOf(
+    storedLinkId: Int?,
+    storedPin: String?,
+    pickedId: Int?,
+    nextUnpaidOf: (Int) -> String?,
 ): String? {
     val id = pickedId ?: return null
     if (storedLinkId == id && storedPin != null) return storedPin
-    return costs.find { it.id == id }?.next_unpaid_occurrence_date
+    return nextUnpaidOf(id)
 }
 
 /**
