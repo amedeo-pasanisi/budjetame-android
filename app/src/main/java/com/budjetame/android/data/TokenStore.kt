@@ -5,7 +5,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
-import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -46,10 +45,13 @@ class TokenStore(context: Context) : TokenStorage {
     }
 
     override fun save(token: String) {
-        val iv = ByteArray(IV_BYTES).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, key(), GCMParameterSpec(TAG_BITS, iv))
+        // The Keystore generates the GCM IV itself (some implementations —
+        // e.g. this phone's — reject caller-provided IVs in ENCRYPT mode
+        // with InvalidAlgorithmParameterException); read it back for storage.
+        cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
+        val iv = cipher.iv
         val stored = Base64.encodeToString(iv, Base64.NO_WRAP) +
             ":" + Base64.encodeToString(encrypted, Base64.NO_WRAP)
         prefs.edit().putString(KEY_PREF, stored).apply()
@@ -80,6 +82,5 @@ class TokenStore(context: Context) : TokenStorage {
         private const val KEY_ALIAS = "budjetame-token-key"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
-        private const val IV_BYTES = 12
     }
 }

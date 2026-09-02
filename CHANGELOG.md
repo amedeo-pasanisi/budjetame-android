@@ -34,3 +34,9 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   contact wallets included) front and center, the reference month's
   income/expense totals with previous/next navigation, and the category pie
   with an Expenses/Incomes toggle and a neutral "Uncategorized" slice (#17).
+
+### Fixed
+
+- **Auth** — sign-in and sign-up failed with "please try again" on devices
+  whose Keystore forbids caller-chosen GCM IVs; the session token is now
+  encrypted with a Keystore-generated IV (#14).
