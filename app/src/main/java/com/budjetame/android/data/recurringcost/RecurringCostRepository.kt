@@ -32,6 +32,10 @@ interface RecurringCostGateway {
     suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto
     suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto
     suspend fun deleteRecurringCost(id: Int)
+
+    /** The Skip/Un-skip button (ADR-0016): flips the front of the queue and
+     * returns the refreshed definition with its derived state. */
+    suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto
 }
 
 /** The API-backed RecurringCostGateway (web issue #56). */
@@ -74,6 +78,9 @@ class ApiRecurringCostRepository(private val api: RecurringCostApi) : RecurringC
     override suspend fun deleteRecurringCost(id: Int) {
         call { api.delete(id) }
     }
+
+    override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto =
+        call { api.skipToggle(id) }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

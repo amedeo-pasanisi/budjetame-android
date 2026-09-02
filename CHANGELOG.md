@@ -89,6 +89,14 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   the occurrence the link would pay, linking an Income signs the
   definition's oldest unpaid occurrence as paid, unlinking frees it, and a
   mere amount or date edit never reassigns a link's occurrence (#23).
+- **Skip occurrences** — every Recurring Cost and Recurring Income row
+  carries a Skip/Un-skip button (ADR-0016): a press excuses the oldest
+  unpaid occurrence, which never enters the backlog, never counts toward
+  Monthly Spendable, and can never be linked; once the whole backlog is
+  excused the button reads Un-skip, and pressing it restores the oldest
+  skipped occurrence. Pressing repeatedly clears a backlog oldest-first —
+  the badge ticks down and the Overdue mark clears — and the response's
+  refreshed definition re-renders the row in place (#24).
 
 ### Fixed
 

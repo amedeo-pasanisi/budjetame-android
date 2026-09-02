@@ -1807,6 +1807,12 @@ class TransactionsViewModelTest {
 
         override suspend fun deleteRecurringIncome(id: Int) = error("unused in the debounce test")
 
+        override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto =
+            error("unused in the debounce test")
+
+        override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto =
+            error("unused in the debounce test")
+
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto =
             error("unused in the debounce test")
 

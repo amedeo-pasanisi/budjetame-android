@@ -2,6 +2,8 @@ package com.budjetame.android.ui.recurringcosts
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,11 +48,15 @@ private val AMBER_800 = Color(0xFF92400E)
  * name, the amount, the interval, the next due date, and — when the derived
  * dates diverge, e.g. under a Backlog — the next Unpaid Occurrence date
  * (the one a new linked Expense would pay), plus the "N unpaid" Backlog
- * badge and the Overdue mark. The summary line on top answers "what remains
- * to pay" at a glance. Create, edit, and delete live here, in a modal. The
- * badge, the mark, and the dates are derived state from the API: they
- * refresh whenever the list reloads — after every write anywhere, via the
- * data-version bump (ADR-0002).
+ * badge and the Overdue mark. Beside each row sits the Skip/Un-skip button
+ * (ADR-0016, ticket #24): its label comes from the definition's
+ * `next_skip_action` — "Un-skip" once the whole Backlog is excused — and a
+ * press swaps the row with the backend's refreshed definition, so the
+ * badge, the dates, and the label re-render from the response. The summary
+ * line on top answers "what remains to pay" at a glance. Create, edit, and
+ * delete live here, in a modal. The badge, the mark, and the dates are
+ * derived state from the API: they refresh whenever the list reloads —
+ * after every write anywhere, via the data-version bump (ADR-0002).
  */
 @Composable
 fun RecurringCostsScreen(recurringCosts: RecurringCostGateway) {
@@ -125,6 +133,11 @@ private fun RecurringCostsList(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     ) {
+        state.actionError?.let { message ->
+            item(key = "action-error") {
+                ActionErrorText(message = message)
+            }
+        }
         item(key = "summary") {
             SummaryLine(
                 overdueCount = state.overdueCount,
@@ -134,10 +147,27 @@ private fun RecurringCostsList(
         items(state.costs, key = { it.id }) { cost ->
             RecurringCostRow(
                 cost = cost,
+                toggling = state.togglingId == cost.id,
                 onClick = { viewModel.openEdit(cost) },
+                onToggleSkip = { viewModel.toggleSkip(cost) },
             )
         }
     }
+}
+
+/** A failed toggle's message (the web screen's inline error paragraph):
+ * shown above the summary, the held rows still on screen — only the action
+ * failed. Cleared by the next successful reload or the next press. */
+@Composable
+private fun ActionErrorText(message: String) {
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+    )
 }
 
 /** The summary pill (web issue #58): "X costs overdue · N unpaid
@@ -166,75 +196,98 @@ private fun SummaryLine(overdueCount: Int, unpaidCount: Int) {
 }
 
 /**
- * One Recurring Cost row: name and interval · next due date on the left
- * (the Overdue mark under them), amount and the "N unpaid" Backlog badge on
- * the right. The next Unpaid Occurrence date earns its own line when it
- * differs from the next due date — under a Backlog the next thing a new
- * linked Expense would pay is not the schedule's next due date — and is
- * otherwise the very date the next-due line already names.
+ * One Recurring Cost row: the clickable card (name and interval · next due
+ * date on the left — the Overdue mark under them — amount and the "N
+ * unpaid" Backlog badge on the right) with the Skip/Un-skip pill beside
+ * it, vertically centered like the web screen's row button. The next Unpaid
+ * Occurrence date earns its own line when it differs from the next due
+ * date — under a Backlog the next thing a new linked Expense would pay is
+ * not the schedule's next due date — and is otherwise the very date the
+ * next-due line already names. A press on the pill skips or un-skips (its
+ * own in-flight toggle disables it, so a double tap cannot flip the state
+ * twice); the card still opens the edit modal.
  */
 @Composable
-private fun RecurringCostRow(cost: RecurringCostDto, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        tonalElevation = 1.dp,
+private fun RecurringCostRow(
+    cost: RecurringCostDto,
+    toggling: Boolean,
+    onClick: () -> Unit,
+    onToggleSkip: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            tonalElevation = 1.dp,
+            modifier = Modifier.weight(1f),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = cost.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = "${intervalText(cost.interval_value, cost.interval_unit)} · " +
-                        "next due ${cost.next_due_date}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (cost.next_unpaid_occurrence_date != cost.next_due_date) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Next unpaid ${cost.next_unpaid_occurrence_date}",
+                        text = cost.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "${intervalText(cost.interval_value, cost.interval_unit)} · " +
+                            "next due ${cost.next_due_date}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (cost.next_unpaid_occurrence_date != cost.next_due_date) {
+                        Text(
+                            text = "Next unpaid ${cost.next_unpaid_occurrence_date}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (cost.overdue) {
+                        Badge(
+                            text = "Overdue",
+                            background = RED_100,
+                            content = RED_700,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
                 }
-                if (cost.overdue) {
-                    Badge(
-                        text = "Overdue",
-                        background = RED_100,
-                        content = RED_700,
-                        modifier = Modifier.padding(top = 6.dp),
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.padding(start = 8.dp),
+                ) {
+                    Text(
+                        text = Money.formatEuros(cost.amount),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
-                }
-            }
-            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 8.dp)) {
-                Text(
-                    text = Money.formatEuros(cost.amount),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (cost.backlog_count > 0) {
-                    Badge(
-                        text = "${cost.backlog_count} unpaid",
-                        background = AMBER_100,
-                        content = AMBER_800,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
+                    if (cost.backlog_count > 0) {
+                        Badge(
+                            text = "${cost.backlog_count} unpaid",
+                            background = AMBER_100,
+                            content = AMBER_800,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
                 }
             }
         }
+        SkipPill(
+            label = skipToggleLabel(cost.next_skip_action),
+            enabled = !toggling,
+            onClick = onToggleSkip,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
@@ -256,6 +309,39 @@ private fun Badge(
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             color = content,
+        )
+    }
+}
+
+/**
+ * The Skip/Un-skip button (ADR-0016), the web pill's port: a quiet,
+ * bordered round button beside the card — the card itself still opens the
+ * edit modal. The label comes from the definition's `next_skip_action`;
+ * while the row's own toggle is in flight the pill disables itself and
+ * dims, so a double tap cannot flip the state twice (skip then un-skip).
+ */
+@Composable
+private fun SkipPill(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(999.dp)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .alpha(if (enabled) 1f else 0.6f)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

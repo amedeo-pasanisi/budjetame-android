@@ -21,8 +21,12 @@ import retrofit2.http.Path
  * issue #62) — Unpaid Occurrences due today or earlier, the "N unpaid"
  * badge; `overdue` is true exactly when the Backlog is non-empty.
  * `start_date` is the stored value — null when unset, meaning the creation
- * date. The backend also sends `next_skip_action` (ADR-0016, a later
- * ticket); this client ignores it until the skip feature lands.
+ * date. `next_skip_action` is what the Skip/Un-skip button reads
+ * (ADR-0016): "skip" while an Unpaid, un-Skipped Occurrence is the front
+ * of the queue, "unskip" once the press would restore the oldest Skipped
+ * one — Skipped Occurrences never enter the Backlog count and never show
+ * as the next due or the next Unpaid Occurrence (the backend derives it
+ * all).
  */
 @Serializable
 data class RecurringIncomeDto(
@@ -38,6 +42,7 @@ data class RecurringIncomeDto(
     val next_unpaid_occurrence_date: String,
     val backlog_count: Int = 0,
     val overdue: Boolean = false,
+    val next_skip_action: SkipAction = SkipAction.SKIP,
     val created_at: String,
 ) : RecurringDefinition
 
@@ -83,8 +88,9 @@ data class RecurringIncomeUpdateRequest(
 /**
  * Recurring Incomes resource (web issue #60): the list, sorted by next due
  * date ascending (ties by name) — the one order the Recurring screen needs —
- * and the create/edit/delete writes. A delete severs the links (CONTEXT.md):
- * linked Incomes stay as ordinary Incomes.
+ * and the create/edit/delete writes and the Skip/Un-skip toggle. A delete
+ * severs the links and drops its skips (CONTEXT.md, ADR-0016): linked
+ * Incomes stay as ordinary Incomes.
  */
 interface RecurringIncomeApi {
 
@@ -100,7 +106,16 @@ interface RecurringIncomeApi {
     @PATCH("recurring-incomes/{id}")
     suspend fun update(@Path("id") id: Int, @Body body: RecurringIncomeUpdateRequest): RecurringIncomeDto
 
-    /** 204: the definition is gone and its links are severed. */
+    /** 204: the definition is gone, its links severed, its skips dropped. */
     @DELETE("recurring-incomes/{id}")
     suspend fun delete(@Path("id") id: Int)
+
+    /** The Skip/Un-skip button (ADR-0016), the mirror of the Costs side:
+     * the backend flips the front of the queue — it skips the oldest
+     * Unpaid, un-Skipped Occurrence or, once the whole Backlog is excused,
+     * un-skips the oldest Skipped one — and answers 200 with the refreshed
+     * definition, every derived field re-derived from the stored skips.
+     * Foreign ids answer 403. */
+    @POST("recurring-incomes/{id}/skip-toggle")
+    suspend fun skipToggle(@Path("id") id: Int): RecurringIncomeDto
 }

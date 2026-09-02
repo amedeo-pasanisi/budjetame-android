@@ -32,6 +32,10 @@ interface RecurringIncomeGateway {
     suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto
     suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto
     suspend fun deleteRecurringIncome(id: Int)
+
+    /** The Skip/Un-skip button (ADR-0016): flips the front of the queue and
+     * returns the refreshed definition with its derived state. */
+    suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto
 }
 
 /** The API-backed RecurringIncomeGateway (web issue #60), the mirror of
@@ -75,6 +79,9 @@ class ApiRecurringIncomeRepository(private val api: RecurringIncomeApi) : Recurr
     override suspend fun deleteRecurringIncome(id: Int) {
         call { api.delete(id) }
     }
+
+    override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto =
+        call { api.skipToggle(id) }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

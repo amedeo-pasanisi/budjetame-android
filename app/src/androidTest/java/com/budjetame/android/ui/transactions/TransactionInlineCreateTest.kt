@@ -248,6 +248,7 @@ class TransactionInlineCreateTest {
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun deleteRecurringCost(id: Int) = error("unused")
+        override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto = error("unused")
     }
 
     /** The Income form's Recurring Income picker: the mirror — no
@@ -259,5 +260,6 @@ class TransactionInlineCreateTest {
         override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
         override suspend fun deleteRecurringIncome(id: Int) = error("unused")
+        override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
     }
 }

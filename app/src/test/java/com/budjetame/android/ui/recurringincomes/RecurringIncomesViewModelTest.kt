@@ -8,6 +8,7 @@ import com.budjetame.android.data.api.RecurringIncomeApi
 import com.budjetame.android.data.api.RecurringIncomeCreateRequest
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.RecurringIncomeUpdateRequest
+import com.budjetame.android.data.api.SkipAction
 import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -27,16 +28,20 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * The Recurring Incomes flow tested at the single seam (the HTTP API), the
  * mirror of the Recurring Costs suite (ADR-0011): the ViewModel is driven
  * through the real repository, Retrofit, OkHttp, and a MockWebServer whose
  * dispatcher is a small stateful fake of the /recurring-incomes resource —
- * the list with the derived dates, and the create/PATCH/delete writes with
- * the backend's duplicate-name rule (names unique per Account,
- * case-insensitively) and the web's exact 409 message. Request bodies are
- * captured for assertions.
+ * the list with the derived dates, the create/PATCH/delete writes with the
+ * backend's duplicate-name rule (names unique per Account,
+ * case-insensitively) and the web's exact 409 message, and the Skip/Un-skip
+ * toggle (ADR-0016): each press pops the next recorded fixture state for
+ * that definition, emulating the backend's re-derivation. Request bodies
+ * are captured for assertions.
  */
 class RecurringIncomesViewModelTest {
 
@@ -56,6 +61,13 @@ class RecurringIncomesViewModelTest {
     private var updateStatus = 200
     private var deleteStatus = 204
 
+    /** The Skip/Un-skip button's fixture responses (ADR-0016), one per
+     * definition: each press pops the next recorded state — the fake's
+     * emulation of the backend's derived re-derivation — and stores it, so
+     * the toggle's own data-version bump refetches a consistent list. */
+    private val skipScripts = mutableMapOf<Int, ArrayDeque<RecurringIncomeDto>>()
+    private var toggleStatus = 200
+
     private val json = Json { ignoreUnknownKeys = true }
 
     @Before
@@ -69,6 +81,8 @@ class RecurringIncomesViewModelTest {
         createStatus = 201
         updateStatus = 200
         deleteStatus = 204
+        skipScripts.clear()
+        toggleStatus = 200
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
         }
@@ -167,6 +181,28 @@ class RecurringIncomesViewModelTest {
                 MockResponse().setResponseCode(deleteStatus)
             }
 
+            method == "POST" && path.matches(Regex("/api/recurring-incomes/\\d+/skip-toggle")) -> {
+                val id = path.removePrefix("/api/recurring-incomes/").substringBefore("/").toInt()
+                val index = store.indexOfFirst { it.id == id }
+                if (index < 0) return jsonResponse(403, """{"detail":"Recurring Income not found"}""")
+                when {
+                    toggleStatus != 200 -> jsonResponse(
+                        toggleStatus,
+                        """{"detail":"boom"}""",
+                    )
+                    else -> {
+                        val script = skipScripts[id]
+                        val toggled = if (script != null && script.isNotEmpty()) {
+                            script.removeFirst()
+                        } else {
+                            store[index]
+                        }
+                        store[index] = toggled
+                        jsonResponse(200, json.encodeToString(toggled))
+                    }
+                }
+            }
+
             else -> MockResponse().setResponseCode(404)
         }
     }
@@ -195,6 +231,7 @@ class RecurringIncomesViewModelTest {
         nextUnpaid: String = "2026-09-05",
         backlog: Int = 0,
         overdue: Boolean = false,
+        nextSkipAction: SkipAction = SkipAction.SKIP,
     ) = RecurringIncomeDto(
         id = id,
         name = name,
@@ -208,6 +245,7 @@ class RecurringIncomesViewModelTest {
         next_unpaid_occurrence_date = nextUnpaid,
         backlog_count = backlog,
         overdue = overdue,
+        next_skip_action = nextSkipAction,
         created_at = "2026-08-01T10:00:00Z",
     )
 
@@ -547,5 +585,172 @@ class RecurringIncomesViewModelTest {
 
         assertNull(viewModel.uiState.value.loadError)
         assertEquals("Salary", viewModel.uiState.value.incomes.first().name)
+    }
+
+    // --- Skip / Un-skip (ADR-0016), mirroring the Costs side ---
+
+    /** The recorded Skip/Un-skip presses. */
+    private fun skipToggleCalls(): List<RecordedCall> =
+        calls.toList().filter { it.method == "POST" && it.path.endsWith("/skip-toggle") }
+
+    @Test
+    fun `a skip press calls the incomes skip-toggle and swaps in the refreshed row`() = runBlocking {
+        // Salary has one Unpaid, un-Skipped Occurrence due (badge 1,
+        // Overdue); Rent is clean. One press excuses it: the response's
+        // refreshed state re-renders the row — badge gone, Overdue cleared,
+        // the button reads Un-skip — and the summary re-totals.
+        seed(
+            incomeDto(1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-08-25", backlog = 1, overdue = true),
+            incomeDto(2, "Rent", nextDue = "2026-09-05", nextUnpaid = "2026-09-05"),
+        )
+        skipScripts[1] = ArrayDeque(
+            listOf(
+                incomeDto(
+                    1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-09-01",
+                    backlog = 0, overdue = false, nextSkipAction = SkipAction.UNSKIP,
+                ),
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+        assertEquals(1, viewModel.uiState.value.overdueCount)
+        assertEquals(1, viewModel.uiState.value.unpaidCount)
+
+        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState {
+            it.togglingId == null &&
+                it.incomes.first { i -> i.id == 1 }.next_skip_action == SkipAction.UNSKIP
+        }
+
+        assertEquals(1, skipToggleCalls().size)
+        assertEquals("/api/recurring-incomes/1/skip-toggle", skipToggleCalls().first().path)
+        val salary = viewModel.uiState.value.incomes.first { it.id == 1 }
+        assertEquals(0, salary.backlog_count)
+        assertFalse(salary.overdue)
+        assertEquals(SkipAction.UNSKIP, salary.next_skip_action)
+        assertEquals(0, viewModel.uiState.value.overdueCount)
+        assertEquals(0, viewModel.uiState.value.unpaidCount)
+        // The list order is unchanged when the dates do not move.
+        assertEquals(listOf(1, 2), viewModel.uiState.value.incomes.map { it.id })
+    }
+
+    @Test
+    fun `repeated presses clear the backlog oldest-first then an un-skip restores one`() = runBlocking {
+        // A daily income missed for ten days (badge 10): each press skips
+        // the oldest Unpaid Occurrence, so the badge ticks 10, 9, ..., 0 and
+        // Overdue clears with the last one; once nothing is left to skip the
+        // button reads Un-skip, and the next press restores the oldest
+        // Skipped Occurrence (badge 1, Overdue back, button reads Skip).
+        val salary = incomeDto(1, "Salary", nextDue = "2026-09-05", nextUnpaid = "2026-08-27", backlog = 10, overdue = true)
+        seed(salary)
+        skipScripts[1] = ArrayDeque(
+            (1..10).map { press ->
+                salary.copy(
+                    backlog_count = 10 - press,
+                    overdue = press < 10,
+                    next_skip_action = if (press == 10) SkipAction.UNSKIP else SkipAction.SKIP,
+                )
+            } + salary.copy(backlog_count = 1, overdue = true, next_skip_action = SkipAction.SKIP),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        for (press in 1..10) {
+            viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
+            awaitState {
+                it.togglingId == null &&
+                    it.incomes.first { i -> i.id == 1 }.backlog_count == 10 - press
+            }
+            val row = viewModel.uiState.value.incomes.first { it.id == 1 }
+            assertEquals(
+                if (press == 10) SkipAction.UNSKIP else SkipAction.SKIP,
+                row.next_skip_action,
+            )
+        }
+        assertEquals(0, viewModel.uiState.value.unpaidCount)
+        assertFalse(viewModel.uiState.value.incomes.first { it.id == 1 }.overdue)
+
+        // The Un-skip press restores the oldest Skipped Occurrence.
+        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState {
+            it.togglingId == null &&
+                it.incomes.first { i -> i.id == 1 }.backlog_count == 1
+        }
+        assertEquals(SkipAction.SKIP, viewModel.uiState.value.incomes.first { it.id == 1 }.next_skip_action)
+        assertEquals(1, viewModel.uiState.value.unpaidCount)
+        assertTrue(viewModel.uiState.value.incomes.first { it.id == 1 }.overdue)
+        assertEquals(11, skipToggleCalls().size)
+    }
+
+    @Test
+    fun `a double tap on the same row fires one toggle`() = runBlocking {
+        seed(incomeDto(1, "Salary", backlog = 1, overdue = true))
+        skipScripts[1] = ArrayDeque(
+            listOf(
+                incomeDto(1, "Salary", backlog = 0, nextSkipAction = SkipAction.UNSKIP),
+            ),
+        )
+        // The first press's response is held until both taps have been
+        // delivered, so the second tap deterministically lands while the
+        // first toggle is still in flight.
+        val release = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.method == "POST" && request.path?.endsWith("/skip-toggle") == true) {
+                    release.await(5, TimeUnit.SECONDS)
+                }
+                return route(request)
+            }
+        }
+        createViewModel()
+        awaitLoaded()
+
+        val salary = viewModel.uiState.value.incomes.first { it.id == 1 }
+        viewModel.toggleSkip(salary)
+        viewModel.toggleSkip(salary)
+        release.countDown()
+        awaitState {
+            it.togglingId == null &&
+                it.incomes.first { i -> i.id == 1 }.next_skip_action == SkipAction.UNSKIP
+        }
+
+        // One press, one toggle: the second tap could not flip the state
+        // twice (skip then un-skip).
+        assertEquals(1, skipToggleCalls().size)
+    }
+
+    @Test
+    fun `a failed toggle keeps the rows and shows the web message`() = runBlocking {
+        seed(
+            incomeDto(1, "Salary", nextDue = "2026-09-01", backlog = 1, overdue = true),
+            incomeDto(2, "Rent", nextDue = "2026-09-05"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        toggleStatus = 500
+        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.actionError != null }
+
+        assertEquals("Could not update your recurring incomes.", viewModel.uiState.value.actionError)
+        assertNull(viewModel.uiState.value.togglingId)
+        // The held rows stay on screen — only the action failed.
+        assertEquals(listOf(1, 2), viewModel.uiState.value.incomes.map { it.id })
+        assertEquals(1, viewModel.uiState.value.incomes.first { it.id == 1 }.backlog_count)
+
+        // The next press clears the message and works.
+        toggleStatus = 200
+        skipScripts[1] = ArrayDeque(
+            listOf(
+                incomeDto(1, "Salary", backlog = 0, nextSkipAction = SkipAction.UNSKIP),
+            ),
+        )
+        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState {
+            it.actionError == null &&
+                it.incomes.first { i -> i.id == 1 }.next_skip_action == SkipAction.UNSKIP
+        }
+        // Both presses hit the wire: the failed one and the successful one.
+        assertEquals(2, skipToggleCalls().size)
     }
 }
