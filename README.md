@@ -91,8 +91,10 @@ app/src/main/java/com/budjetame/android/
 │   ├── login/               # Login/registration/Google/forgot + ViewModel
 │   ├── wallets/             # Wallets tab: sections, create/rename/freeze, ViewModel
 │   ├── categories/          # Categories tab: sections, search, CRUD, merge-on-rename, ViewModel
+│   ├── dashboard/           # Dashboard tab: net worth, month totals + navigation, category pie (ticket #17)
+│   ├── common/              # Shared message bodies (loading, empty, load-error + retry)
 │   ├── shell/               # AppShell: header, 5-tab NavigationBar, settings/deletion
-│   └── screens/             # Remaining tab placeholders (Dashboard, Transactions, Recurring)
+│   └── screens/             # Remaining tab placeholders (Transactions, Recurring)
 └── util/                    # Money + date formatting (ports of the web app's format.ts)
 ```
 

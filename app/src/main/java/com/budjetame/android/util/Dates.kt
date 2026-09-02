@@ -3,6 +3,8 @@ package com.budjetame.android.util
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Date handling. Transaction dates travel as Europe/Rome calendar days
@@ -24,4 +26,13 @@ object Dates {
 
     /** Parse an API day string ("YYYY-MM-DD") into a calendar day. */
     fun parseApiDay(value: String): LocalDate = LocalDate.parse(value)
+
+    /**
+     * An API month string ("2026-08") as its long form ("August 2026"),
+     * rendered in the user's locale — the web app's `monthLabel`.
+     */
+    fun monthLabel(isoMonth: String): String = monthLabel(isoMonth, Locale.getDefault())
+
+    internal fun monthLabel(isoMonth: String, locale: Locale): String =
+        YearMonth.parse(isoMonth).format(DateTimeFormatter.ofPattern("MMMM yyyy", locale))
 }

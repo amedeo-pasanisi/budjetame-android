@@ -61,6 +61,7 @@ fun BudjetameApp(container: AppContainer) {
             account = state.account,
             walletRepository = container.walletRepository,
             categoryRepository = container.categoryRepository,
+            dashboardRepository = container.dashboardRepository,
             onSignOut = {
                 container.authRepository.signOut()
                 authState = AuthState.SignedOut

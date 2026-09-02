@@ -6,9 +6,11 @@ import com.budjetame.android.data.TokenStore
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.AuthApi
 import com.budjetame.android.data.api.CategoryApi
+import com.budjetame.android.data.api.DashboardApi
 import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.auth.ApiAuthRepository
 import com.budjetame.android.data.category.ApiCategoryRepository
+import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.wallet.ApiWalletRepository
 
 /**
@@ -29,4 +31,6 @@ class AppContainer(context: Context) {
     val walletRepository = ApiWalletRepository(api.create(WalletApi::class.java))
 
     val categoryRepository = ApiCategoryRepository(api.create(CategoryApi::class.java))
+
+    val dashboardRepository = ApiDashboardRepository(api.create(DashboardApi::class.java))
 }

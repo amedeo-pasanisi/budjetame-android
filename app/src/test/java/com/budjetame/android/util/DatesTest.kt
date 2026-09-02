@@ -2,6 +2,7 @@ package com.budjetame.android.util
 
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -26,5 +27,10 @@ class DatesTest {
     @Test
     fun `api days keep the YYYY-MM-DD shape`() {
         assertEquals("2026-08-31", Dates.toApiDay(LocalDate.of(2026, 8, 31)))
+    }
+
+    @Test
+    fun `month labels render the long month and the year`() {
+        assertEquals("August 2026", Dates.monthLabel("2026-08", Locale.ENGLISH))
     }
 }

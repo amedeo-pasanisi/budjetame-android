@@ -46,9 +46,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoriesScreen
-import com.budjetame.android.ui.screens.DashboardScreen
+import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.screens.RecurringScreen
 import com.budjetame.android.ui.screens.TransactionsScreen
 import com.budjetame.android.ui.wallets.WalletsScreen
@@ -70,6 +71,7 @@ fun AppShell(
     account: AccountDto,
     walletRepository: WalletGateway,
     categoryRepository: CategoryGateway,
+    dashboardRepository: DashboardGateway,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -91,7 +93,7 @@ fun AppShell(
             startDestination = "dashboard",
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable("dashboard") { DashboardScreen() }
+            composable("dashboard") { DashboardScreen(dashboardRepository) }
             composable("wallets") { WalletsScreen(walletRepository) }
             composable("transactions") { TransactionsScreen() }
             composable("categories") { CategoriesScreen(categoryRepository) }
