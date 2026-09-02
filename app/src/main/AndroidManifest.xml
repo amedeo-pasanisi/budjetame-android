@@ -20,6 +20,19 @@
             </intent-filter>
         </activity>
 
+        <!-- The export's temp .xlsx (ticket #28): the cache file behind the
+             share sheet's content Uri. Export only; the provider grants a
+             single read to the receiving app. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

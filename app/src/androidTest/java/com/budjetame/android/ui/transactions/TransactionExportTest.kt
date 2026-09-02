@@ -1,4 +1,4 @@
-package com.budjetame.android.ui.imports
+package com.budjetame.android.ui.transactions
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -30,8 +30,8 @@ import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
-import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.ExportFile
+import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
@@ -41,29 +41,28 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The Import Draft survives tab switches (web issue #43, ticket #26): the
- * draft lives in the Transactions tab's ViewModel, which the shell's
- * keep-alive navigation retains while another tab is shown — switching to
- * the Wallets tab and back resumes the flow exactly where it was left. The
- * only discard paths are Cancel, picking another file, and a successful
- * import; the shell is rendered with trivial in-memory gateways, and the
- * flow is driven as far as the pick phase (the system file picker itself
- * is not drivable in tests).
+ * The Export button's wiring (US 7.3, ticket #28) through the composed
+ * Transactions screen: the header's Export press runs the export through
+ * the gateway, and a failed export surfaces the web screen's error line.
+ * The happy path stops at the gateway seam here by design — the file's
+ * journey from the response to the system share sheet is the seam test's
+ * (the mapping is driven through MockWebServer) and the share sheet itself
+ * is not drivable in tests, exactly like the import file picker.
  */
 @RunWith(AndroidJUnit4::class)
-class ImportDraftTabTest {
+class TransactionExportTest {
 
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun launchShell() {
+    private fun launchShell(transactions: FakeTransactionGateway) {
         composeRule.setContent {
             AppShell(
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
                 walletRepository = FakeWalletGateway(),
                 categoryRepository = FakeCategoryGateway(),
                 dashboardRepository = FakeDashboardGateway(),
-                transactionRepository = FakeTransactionGateway(),
+                transactionRepository = transactions,
                 importRepository = FakeImportGateway(),
                 recurringCostRepository = FakeRecurringCostGateway(),
                 recurringIncomeRepository = FakeRecurringIncomeGateway(),
@@ -74,34 +73,25 @@ class ImportDraftTabTest {
     }
 
     @Test
-    fun `the import draft survives a tab switch and only cancel discards it`() {
-        launchShell()
+    fun `a failed export surfaces the web's error line on the ledger`() {
+        launchShell(FakeTransactionGateway())
 
-        // The Transactions tab's ledger loads, then Import opens the pick
-        // phase — the flow's own header replaces the ledger's.
+        // The ledger loads and the header carries the Export button next
+        // to Import (the web screen's shape).
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithText("New transaction").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Import").performClick()
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithText("Read and validate").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Export").fetchSemanticsNodes().isNotEmpty()
         }
 
-        // Switch to the Wallets tab and back: the draft — pick phase, no
-        // file — is still open, not a fresh ledger.
-        composeRule.onNodeWithText("Wallets").performClick()
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithText("New wallet").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Transactions").performClick()
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithText("Choose file").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.onNodeWithText("Export").performClick()
 
-        // Cancel is the discard path: the ledger returns.
-        composeRule.onNodeWithText("Cancel").performClick()
+        // The failure speaks the web screen's copy in the export error line.
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithText("New transaction").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Could not export transactions.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        // The ledger itself is untouched by the failed export.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("All transactions").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -142,6 +132,8 @@ class ImportDraftTabTest {
             BudgetDto(month = "2026-08", monthly_spendable = "0.00", daily_allowance = "0.00", spendable_today = "0.00")
     }
 
+    /** Every export fails: the header press must surface the error line —
+     * the share sheet itself is not drivable in tests. */
     private class FakeTransactionGateway : TransactionGateway {
         override suspend fun fetchPage(
             filters: TransactionFilters,
@@ -151,12 +143,13 @@ class ImportDraftTabTest {
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto = error("unused")
-        override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
+        override suspend fun export(filters: TransactionFilters): ExportFile = error("boom")
     }
 
     private class FakeRecurringCostGateway : RecurringCostGateway {
         override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = emptyList()
-        override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto = error("unused")
+        override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto =
+            error("unused")
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun deleteRecurringCost(id: Int) = error("unused")

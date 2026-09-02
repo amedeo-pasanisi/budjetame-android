@@ -30,6 +30,7 @@ import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -260,6 +261,7 @@ class TransactionInlineCreateTest {
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto =
             error("unused")
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto = error("unused")
+        override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
     }
 
     /** The picker's definitions: none exist — the Expense form's Recurring

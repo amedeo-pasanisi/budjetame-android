@@ -1,5 +1,8 @@
 package com.budjetame.android.ui.transactions
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,9 +46,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.CategoryDto
@@ -57,6 +62,7 @@ import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
@@ -66,7 +72,10 @@ import com.budjetame.android.ui.imports.ImportScreen
 import com.budjetame.android.ui.imports.ImportViewModel
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Dates
+import java.io.File
 import java.time.Instant
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val AMBER_50 = Color(0xFFFFFBEB)
 private val AMBER_200 = Color(0xFFFDE68A)
@@ -83,7 +92,11 @@ private val AMBER_700 = Color(0xFFB45309)
  * header's Import button opens the bulk Import flow (ticket #26), which
  * replaces the tab's content while its Draft is open — the web screen's
  * shape; the draft lives in its own ViewModel on this tab's back-stack
- * entry, so it survives tab switches (ADR-0002).
+ * entry, so it survives tab switches (ADR-0002). The header's Export
+ * button (ticket #28) fetches the whole filtered ledger — current filters
+ * and search, not just the visible page — as the import template's .xlsx
+ * and hands it to the system share sheet (SAF-backed save targets
+ * included).
  */
 @Composable
 fun TransactionsScreen(
@@ -114,9 +127,10 @@ fun TransactionsScreen(
     if (importDraft != null) {
         // While a Draft is open the Import flow replaces the tab's content
         // (the web screen's shape): the header's New transaction and Import
-        // buttons give way to the flow's own Cancel/Back. The ledger below
-        // keeps its state and refetches in the background (ADR-0002), so a
-        // successful import's write bump refreshes it before Back returns.
+        // buttons give way to the flow's own Cancel/Back — Export hides
+        // with them, like the web screen. The ledger below keeps its state
+        // and refetches in the background (ADR-0002), so a successful
+        // import's write bump refreshes it before Back returns.
         ImportScreen(
             draft = importDraft,
             wallets = state.wallets,
@@ -125,6 +139,36 @@ fun TransactionsScreen(
             modifier = Modifier.fillMaxSize(),
         )
         return
+    }
+
+    // Export (US 7.3, ticket #28): when the ViewModel hands over the
+    // fetched workbook, write it to the app's cache and open the system
+    // share sheet on it — the native equivalent of the web's download,
+    // where SAF-backed targets (Files, Drive, mail) save or share the
+    // .xlsx. The file is shared once; the ViewModel clears it either way.
+    val context = LocalContext.current
+    val exportFile = state.exportFile
+    LaunchedEffect(exportFile) {
+        val file = exportFile ?: return@LaunchedEffect
+        val uri = withContext(Dispatchers.IO) { cacheExportFile(context, file) }
+        if (uri == null) {
+            viewModel.onExportError("Could not save the export file.")
+        } else {
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = EXPORT_MIME_TYPE
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            try {
+                context.startActivity(Intent.createChooser(send, null))
+            } catch (_: Exception) {
+                // No app on the device can take the file (a bare test
+                // harness): the error line reports it and the export is
+                // consumed, so a later press fetches afresh.
+                viewModel.onExportError("Could not share the export file.")
+            }
+        }
+        viewModel.onExportHandled()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -153,6 +197,22 @@ fun TransactionsScreen(
             ) {
                 Text("Import")
             }
+            OutlinedButton(
+                onClick = viewModel::export,
+                enabled = !state.exporting,
+                modifier = Modifier.padding(start = 8.dp),
+            ) {
+                Text(if (state.exporting) "Exporting…" else "Export")
+            }
+        }
+
+        state.exportError?.let { error ->
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
         }
 
         state.savedWarning?.let { warning ->
@@ -783,5 +843,23 @@ private fun LoadMoreSentinel(
         }
     }
 }
+
+/** Write the exported workbook to the app's cache under the name the
+ * backend chose and return its FileProvider Uri for the share sheet, or
+ * null when the write failed. The cache lives in the app's private
+ * storage; the provider grants the receiving app one read. */
+private fun cacheExportFile(context: Context, export: ExportFile): Uri? = try {
+    val directory = File(context.cacheDir, "exports").apply { mkdirs() }
+    val file = File(directory, export.filename)
+    file.writeBytes(export.content)
+    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+} catch (_: Exception) {
+    null
+}
+
+/** The .xlsx content type: the export's MIME, like the import picker's
+ * accepted set. */
+private const val EXPORT_MIME_TYPE =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 private const val MILLIS_PER_DAY = 86_400_000L

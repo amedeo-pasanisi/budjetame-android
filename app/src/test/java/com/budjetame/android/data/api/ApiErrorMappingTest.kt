@@ -14,6 +14,12 @@ class ApiErrorMappingTest {
     private fun httpException(status: Int, body: String): HttpException =
         HttpException(Response.error<Any>(status, body.toResponseBody("application/json".toMediaType())))
 
+    /** A non-2xx raw-body response, the shape a non-JSON endpoint (the
+     * export's .xlsx) returns through Retrofit: mapped by the repository
+     * with the same detail parsing as the HttpException mapping. */
+    private fun rawResponse(status: Int, body: String): retrofit2.Response<*> =
+        Response.error<Any>(status, body.toResponseBody("application/json".toMediaType()))
+
     @Test
     fun `a string detail becomes the exception detail`() {
         val error = httpException(422, """{"detail":"Unknown wallet 'X'"}""").toApiException()
@@ -54,6 +60,22 @@ class ApiErrorMappingTest {
     @Test
     fun `a non-JSON body falls back to a generic message`() {
         val error = httpException(500, "<html>gateway error</html>").toApiException()
+        assertEquals(500, error.status)
+        assertNull(error.detail)
+        assertTrue(error.message!!.contains("500"))
+    }
+
+    @Test
+    fun `a raw-body response maps like an HttpException`() {
+        val error = rawResponse(422, """{"detail":"Unknown wallet 'X'"}""").toApiException()
+        assertEquals(422, error.status)
+        assertEquals("Unknown wallet 'X'", error.detail)
+        assertEquals("Unknown wallet 'X'", error.message)
+    }
+
+    @Test
+    fun `a raw-body response without a detail falls back to a generic message`() {
+        val error = rawResponse(500, "<html>gateway error</html>").toApiException()
         assertEquals(500, error.status)
         assertNull(error.detail)
         assertTrue(error.message!!.contains("500"))

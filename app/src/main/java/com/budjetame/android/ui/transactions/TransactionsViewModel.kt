@@ -16,6 +16,7 @@ import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -104,6 +105,18 @@ class TransactionsViewModel(
         val search: String = "",
         val searchNeedle: String = "",
         val savedWarning: String? = null,
+        /** True while the export request is in flight — the header's Export
+         * button shows "Exporting…" and a second press cannot fire a
+         * concurrent request (web parity: one file per press). */
+        val exporting: Boolean = false,
+        /** A failed export's message (the web screen's export error line),
+         * null = no failure. Cleared by the next Export press. */
+        val exportError: String? = null,
+        /** The fetched workbook, waiting for the screen to hand it to the
+         * system share sheet (ticket #28). The screen shares it once and
+         * reports back through `onExportHandled`, which clears it — a file
+         * never leaves the app twice. */
+        val exportFile: ExportFile? = null,
         val modal: ModalState? = null,
         /** The inline "New wallet…" modal stacked on the Transaction form
          * (ADR-0013), null = closed. */
@@ -631,6 +644,58 @@ class TransactionsViewModel(
                 updateCategoryCreate { it.copy(submitting = false, error = "Could not create the category.") }
             }
         }
+    }
+
+    /**
+     * Export the ledger exactly as the filters and the search show it
+     * (US 7.3, ticket #28): the whole matching set — not just the visible
+     * page — fetched through the gateway and handed to the screen as a
+     * pending `exportFile`. One press, one request: a press while one is
+     * already in flight is ignored, and a press supersedes a file the
+     * screen has not yet shared. A failure surfaces as the export error
+     * line with the web's copy; the ledger itself is untouched (a GET
+     * never bumps the data version, ADR-0002).
+     */
+    fun export() {
+        if (_uiState.value.exporting) return
+        val filters = currentFilters()
+        viewModelScope.launch {
+            // The in-flight guard, checked again under the launch: on a
+            // confined Main dispatcher two taps in the same frame could
+            // both pass the check above before the state lands.
+            if (_uiState.value.exporting) return@launch
+            _uiState.update { it.copy(exporting = true, exportError = null, exportFile = null) }
+            try {
+                val file = transactions.export(filters)
+                _uiState.update { it.copy(exporting = false, exportFile = file) }
+            } catch (error: ApiException) {
+                _uiState.update {
+                    it.copy(
+                        exporting = false,
+                        exportError = apiErrorMessage(
+                            error.status,
+                            "Could not export transactions.",
+                            "Could not export transactions.",
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(exporting = false, exportError = "Could not export transactions.") }
+            }
+        }
+    }
+
+    /** The screen shared (or failed to share) the pending export: clear it
+     * so the same file can never leave the app twice. */
+    fun onExportHandled() {
+        _uiState.update { it.copy(exportFile = null) }
+    }
+
+    /** A client-side failure while saving or sharing the fetched file (the
+     * export request itself succeeded): surface it as the export error
+     * line, the same place a failed request reports. */
+    fun onExportError(message: String) {
+        _uiState.update { it.copy(exportError = message) }
     }
 
     fun submit() {

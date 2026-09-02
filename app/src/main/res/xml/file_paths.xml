@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- The export's temp .xlsx (ticket #28): written under the app's
+         cache and handed to the system share sheet through this provider. -->
+    <cache-path name="exports" path="exports/" />
+</paths>

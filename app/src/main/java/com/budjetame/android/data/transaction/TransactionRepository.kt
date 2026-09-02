@@ -65,6 +65,13 @@ interface TransactionGateway {
     /** Delete a Transaction; the result carries the Cash negative-balance
      * indicator. */
     suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto
+
+    /** The whole filtered ledger as the import template's .xlsx (US 7.3):
+     * every Transaction matching `filters` — the same filter set the
+     * listing uses, search included — not just the visible page. The file
+     * and its dated name are exactly what the backend produced (the
+     * client never reshapes the workbook). */
+    suspend fun export(filters: TransactionFilters): ExportFile
 }
 
 /**
@@ -199,6 +206,28 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
 
     override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
         call { api.delete(id) }
+
+    override suspend fun export(filters: TransactionFilters): ExportFile {
+        // A raw-body endpoint: Retrofit does not throw for a non-2xx (the
+        // body is .xlsx, not JSON), so the mapping checks the response and
+        // reuses the same detail parsing as the HttpException mapping.
+        val response = api.export(
+            walletId = filters.walletId,
+            categoryId = filters.categoryId,
+            fromDate = filters.fromDate,
+            toDate = filters.toDate,
+            recurringCostId = filters.recurringCostId,
+            recurringIncomeId = filters.recurringIncomeId,
+            // A blank or whitespace-only needle means no search (ADR-0009),
+            // so the param is omitted rather than sent empty.
+            q = filters.q?.takeIf { it.isNotBlank() },
+        )
+        if (!response.isSuccessful) throw response.toApiException()
+        return ExportFile(
+            filename = exportFilename(response.headers()["Content-Disposition"]),
+            content = response.body()?.bytes() ?: ByteArray(0),
+        )
+    }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

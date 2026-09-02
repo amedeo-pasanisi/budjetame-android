@@ -128,6 +128,12 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   is locked to the row's type, and confirming creates the entity for real,
   selects it into the exact originating field, and re-validates every
   problem row that was waiting on its name in one batch (#27).
+- **Export** — the Transactions header's Export button (beside Import,
+  hidden while an Import Draft is open) downloads the whole filtered
+  ledger — the current wallet, date, category, and recurring filters with
+  the search applied, not just the visible page — as the import template's
+  .xlsx under the backend's dated name, and opens it in the system share
+  sheet, ready to share or save through SAF-backed targets (#28).
 
 ### Fixed
 

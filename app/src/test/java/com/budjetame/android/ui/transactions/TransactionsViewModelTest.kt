@@ -38,6 +38,7 @@ import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.ApiTransactionRepository
+import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
@@ -56,6 +57,7 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -66,6 +68,11 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+private const val EXPORT_CONTENT_TYPE =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 /**
  * The Transactions ledger tested at the single seam (the HTTP API): the
@@ -111,6 +118,7 @@ class TransactionsViewModelTest {
     private var categoryCreateStatus = 201
     private var updateStatus = 200
     private var deleteStatus = 200
+    private var exportStatus = 200
     private var createWarning = false
     private var updateWarning = false
     private var deleteWarning = false
@@ -138,6 +146,7 @@ class TransactionsViewModelTest {
         categoryCreateStatus = 201
         updateStatus = 200
         deleteStatus = 200
+        exportStatus = 200
         createWarning = false
         updateWarning = false
         deleteWarning = false
@@ -201,6 +210,8 @@ class TransactionsViewModelTest {
                 recurringIncomesStatus != 200 -> jsonResponse(recurringIncomesStatus, """{"detail":"boom"}""")
                 else -> jsonResponse(200, json.encodeToString(recurringIncomeStore))
             }
+
+            method == "GET" && path == "/api/transactions/export" -> exportResponse()
 
             method == "GET" && path == "/api/transactions" -> listPage(query)
 
@@ -497,6 +508,31 @@ class TransactionsViewModelTest {
             walletStore.find { it.id == transaction.wallet_id }?.frozen == true
         }
 
+    /** The fake export (US 7.3, ticket #28): the file the backend produces
+     * for the ledger under the current filters — a canned workbook
+     * recorded from the import template's exporter (its cells are pinned
+     * in ExportFileTest) — with the server's dated Content-Disposition
+     * filename. The export's content contract — no Opening Balance rows,
+     * no recurring links, Places flattened to coordinates — is applied
+     * server-side (CONTEXT.md, verified end to end in the web repo's
+     * backend suite); the seam test pins the client's half of it: the
+     * request carries exactly the ledger's filters, and the mapping hands
+     * the file through byte-for-byte under the server's name. */
+    private fun exportResponse(): MockResponse {
+        if (exportStatus != 200) return jsonResponse(exportStatus, """{"detail":"boom"}""")
+        return MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", EXPORT_CONTENT_TYPE)
+            .setHeader("Content-Disposition", "attachment; filename=\"budjetame-2026-08-23.xlsx\"")
+            .setBody(Buffer().write(exportFixture()))
+    }
+
+    /** The recorded export fixture (src/test/resources/export/ledger-export.xlsx). */
+    private fun exportFixture(): ByteArray =
+        checkNotNull(
+            TransactionsViewModelTest::class.java.getResourceAsStream("/export/ledger-export.xlsx"),
+        ) { "missing test resource export/ledger-export.xlsx" }.use { it.readBytes() }
+
     private fun jsonResponse(code: Int, body: String): MockResponse =
         MockResponse()
             .setResponseCode(code)
@@ -597,6 +633,9 @@ class TransactionsViewModelTest {
 
     private fun listCalls(): List<RecordedCall> =
         calls.toList().filter { it.path == "/api/transactions" }
+
+    private fun exportCalls(): List<RecordedCall> =
+        calls.toList().filter { it.path == "/api/transactions/export" }
 
     private fun call(method: String, path: String): RecordedCall =
         calls.toList().first { it.method == method && it.path == path }
@@ -998,6 +1037,149 @@ class TransactionsViewModelTest {
         assertEquals(callsBefore + 1, gateway.transactionCalls)
         assertEquals("caffe", gateway.lastFilters.q)
         assertEquals("caffe", viewModel.uiState.value.searchNeedle)
+    }
+
+    // --- Export (US 7.3, ticket #28) ---
+
+    @Test
+    fun `export carries the current filters and search and maps the file under the server's filename`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "0.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedCategories(category(1, "Housing", CategoryType.EXPENSE))
+        seedRecurringCosts(recurringCost(1, "Rent"))
+        seedTransactions(
+            transaction(1, TransactionType.EXPENSE, "800.00", "2026-08-01", walletId = 1, categoryId = 1, recurringCostId = 1, description = "Rent August"),
+            transaction(2, TransactionType.EXPENSE, "5.00", "2026-09-01", walletId = 2, description = "Lunch"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        // The ledger's current filters and search: the export must apply
+        // exactly what the list shows — not just the visible page.
+        viewModel.onFilterWalletChange(1)
+        viewModel.onFilterCategoryChange(1)
+        viewModel.onFilterFromDateChange("2026-08-01")
+        viewModel.onFilterToDateChange("2026-08-31")
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
+        viewModel.onSearchChange("rent")
+
+        viewModel.export()
+        awaitState { it.exportFile != null }
+
+        val export = viewModel.uiState.value.exportFile ?: error("expected an export file")
+        assertEquals("budjetame-2026-08-23.xlsx", export.filename)
+        // The mapping passes the server's workbook through byte-for-byte.
+        assertTrue(export.content.contentEquals(exportFixture()))
+        assertNull(viewModel.uiState.value.exportError)
+        assertFalse(viewModel.uiState.value.exporting)
+
+        val last = exportCalls().last()
+        assertEquals("1", last.query["wallet_id"])
+        assertEquals("1", last.query["category_id"])
+        assertEquals("2026-08-01", last.query["from_date"])
+        assertEquals("2026-08-31", last.query["to_date"])
+        assertEquals("1", last.query["recurring_cost_id"])
+        assertNull(last.query["recurring_income_id"])
+        assertEquals("rent", last.query["q"])
+        // The export is the whole matching ledger, never paged.
+        assertNull(last.query["limit"])
+        assertNull(last.query["cursor"])
+    }
+
+    @Test
+    fun `an unfiltered export sends no query params`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.export()
+        awaitState { it.exportFile != null }
+
+        val export = viewModel.uiState.value.exportFile ?: error("expected an export file")
+        assertEquals("budjetame-2026-08-23.xlsx", export.filename)
+        assertTrue(export.content.contentEquals(exportFixture()))
+        assertTrue(exportCalls().single().query.isEmpty())
+    }
+
+    @Test
+    fun `a failed export surfaces the web's message and the next press can succeed`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        createViewModel()
+        awaitLoaded()
+
+        exportStatus = 500
+        viewModel.export()
+        awaitState { it.exportError != null }
+        assertEquals("Could not export transactions.", viewModel.uiState.value.exportError)
+        assertNull(viewModel.uiState.value.exportFile)
+        assertFalse(viewModel.uiState.value.exporting)
+
+        // A 422 speaks the fields message like every screen's mapping.
+        exportStatus = 422
+        viewModel.export()
+        awaitState { it.exportError == "Check the fields and try again." }
+        assertNull(viewModel.uiState.value.exportFile)
+
+        // The error clears on the next press, and a success lands the file.
+        exportStatus = 200
+        viewModel.export()
+        awaitState { it.exportFile != null }
+        assertNull(viewModel.uiState.value.exportError)
+        assertEquals(3, exportCalls().size)
+    }
+
+    @Test
+    fun `a double export press fires one request`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        createViewModel()
+        awaitLoaded()
+
+        // The first request's response is held until both presses have been
+        // delivered, so the second press deterministically lands while the
+        // first export is still in flight.
+        val release = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.path?.endsWith("/transactions/export") == true) {
+                    release.await(5, TimeUnit.SECONDS)
+                }
+                return route(request)
+            }
+        }
+        viewModel.export()
+        viewModel.export()
+        release.countDown()
+        awaitState { it.exportFile != null }
+
+        // One press, one request: the second press could not fire a
+        // concurrent export.
+        assertEquals(1, exportCalls().size)
+        assertFalse(viewModel.uiState.value.exporting)
+    }
+
+    @Test
+    fun `the shared file is consumed once and a later press fetches afresh`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.export()
+        awaitState { it.exportFile != null }
+        val first = viewModel.uiState.value.exportFile ?: error("expected an export file")
+        assertEquals(1, exportCalls().size)
+
+        // The screen shared the file and reports back: it clears, so the
+        // same file can never leave the app twice.
+        viewModel.onExportHandled()
+        assertNull(viewModel.uiState.value.exportFile)
+        assertNull(viewModel.uiState.value.exportError)
+
+        // A later press exports again — a fresh fetch, not the old file.
+        viewModel.export()
+        awaitState { it.exportFile != null && it.exportFile !== first }
+        assertEquals(2, exportCalls().size)
     }
 
     // --- Empty ledger ---
@@ -1993,6 +2175,9 @@ class TransactionsViewModelTest {
             error("unused in the debounce test")
 
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
+            error("unused in the debounce test")
+
+        override suspend fun export(filters: TransactionFilters): ExportFile =
             error("unused in the debounce test")
     }
 }

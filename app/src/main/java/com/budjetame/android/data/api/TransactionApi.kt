@@ -2,6 +2,8 @@ package com.budjetame.android.data.api
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -187,6 +189,25 @@ data class TransactionDeleteResultDto(
  * are omitted by Retrofit.
  */
 interface TransactionApi {
+
+    /**
+     * The whole filtered ledger as the import template's .xlsx (US 7.3,
+     * ticket #28): the export carries exactly the listing's filter set —
+     * never the paging keys — and answers the raw workbook, not JSON, so
+     * Retrofit returns the unparsed response: the file's bytes come from
+     * the body, the dated filename from Content-Disposition. Absent query
+     * params are omitted by Retrofit, like the listing's.
+     */
+    @GET("transactions/export")
+    suspend fun export(
+        @Query("wallet_id") walletId: Int? = null,
+        @Query("category_id") categoryId: Int? = null,
+        @Query("from_date") fromDate: String? = null,
+        @Query("to_date") toDate: String? = null,
+        @Query("recurring_cost_id") recurringCostId: Int? = null,
+        @Query("recurring_income_id") recurringIncomeId: Int? = null,
+        @Query("q") q: String? = null,
+    ): Response<ResponseBody>
 
     @GET("transactions")
     suspend fun list(

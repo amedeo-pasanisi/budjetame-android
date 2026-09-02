@@ -18,6 +18,7 @@ import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Converter
 import retrofit2.HttpException
+import retrofit2.Response
 import retrofit2.Retrofit
 import java.lang.reflect.Type
 import java.util.concurrent.TimeUnit
@@ -64,7 +65,23 @@ fun apiErrorMessage(status: Int?, conflictMessage: String, fallback: String): St
 
 /** Map a Retrofit HttpException to an ApiException with the parsed detail. */
 fun HttpException.toApiException(): ApiException {
-    val detail = parseDetail(this)
+    val response = response()
+    val detail = parseDetail(response?.errorBody())
+    return ApiException(
+        status = code(),
+        detail = detail.message,
+        detailObject = detail.detailObject,
+        message = detail.message ?: "Request failed (${code()})",
+    )
+}
+
+/** Map a non-2xx raw-body response to an ApiException with the parsed
+ * detail. Retrofit throws HttpException only for typed JSON endpoints;
+ * an endpoint whose body is not JSON (the export's .xlsx) returns a
+ * `Response` instead, so the repository maps it here — the same
+ * `detail` parsing and the same message as the HttpException mapping. */
+fun Response<*>.toApiException(): ApiException {
+    val detail = parseDetail(errorBody())
     return ApiException(
         status = code(),
         detail = detail.message,
@@ -76,10 +93,10 @@ fun HttpException.toApiException(): ApiException {
 /** One parsed `detail`: its message and the raw object, from one body read. */
 private data class ParsedDetail(val message: String?, val detailObject: JsonObject?)
 
-private fun parseDetail(exception: HttpException): ParsedDetail {
-    val body = exception.response()?.errorBody()?.string() ?: return ParsedDetail(null, null)
+private fun parseDetail(body: ResponseBody?): ParsedDetail {
+    val content = body?.string() ?: return ParsedDetail(null, null)
     return try {
-        val detail = Json.parseToJsonElement(body).jsonObject["detail"] ?: return ParsedDetail(null, null)
+        val detail = Json.parseToJsonElement(content).jsonObject["detail"] ?: return ParsedDetail(null, null)
         when (detail) {
             is JsonPrimitive -> if (detail.isString) ParsedDetail(detail.content, null) else ParsedDetail(null, null)
             is JsonObject -> ParsedDetail(detailMessage(detail), detail)
