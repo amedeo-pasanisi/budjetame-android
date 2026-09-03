@@ -126,7 +126,7 @@ fun ImportScreen(
             )
             OutlinedButton(
                 onClick = if (draft.phase == ImportPhase.DONE) viewModel::done else viewModel::cancel,
-            ) {
+            shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(if (draft.phase == ImportPhase.DONE) "Back" else "Cancel")
             }
         }
@@ -269,7 +269,7 @@ private fun PickPhase(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp),
-        ) {
+        shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text("Choose file")
         }
         draft.fileName?.let { name ->
@@ -294,7 +294,7 @@ private fun PickPhase(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp),
-        ) {
+        shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(if (draft.busy) "Reading file…" else "Read and validate")
         }
     }
@@ -332,7 +332,7 @@ private fun PreviewPhase(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
         ) {
-            OutlinedButton(onClick = onPickAgain, enabled = !draft.busy) {
+            OutlinedButton(onClick = onPickAgain, enabled = !draft.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text("Pick another file")
             }
         }
@@ -538,7 +538,7 @@ private fun ConfirmBar(
                 onClick = onConfirm,
                 enabled = confirmable > 0 && !busy,
                 modifier = Modifier.padding(start = 12.dp),
-            ) {
+            shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(importButtonText(confirmable, busy))
             }
         }

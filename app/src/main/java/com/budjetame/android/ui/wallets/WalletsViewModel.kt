@@ -8,12 +8,12 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.wallet.WalletGateway
+import java.math.BigDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
 
 /**
  * The create/edit/freeze Wallet modal's draft (null = modal closed). Shared

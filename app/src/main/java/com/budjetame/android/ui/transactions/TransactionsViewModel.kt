@@ -27,6 +27,7 @@ import com.budjetame.android.data.transaction.latLngFromWire
 import com.budjetame.android.data.transaction.placeFromWire
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
+import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.wallets.WalletModalState
 import com.budjetame.android.ui.wallets.normalizeOpeningBalance
 import com.budjetame.android.util.Dates
@@ -84,6 +85,12 @@ class TransactionsViewModel(
      * dialog, and reports the answer back through
      * `onLocationPermissionResult`. */
     private val location: DeviceLocation,
+    /** The pending ledger jump this ViewModel was born with (ADR-0004): a
+     * Wallet or Category row asked for this ledger pre-filtered to it and
+     * the page had never been visited, so the ViewModel is created with the
+     * jump already applied — its very first fetch carries the filter and
+     * the ledger never flashes unfiltered. Null on a plain first visit. */
+    seed: LedgerJump? = null,
 ) : ViewModel() {
 
     data class UiState(
@@ -289,6 +296,13 @@ class TransactionsViewModel(
     private var pendingLocationPermission: CompletableDeferred<Boolean>? = null
 
     init {
+        // A seed jump (ADR-0004) is applied as initial state, never through
+        // applyLedgerJump's reload: the collector below fires the first
+        // fetch, and it must already carry the jump — one fetch, already
+        // filtered, no unfiltered flash.
+        seed?.let { jump ->
+            _uiState.update { state -> ledgerJumpFilters(state, jump) }
+        }
         // ADR-0002: the transport bumps the data version after every write,
         // and this screen refetches in the background. The first emission
         // (the current version) is the initial load.
@@ -300,6 +314,52 @@ class TransactionsViewModel(
     fun toggleFilters() {
         _uiState.update { it.copy(filtersOpen = !it.filtersOpen) }
     }
+
+    // --- Ledger jump (ADR-0004, ticket #44) ---
+
+    /**
+     * Apply a ledger jump to an already-alive ledger (ADR-0004): the jump
+     * REPLACES the whole filter state — wallet, category, from/to dates,
+     * and the recurring filter all reset — clears the search (input and
+     * debounced needle together, so no late debounce can resurrect it),
+     * closes the Filters panel, and refetches the first page once with the
+     * new state. A state that already matches the jump (a seeded first
+     * visit whose own fetch is already filtered — the screen still calls
+     * this once to consume the request) never refetches.
+     */
+    fun applyLedgerJump(jump: LedgerJump) {
+        val current = _uiState.value
+        val walletId = (jump as? LedgerJump.Wallet)?.walletId
+        val categoryId = (jump as? LedgerJump.Category)?.categoryId
+        if (current.filterWalletId == walletId &&
+            current.filterCategoryId == categoryId &&
+            current.filterFromDate == null &&
+            current.filterToDate == null &&
+            current.filterRecurring == null &&
+            current.search.isEmpty() &&
+            current.searchNeedle.isEmpty() &&
+            !current.filtersOpen
+        ) {
+            return
+        }
+        searchDebounceJob?.cancel()
+        _uiState.update { state -> ledgerJumpFilters(state, jump) }
+        reload()
+    }
+
+    /** The jump's reset of the whole filter state (ADR-0004): exactly the
+     * jump's own Wallet or Category filter, no dates, no recurring pick,
+     * no search, panel closed. */
+    private fun ledgerJumpFilters(state: UiState, jump: LedgerJump): UiState = state.copy(
+        filterWalletId = (jump as? LedgerJump.Wallet)?.walletId,
+        filterCategoryId = (jump as? LedgerJump.Category)?.categoryId,
+        filterFromDate = null,
+        filterToDate = null,
+        filterRecurring = null,
+        search = "",
+        searchNeedle = "",
+        filtersOpen = false,
+    )
 
     fun onFilterWalletChange(walletId: Int?) {
         if (_uiState.value.filterWalletId == walletId) return

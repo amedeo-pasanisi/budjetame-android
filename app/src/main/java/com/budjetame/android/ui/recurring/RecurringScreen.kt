@@ -2,10 +2,12 @@ package com.budjetame.android.ui.recurring
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -81,11 +83,11 @@ private fun SideButton(
     modifier: Modifier = Modifier,
 ) {
     if (selected) {
-        Button(onClick = onClick, modifier = modifier) {
+        Button(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(label, fontWeight = FontWeight.Medium)
         }
     } else {
-        OutlinedButton(onClick = onClick, modifier = modifier) {
+        OutlinedButton(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(label, fontWeight = FontWeight.Medium)
         }
     }

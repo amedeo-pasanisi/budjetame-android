@@ -47,9 +47,13 @@ import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.util.Dates
-import kotlinx.coroutines.cancel
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -71,9 +75,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 private const val EXPORT_CONTENT_TYPE =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -190,7 +191,7 @@ class TransactionsViewModelTest {
         server.shutdown()
     }
 
-    private fun createViewModel(searchDebounceMillis: Long = 0) {
+    private fun createViewModel(searchDebounceMillis: Long = 0, seed: LedgerJump? = null) {
         val client = ApiClient(server.url("/api/").toString()) { null }
         val transactions = ApiTransactionRepository(client.create(TransactionApi::class.java))
         val wallets = ApiWalletRepository(client.create(WalletApi::class.java))
@@ -205,6 +206,7 @@ class TransactionsViewModelTest {
             recurringIncomes = recurringIncomes,
             searchDebounceMillis = searchDebounceMillis,
             location = location,
+            seed = seed,
         )
     }
 
@@ -605,6 +607,109 @@ class TransactionsViewModelTest {
     private fun seedRecurringIncomes(vararg incomes: RecurringIncomeDto) {
         recurringIncomeStore.addAll(incomes)
     }
+
+    // --- Ledger jump (ADR-0004, ticket #44) ---
+
+    /** The ledger listing GETs so far — each reload is exactly one. */
+    private fun ledgerFetchCount(): Int =
+        calls.count { it.method == "GET" && it.path == "/api/transactions" }
+
+    /** Wait until [count] ledger GETs have happened (the fetches run on
+     * OkHttp's own threads, outside the test dispatcher). */
+    private fun awaitLedgerFetches(count: Int) {
+        runBlocking {
+            withTimeout(5_000) {
+                while (ledgerFetchCount() < count) delay(10)
+            }
+        }
+    }
+
+    @Test
+    fun `a seed wallet jump loads the first page already filtered in one fetch`() {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "0.00"),
+            wallet(5, "Marco", WalletType.CONTACT, "0.00"),
+        )
+        transactionStore += transaction(1, TransactionType.EXPENSE, "1.00", "2026-08-01", walletId = 1)
+        transactionStore += transaction(2, TransactionType.EXPENSE, "2.00", "2026-08-02", walletId = 5)
+
+        createViewModel(seed = LedgerJump.Wallet(5))
+        awaitLedgerFetches(1)
+        runBlocking { withTimeout(5_000) { viewModel.uiState.first { !it.loading } } }
+
+        // One fetch, already filtered: the first-ever visit via a jump never
+        // flashes the unfiltered ledger and never fetches twice.
+        assertEquals(1, ledgerFetchCount())
+        val ledger = calls.filter { it.method == "GET" && it.path == "/api/transactions" }.single()
+        assertEquals("5", ledger.query["wallet_id"])
+        assertNull(ledger.query["category_id"])
+        assertNull(ledger.query["q"])
+        assertEquals(listOf(2), viewModel.uiState.value.transactions.map { it.id })
+        assertEquals(5, viewModel.uiState.value.filterWalletId)
+        assertFalse(viewModel.uiState.value.filtersOpen)
+    }
+
+    @Test
+    fun `applying the jump the state already carries never refetches`() {
+        seedCategories(category(3, "Food", CategoryType.EXPENSE))
+
+        createViewModel(seed = LedgerJump.Category(3))
+        awaitLedgerFetches(1)
+        runBlocking { withTimeout(5_000) { viewModel.uiState.first { !it.loading } } }
+        assertEquals(1, ledgerFetchCount())
+
+        // The screen still applies-and-consumes once on a seeded visit: the
+        // state already matches, so the call is a no-op — no second fetch.
+        viewModel.applyLedgerJump(LedgerJump.Category(3))
+        assertEquals(1, ledgerFetchCount())
+        assertEquals(3, viewModel.uiState.value.filterCategoryId)
+        assertTrue(viewModel.uiState.value.search.isEmpty())
+    }
+
+    @Test
+    fun `an applied jump replaces every filter clears the search and closes the panel in one refetch`() {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "0.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedCategories(category(3, "Food", CategoryType.EXPENSE))
+        transactionStore += transaction(1, TransactionType.EXPENSE, "1.00", "2026-08-01", walletId = 1)
+        transactionStore += transaction(2, TransactionType.EXPENSE, "2.00", "2026-08-02", walletId = 1, categoryId = 3)
+
+        createViewModel()
+        awaitLedgerFetches(1)
+        viewModel.onFilterWalletChange(1)
+        awaitLedgerFetches(2)
+        viewModel.onSearchChange("food")
+        awaitLedgerFetches(3)
+        viewModel.toggleFilters()
+        viewModel.onFilterFromDateChange("2026-08-01")
+        awaitLedgerFetches(4)
+
+        viewModel.applyLedgerJump(LedgerJump.Category(3))
+        awaitLedgerFetches(5)
+        runBlocking {
+            withTimeout(5_000) {
+                viewModel.uiState.first { it.transactions.map { t -> t.id } == listOf(2) }
+            }
+        }
+
+        val state = viewModel.uiState.value
+        assertNull(state.filterWalletId)
+        assertEquals(3, state.filterCategoryId)
+        assertNull(state.filterFromDate)
+        assertNull(state.filterToDate)
+        assertNull(state.filterRecurring)
+        assertTrue(state.search.isEmpty())
+        assertTrue(state.searchNeedle.isEmpty())
+        assertFalse(state.filtersOpen)
+        val ledger = calls.filter { it.method == "GET" && it.path == "/api/transactions" }.last()
+        assertEquals("3", ledger.query["category_id"])
+        assertNull(ledger.query["wallet_id"])
+        assertNull(ledger.query["q"])
+        assertEquals(listOf(2), state.transactions.map { it.id })
+    }
+
 
     private fun transaction(
         id: Int,

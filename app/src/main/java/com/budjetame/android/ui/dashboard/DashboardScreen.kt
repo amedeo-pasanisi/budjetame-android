@@ -157,7 +157,7 @@ fun DashboardScreen(dashboard: DashboardGateway) {
 private fun DashboardHeader() {
     Text(
         text = "Dashboard",
-        style = MaterialTheme.typography.titleLarge,
+        style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -186,14 +186,15 @@ private fun DashboardContent(
     }
 }
 
-/** The shared card chrome, mirroring the web app's white rounded cards. */
+/** The shared card chrome, mirroring the web app's white rounded cards —
+ * no gray outline, the soft shadow alone separates the card from the page
+ * (ticket #44). */
 @Composable
 private fun DashboardCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        tonalElevation = 1.dp,
+        shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(

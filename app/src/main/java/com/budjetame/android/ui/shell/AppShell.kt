@@ -1,8 +1,10 @@
 package com.budjetame.android.ui.shell
 
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Category
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,8 +60,11 @@ import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoriesScreen
+import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
+import com.budjetame.android.ui.theme.Slate500
+import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
 import com.budjetame.android.ui.wallets.WalletsScreen
 import kotlinx.coroutines.launch
@@ -93,6 +100,17 @@ fun AppShell(
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
+    // The pending ledger jump (ADR-0004, ticket #44): a Wallet or Category
+    // row asked for the Transactions ledger pre-filtered to it, and the
+    // request waits here until the Transactions screen applies it and calls
+    // back. Shell state, not screen state: the request can arrive while the
+    // Transactions page is disposed (only the current page stays composed,
+    // ADR-0003) or before it was ever visited, and it must not be lost
+    // while the screen is showing an Import Draft. A newer request replaces
+    // an unconsumed one.
+    var pendingLedgerJump by remember { mutableStateOf<LedgerJump?>(null) }
+    val scope = rememberCoroutineScope()
+
     // The five tabs in one finger-following pager (ADR-0003): the content
     // drags with the finger, a release snaps to the nearest tab, a fling
     // crosses one tab, and the bottom bar's taps animate to the page. The
@@ -106,6 +124,22 @@ fun AppShell(
     // the back-stack entries' saved-state keep-alive.
     val pagerState = rememberPagerState(pageCount = { TABS.size })
     val tabState = rememberSaveableStateHolder()
+
+    // Send a ledger jump (ADR-0004): hold the request pending and glide to
+    // the Transactions page — the screen applies it on first mount (as
+    // initial state) or, when already alive, through the apply-and-consume
+    // effect. The glide is the bottom-tab tap's own 250 ms tween
+    // (ADR-0003). A newer request replaces an unconsumed one.
+    val requestLedgerJump: (LedgerJump) -> Unit = { jump ->
+        pendingLedgerJump = jump
+        scope.launch {
+            pagerState.animateScrollToPage(
+                page = Tab.Transactions.ordinal,
+                animationSpec = tween(durationMillis = 250),
+            )
+        }
+    }
+
 
     Scaffold(
         topBar = {
@@ -131,7 +165,10 @@ fun AppShell(
             tabState.SaveableStateProvider(key = tab.name) {
                 when (tab) {
                     Tab.Dashboard -> DashboardScreen(dashboardRepository)
-                    Tab.Wallets -> WalletsScreen(walletRepository)
+                    Tab.Wallets -> WalletsScreen(
+                        walletRepository,
+                        onLedgerJump = requestLedgerJump,
+                    )
                     Tab.Transactions -> TransactionsScreen(
                         transactionRepository,
                         importRepository,
@@ -140,8 +177,13 @@ fun AppShell(
                         recurringCostRepository,
                         recurringIncomeRepository,
                         location = location,
+                        pendingLedgerJump = pendingLedgerJump,
+                        onLedgerJumpConsumed = { pendingLedgerJump = null },
                     )
-                    Tab.Categories -> CategoriesScreen(categoryRepository)
+                    Tab.Categories -> CategoriesScreen(
+                        categoryRepository,
+                        onLedgerJump = requestLedgerJump,
+                    )
                     Tab.Recurring -> RecurringScreen(recurringCostRepository, recurringIncomeRepository)
                 }
             }
@@ -186,8 +228,10 @@ private fun AppHeader(
                 )
                 Text(
                     text = email,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // The web header's email line: text-xs text-slate-500
+                    // (ticket #44's exact mapping).
+                    fontSize = 12.sp,
+                    color = Slate500,
                 )
             }
             IconButton(onClick = onOpenSettings) {
@@ -198,7 +242,15 @@ private fun AppHeader(
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
-            OutlinedButton(onClick = onSignOut) {
+            OutlinedButton(
+                onClick = onSignOut,
+                // The web header's bordered button: rounded-lg with a
+                // slate-300 border and slate-600 text (ticket #44).
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate600),
+            ) {
                 Text("Sign out", fontSize = 13.sp)
             }
         }

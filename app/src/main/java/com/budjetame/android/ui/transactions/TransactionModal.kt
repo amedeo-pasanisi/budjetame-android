@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -158,7 +159,7 @@ fun TransactionModal(
             )
         },
         confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.canSubmit) {
+            Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
                         modal.submitting -> "Saving…"
@@ -385,14 +386,14 @@ internal fun TypeSelector(
                 Button(
                     onClick = { onSelect(type) },
                     enabled = enabled,
-                ) {
+                shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                     Text(transactionTypeLabel(type))
                 }
             } else {
                 OutlinedButton(
                     onClick = { onSelect(type) },
                     enabled = enabled,
-                ) {
+                shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                     Text(transactionTypeLabel(type))
                 }
             }
@@ -897,7 +898,7 @@ internal fun LocationButtons(
         OutlinedButton(
             onClick = onOpenPicker,
             modifier = Modifier.testTag("tx-location-open"),
-        ) {
+        shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(
                 text = if (location != null) "Change location" else "Add location",
                 textAlign = TextAlign.Center,
@@ -907,7 +908,7 @@ internal fun LocationButtons(
             onClick = onUseMyLocation,
             enabled = !locating,
             modifier = Modifier.testTag("tx-location-gps"),
-        ) {
+        shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(
                 text = if (locating) "Locating…" else "Use my location",
                 textAlign = TextAlign.Center,
@@ -1100,7 +1101,7 @@ private fun DeleteSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
-    ) {
+    shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
             when {
                 modal.deleting -> "Deleting…"

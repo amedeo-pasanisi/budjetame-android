@@ -1,6 +1,7 @@
 package com.budjetame.android.ui.maps
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -51,7 +52,7 @@ fun MapPickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
-                ) {
+                shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                     Text("Cancel")
                 }
             }

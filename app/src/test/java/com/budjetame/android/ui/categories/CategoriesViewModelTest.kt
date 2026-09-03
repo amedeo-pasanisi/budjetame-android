@@ -9,6 +9,7 @@ import com.budjetame.android.data.api.CategoryMergeRequest
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.CategoryUpdateRequest
 import com.budjetame.android.data.category.ApiCategoryRepository
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -26,7 +27,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * The Categories flow tested at the single seam (the HTTP API): the

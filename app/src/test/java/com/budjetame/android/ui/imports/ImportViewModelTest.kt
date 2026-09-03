@@ -22,10 +22,15 @@ import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.api.WalletCreateRequest
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.imports.ApiImportRepository
 import com.budjetame.android.data.wallet.ApiWalletRepository
-import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.ui.transactions.WalletFieldTarget
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -45,11 +50,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.math.BigDecimal
-import java.math.RoundingMode
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /** The fixed template's canonical columns (in the backend's own order). */
 private val TEMPLATE_COLUMNS = listOf(

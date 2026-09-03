@@ -8,7 +8,9 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -73,13 +75,14 @@ class TabPagerTest {
 
     private fun launchShell(
         walletRepository: WalletGateway = EmptyWalletGateway(),
+        categoryRepository: CategoryGateway = EmptyCategoryGateway(),
         transactionRepository: TransactionGateway = EmptyTransactionGateway(),
     ) {
         composeRule.setContent {
             AppShell(
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
                 walletRepository = walletRepository,
-                categoryRepository = EmptyCategoryGateway(),
+                categoryRepository = categoryRepository,
                 dashboardRepository = EmptyDashboardGateway(),
                 transactionRepository = transactionRepository,
                 importRepository = EmptyImportGateway(),
@@ -200,6 +203,141 @@ class TabPagerTest {
     }
 
     @Test
+    fun `a wallet row tap glides to the ledger already filtered to that wallet in one fetch`() {
+        // The ledger jump (ADR-0004, ticket #44): the Wallets page's row
+        // surface opens the Transactions page pre-filtered to that Wallet.
+        // The Transactions page has never been visited, so the jump seeds
+        // its very first fetch — one fetch, already filtered, chips line
+        // showing the wallet.
+        val wallets = NamedWalletGateway(WalletDto(1, "Portafoglio", WalletType.CASH, "0.00", false, "2026-08-01T10:00:00Z"))
+        val transactions = LedgerTransactionGateway(rows = 10)
+        launchShell(walletRepository = wallets, transactionRepository = transactions)
+        waitForDashboard()
+
+        flingLeft()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Portafoglio").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // The whole-row tap surface fires the jump: no edit modal, the
+        // ledger page glides in with the wallet filter applied.
+        composeRule.onNodeWithText("Portafoglio").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Remove Portafoglio filter")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Row 01").fetchSemanticsNodes().isNotEmpty()
+        }
+        bottomTab("Transactions").assertIsSelected()
+        assertEquals(1, transactions.fetchCount)
+        assertEquals(1, transactions.seenFilters.single().walletId)
+        assertTrue(composeRule.onAllNodesWithText("Save").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `a row's edit button opens the edit modal without navigating`() {
+        // The trailing ✎ is the row's edit entry point (web issue #93,
+        // ADR-0004): it opens the rename/freeze modal in place — the old
+        // whole-row-tap-to-edit semantics moved here, the tap itself jumps.
+        val wallets = NamedWalletGateway(WalletDto(1, "Portafoglio", WalletType.CASH, "0.00", false, "2026-08-01T10:00:00Z"))
+        launchShell(walletRepository = wallets)
+        waitForDashboard()
+
+        flingLeft()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Edit Portafoglio")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Edit Portafoglio").performClick()
+
+        // The edit modal is up (its Save button) and the page never moved:
+        // the Wallets tab is still selected and no ledger jump happened.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Save").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Save").assertIsDisplayed()
+        bottomTab("Wallets").assertIsSelected()
+        assertTrue(
+            composeRule.onAllNodesWithContentDescription("Remove Portafoglio filter")
+                .fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun `a category row tap opens the ledger filtered to that category`() {
+        // The Categories row's mirror of the wallet jump (web issue #94,
+        // ADR-0004): one fetch, already filtered by category, with the
+        // chips line naming the Category.
+        val categories = NamedCategoryGateway(
+            CategoryDto(1, "Food", CategoryType.EXPENSE, null, "#ef4444", "2026-08-01T10:00:00Z"),
+        )
+        val transactions = LedgerTransactionGateway(rows = 10, categoryId = 1)
+        launchShell(categoryRepository = categories, transactionRepository = transactions)
+        waitForDashboard()
+
+        flingLeft()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("No wallets yet. Add your first one to start tracking.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        flingLeft()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Food").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Food").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Remove Food filter")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Row 01").fetchSemanticsNodes().isNotEmpty()
+        }
+        bottomTab("Transactions").assertIsSelected()
+        assertEquals(1, transactions.fetchCount)
+        assertEquals(1, transactions.seenFilters.single().categoryId)
+    }
+
+    @Test
+    fun `a frozen wallet row still jumps and lands on the read-only banner with unfreeze and edit beside it`() {
+        // Frozen rows keep the same anatomy (web issue #93): the tap
+        // surface jumps to the read-only ledger, and Unfreeze + ✎ are its
+        // sibling actions.
+        val wallets = NamedWalletGateway(
+            WalletDto(1, "Portafoglio", WalletType.CASH, "0.00", false, "2026-08-01T10:00:00Z"),
+            WalletDto(2, "Old Card", WalletType.CREDIT_CARD, "0.00", true, "2026-08-01T10:00:00Z"),
+        )
+        val transactions = LedgerTransactionGateway(rows = 5)
+        launchShell(walletRepository = wallets, transactionRepository = transactions)
+        waitForDashboard()
+
+        flingLeft()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Frozen wallets (1)").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Frozen wallets (1)").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Edit Old Card").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // The frozen row's tap still jumps; the ledger lands with the
+        // wallet filter and the read-only banner.
+        composeRule.onNodeWithText("Old Card").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText(
+                "This wallet is frozen — its history is viewable but read-only.",
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Remove Old Card filter")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(1, transactions.fetchCount)
+        assertEquals(2, transactions.seenFilters.single().walletId)
+    }
+
+    @Test
     fun `revisiting a tab shows its held rows and scroll position without refetching`() {
         val transactions = LedgerTransactionGateway(rows = 30)
         launchShell(
@@ -285,22 +423,30 @@ class TabPagerTest {
             BudgetDto(month = "2026-08", monthly_spendable = "0.00", daily_allowance = "0.00", spendable_today = "0.00")
     }
 
-    /** The ledger over a seeded list of `Row 01`…`Row NN` expenses on the
-     * Cash wallet, counting every page fetch — one fetch per ViewModel
-     * lifetime is the state-retention proof. */
-    private class LedgerTransactionGateway(rows: Int) : TransactionGateway {
+    /** The ledger over a seeded list of `Row 01`…`Row NN` expenses,
+     * counting every page fetch and recording the filters every fetch
+     * carried — one fetch per ViewModel lifetime is the state-retention
+     * proof, and the recorded filters pin the ledger jump's seed
+     * (ADR-0004). */
+    private class LedgerTransactionGateway(
+        rows: Int,
+        walletId: Int = 1,
+        categoryId: Int? = null,
+    ) : TransactionGateway {
         val rows: List<TransactionDto> = (1..rows).map { index ->
             TransactionDto(
                 id = index,
                 type = TransactionType.EXPENSE,
                 amount = "1.00",
                 date = "2026-08-01",
-                wallet_id = 1,
+                wallet_id = walletId,
+                category_id = categoryId,
                 description = "Row ${index.toString().padStart(2, '0')}",
                 created_at = "2026-08-01T10:00:00Z",
             )
         }
         var fetchCount = 0
+        val seenFilters = mutableListOf<TransactionFilters>()
 
         override suspend fun fetchPage(
             filters: TransactionFilters,
@@ -308,6 +454,7 @@ class TabPagerTest {
             limit: Int,
         ): TransactionPageDto {
             fetchCount++
+            seenFilters += filters
             return TransactionPageDto(items = rows, next_cursor = null)
         }
 
@@ -318,6 +465,37 @@ class TabPagerTest {
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
             error("unused")
         override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
+    }
+
+    /** A Wallet list served verbatim, with the unfreeze write flipping the
+     * row's frozen flag — the frozen-row anatomy test's gateway. */
+    private class NamedWalletGateway(vararg wallets: WalletDto) : WalletGateway {
+        val wallets: MutableList<WalletDto> = wallets.toMutableList()
+
+        override suspend fun fetchWallets(): List<WalletDto> = wallets
+        override suspend fun createWallet(name: String, type: WalletType, openingBalance: String): WalletDto =
+            error("unused")
+        override suspend fun renameWallet(id: Int, name: String): WalletDto = error("unused")
+        override suspend fun freezeWallet(id: Int) = error("unused")
+        override suspend fun unfreezeWallet(id: Int): WalletDto {
+            val index = wallets.indexOfFirst { it.id == id }
+            val unfrozen = wallets[index].copy(frozen = false)
+            wallets[index] = unfrozen
+            return unfrozen
+        }
+    }
+
+    /** A Category list served verbatim. */
+    private class NamedCategoryGateway(vararg initial: CategoryDto) : CategoryGateway {
+        private val categories = initial.toList()
+
+        override suspend fun fetchCategories(): List<CategoryDto> = categories
+        override suspend fun createCategory(name: String, type: CategoryType, icon: String, color: String): CategoryDto =
+            error("unused")
+        override suspend fun updateCategory(id: Int, name: String, icon: String, color: String): CategoryDto =
+            error("unused")
+        override suspend fun mergeCategory(id: Int, targetId: Int): CategoryDto = error("unused")
+        override suspend fun deleteCategory(id: Int) = error("unused")
     }
 
     private class EmptyTransactionGateway : TransactionGateway {

@@ -1,8 +1,8 @@
 package com.budjetame.android.ui.imports
 
 import com.budjetame.android.data.api.ImportRowDto
-import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.ImportRowInput
+import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

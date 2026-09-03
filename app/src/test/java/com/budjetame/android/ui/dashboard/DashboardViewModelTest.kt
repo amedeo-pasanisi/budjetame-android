@@ -11,6 +11,11 @@ import com.budjetame.android.data.api.MonthBucketDto
 import com.budjetame.android.data.api.TrendDto
 import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
+import java.time.YearMonth
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -29,11 +34,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.time.YearMonth
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * The Dashboard flow tested at the single seam (the HTTP API): the ViewModel

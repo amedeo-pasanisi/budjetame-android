@@ -1,25 +1,33 @@
 package com.budjetame.android.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 // The web app's palette (Tailwind indigo / slate / white scale), mirrored
 // so the Android app reads like the same product. Every Material 3 role is
 // set explicitly — the M3 baseline colors (pink secondaryContainer, purple
 // surfaceTint, lavender outlineVariant, …) must never leak onto surfaces.
-// No dynamic color: the brand is the brand.
-private val Indigo600 = Color(0xFF4F46E5) // web bg-indigo-600 (primary, active pills)
+// No dynamic color: the brand is the brand. The shade vals are internal so
+// the screens can pin a text to the exact web gray its class names carry
+// (a row subtitle is text-slate-500, a section caption text-slate-700, an
+// edit icon text-slate-400) instead of stretching the M3 roles.
+internal val Indigo600 = Color(0xFF4F46E5) // web bg-indigo-600 (primary, active pills)
 private val Indigo100 = Color(0xFFE0E7FF) // web bg-indigo-100 (primary container)
 private val Indigo900 = Color(0xFF312E81) // web text-indigo-900 (on primary container)
+internal val Slate400 = Color(0xFF94A3B8) // web text-slate-400 (muted icons)
+internal val Slate500 = Color(0xFF64748B) // web text-slate-500 (row subtitles)
+internal val Slate600 = Color(0xFF475569) // web text-slate-600 (secondary text)
+internal val Slate700 = Color(0xFF334155) // web text-slate-700 (section captions)
+internal val Slate900 = Color(0xFF0F172A) // web text-slate-900 (content)
 private val Slate50 = Color(0xFFF8FAFC) // web bg-slate-50 (page background)
 private val Slate200 = Color(0xFFE2E8F0) // web border-slate-200 (dividers, outlines)
 private val Slate300 = Color(0xFFCBD5E1) // web border-slate-300 (outlines)
-private val Slate500 = Color(0xFF64748B) // web text-slate-500 (secondary)
-private val Slate600 = Color(0xFF475569) // web text-slate-600 (secondary text)
-private val Slate900 = Color(0xFF0F172A) // web text-slate-900 (content)
-private val Red600 = Color(0xFFDC2626) // web text-red-600 (error)
+internal val Red600 = Color(0xFFDC2626) // web text-red-600 (error)
 private val Red100 = Color(0xFFFEE2E2) // web bg-red-100 (error container)
 private val Red800 = Color(0xFF991B1B) // web text-red-800 (on error container)
 
@@ -70,10 +78,22 @@ private val LightColors = lightColorScheme(
     scrim = Color.Black,
 )
 
+// The web's corner vocabulary mapped onto the M3 shape roles: every text
+// field is rounded-lg (8 dp) — the M3 OutlinedTextField resolves its
+// container shape from the extraSmall role, the menus from extraSmall too —
+// while cards (large), chips and menus keep their own shapes. Buttons
+// carry their 8 dp shape explicitly per call site: the M3 full role (the
+// pill) must stay for the bottom bar's indicator.
+private val WebShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(8.dp),
+)
+
 @Composable
 fun BudjetameTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = LightColors,
+        shapes = WebShapes,
         content = content,
     )
 }

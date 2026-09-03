@@ -10,6 +10,9 @@ import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.RecurringIncomeUpdateRequest
 import com.budjetame.android.data.api.SkipAction
 import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -27,9 +30,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * The Recurring Incomes flow tested at the single seam (the HTTP API), the

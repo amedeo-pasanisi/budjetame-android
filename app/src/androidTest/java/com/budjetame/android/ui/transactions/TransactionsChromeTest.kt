@@ -18,6 +18,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
@@ -221,7 +223,7 @@ class TransactionsChromeTest {
         )
         assertTrue(
             "the title should keep its natural width, was ${titleBounds.width}",
-            titleBounds.width > 140.dp,
+            titleBounds.width > 100.dp,
         )
         // Every action is displayed whole — a FlowRow wraps an action to a
         // second line rather than clipping or breaking its label.
@@ -403,6 +405,37 @@ class TransactionsChromeTest {
     /** The ledger: two rows on the seeded Wallets, unfiltered by the fakes
      * (the chrome tests exercise the screen, not the server-side filter
      * matching). */
+    @Test
+    fun `the toolbar stays pinned above the records while the list scrolls`() {
+        // ADR-0005 (ticket #44): the search row and the Filters toggle are
+        // fixed chrome under the header; only the records scroll. Deep in
+        // the ledger the toolbar must still be on screen.
+        transactions.rows = (1..40).map { index ->
+            TransactionDto(
+                id = index,
+                type = TransactionType.EXPENSE,
+                amount = "1.00",
+                date = "2026-08-01",
+                wallet_id = 1,
+                description = "Scrolled row ${index.toString().padStart(2, '0')}",
+                created_at = "2026-08-01T10:00:00Z",
+            )
+        }
+        launchScreen()
+        waitForLedger()
+
+        repeat(8) {
+            composeRule.onNodeWithTag("tx-list").performTouchInput { swipeUp() }
+        }
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Scrolled row 40").fetchSemanticsNodes().isNotEmpty()
+        }
+        // The first record left the composition; the toolbar did not.
+        assertTrue(composeRule.onAllNodesWithText("Scrolled row 01").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("tx-search").assertIsDisplayed()
+        composeRule.onNodeWithText("Filters ▸").assertIsDisplayed()
+    }
+
     private class FakeTransactionGateway : TransactionGateway {
         var rows: List<TransactionDto> = defaultRows
 

@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -60,6 +61,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -77,10 +79,15 @@ import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
+import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.imports.ImportScreen
 import com.budjetame.android.ui.imports.ImportViewModel
+import com.budjetame.android.ui.theme.Slate400
+import com.budjetame.android.ui.theme.Slate500
+import com.budjetame.android.ui.theme.Slate600
+import com.budjetame.android.ui.theme.Slate700
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Dates
 import java.io.File
@@ -107,8 +114,9 @@ private val AMBER_700 = Color(0xFFB45309)
  * survives tab switches (ADR-0002/0003). The chrome mirrors the web
  * app's v1.2.0 screen (web issue #92, ticket #35): the header row carries
  * only the title, Import, and New transaction — Export left it entirely;
- * the search field row is the toolbar with the Filters toggle at its right;
- * a filtered chips line (visible while a panel filter is set) and the
+ * the search field row is the toolbar with the Filters toggle at its
+ * right, pinned under the header (ADR-0005); a filtered chips line
+ * (visible while a panel filter is set) and the
  * filter panel's footer are the web's two Export to Excel entry points
  * (ticket #28's flow unchanged underneath: the whole filtered ledger +
  * search as the import template's .xlsx, handed to the system share sheet).
@@ -125,6 +133,13 @@ fun TransactionsScreen(
     /** The device GPS (ticket #29): backs the Transaction form's "Use my
      * location" pick, its prefill, and the first-save attach. */
     location: DeviceLocation,
+    /** The pending ledger jump (ADR-0004): a Wallet or Category row asked
+     * the shell to open this ledger pre-filtered to that entity. Null while
+     * no jump is pending. */
+    pendingLedgerJump: LedgerJump? = null,
+    /** The consume side of the jump: call once the pending request has been
+     * applied, so the shell clears it and no later render can reapply it. */
+    onLedgerJumpConsumed: () -> Unit = {},
 ) {
     val viewModel: TransactionsViewModel = viewModel {
         TransactionsViewModel(
@@ -134,9 +149,31 @@ fun TransactionsScreen(
             recurringCosts,
             recurringIncomes,
             location = location,
+            // A jump that arrives before this page was ever visited seeds
+            // the ViewModel's initial state: its very first fetch already
+            // carries the filter — never an unfiltered flash (ADR-0004).
+            seed = pendingLedgerJump,
         )
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The ledger jump's while-alive side (ADR-0004): a pending request is
+    // applied to the already-existing ViewModel (its filters replaced, its
+    // search cleared, its panel closed — one refetch) and then consumed
+    // exactly once. First mounts need none of this — the factory seed above
+    // already applied the request — but still consume it: applyLedgerJump
+    // is a no-op on a state that already matches, so a seeded visit never
+    // refetches. Consuming in the same tick the request arrives is what
+    // makes it safe: the shell's pending is null on every later render, so
+    // a stale request can never reapply. An open Import Draft changes
+    // nothing — the jump applies underneath the Import screen, and the user
+    // exits the draft to find the ledger already filtered.
+    LaunchedEffect(pendingLedgerJump) {
+        if (pendingLedgerJump != null) {
+            viewModel.applyLedgerJump(pendingLedgerJump)
+            onLedgerJumpConsumed()
+        }
+    }
 
     // The location-permission prompt (ticket #29): the ViewModel raises the
     // modal's requestingLocationPermission flag when a GPS flow needs the
@@ -232,16 +269,29 @@ fun TransactionsScreen(
         ) {
             Text(
                 text = "Transactions",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            TextButton(onClick = importViewModel::open) {
-                Text("Import")
-            }
+            // The web's Import is a plain text link (text-sm font-medium
+            // text-slate-600), not a tinted button: a tappable label with
+            // no internal side padding, so its text sits ~12 dp from the
+            // New transaction button like the web's gap-3 (ticket #44).
+            Text(
+                text = "Import",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = Slate600,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = importViewModel::open)
+                    .padding(vertical = 10.dp),
+            )
             Button(
                 onClick = viewModel::openCreate,
                 enabled = !state.loading && state.loadError == null,
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp),
             ) {
                 Text("New transaction")
             }
@@ -355,82 +405,106 @@ private fun Ledger(
     viewModel: TransactionsViewModel,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        // The toolbar row (web issue #92, ticket #35): the search field
+    Column(modifier = modifier.fillMaxWidth()) {
+        // The pinned toolbar row (ADR-0005, ticket #44): the search field
         // takes the width and the Filters ▸/▾ toggle sits at its right —
-        // the old "All transactions" label row is gone. A truly empty
-        // ledger hides the whole row (web behavior; the search alone was
-        // hidden before): there is nothing to search or filter.
+        // fixed chrome under the header like the Categories tab's pinned
+        // search bar; only the records scroll. A truly empty ledger hides
+        // the whole row (web behavior; the search alone was hidden
+        // before): there is nothing to search or filter.
         if (!state.ledgerEmpty) {
-            item(key = "toolbar") {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp),
+            ) {
+                SearchField(
+                    value = state.search,
+                    onValueChange = viewModel::onSearchChange,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(
+                    onClick = viewModel::toggleFilters,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
-                    SearchField(
-                        value = state.search,
-                        onValueChange = viewModel::onSearchChange,
-                        modifier = Modifier.weight(1f),
-                    )
-                    OutlinedButton(onClick = viewModel::toggleFilters) {
-                        Text(if (state.filtersOpen) "Filters ▾" else "Filters ▸")
+                    Text(if (state.filtersOpen) "Filters ▾" else "Filters ▸")
+                }
+            }
+        }
+
+        // The records' own list (ADR-0005): the chips line, the open filter
+        // panel, and the frozen-wallet banner are sticky list-head items
+        // above the records — they stay put while the records scroll
+        // beneath them, and only when the pinned stack cannot fit (an open
+        // panel on a short screen) do they scroll away with the records
+        // instead of clipping. Each sticky item carries the page background
+        // so a record scrolling under it never shows through.
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("tx-list"),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            // The filtered chips line (web issue #92, ticket #35): visible
+            // only while at least one of the five panel filters is set — the
+            // search never appears here.
+            if (state.filtersActive) {
+                stickyHeader(key = "filtered-chips") {
+                    Surface(color = MaterialTheme.colorScheme.background) {
+                        FilterChipsLine(
+                            state = state,
+                            viewModel = viewModel,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                        )
                     }
                 }
             }
-        }
 
-        // The filtered chips line (web issue #92, ticket #35): visible
-        // only while at least one of the five panel filters is set — the
-        // search never appears here.
-        if (state.filtersActive) {
-            item(key = "filtered-chips") {
-                FilterChipsLine(state = state, viewModel = viewModel)
-            }
-        }
-
-        if (state.filtersOpen) {
-            item(key = "filters") {
-                FilterBar(state = state, viewModel = viewModel)
-            }
-        }
-
-        state.selectedWallet?.let { selected ->
-            if (selected.frozen) {
-                item(key = "frozen-banner") {
-                    FrozenBanner(
-                        text = "This wallet is frozen — its history is viewable but read-only.",
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+            if (state.filtersOpen) {
+                stickyHeader(key = "filters") {
+                    Surface(color = MaterialTheme.colorScheme.background) {
+                        FilterBar(state = state, viewModel = viewModel)
+                    }
                 }
             }
-        }
 
-        if (state.transactions.isEmpty()) {
-            item(key = "empty") {
-                MessageBody(text = state.emptyMessage)
+            state.selectedWallet?.let { selected ->
+                if (selected.frozen) {
+                    stickyHeader(key = "frozen-banner") {
+                        Surface(color = MaterialTheme.colorScheme.background) {
+                            FrozenBanner(
+                                text = "This wallet is frozen — its history is viewable but read-only.",
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                            )
+                        }
+                    }
+                }
             }
-        } else {
-            items(state.transactions, key = { it.id }) { transaction ->
-                TransactionRow(
-                    transaction = transaction,
-                    state = state,
-                    onOpenEdit = { viewModel.openEdit(transaction) },
-                )
-            }
-            if (state.nextCursor != null || state.loadMoreError != null) {
-                item(key = "load-more") {
-                    LoadMoreSentinel(
-                        loading = state.loadingMore,
-                        error = state.loadMoreError,
-                        onAppear = viewModel::loadMore,
-                        onRetry = viewModel::retryLoadMore,
+
+            if (state.transactions.isEmpty()) {
+                item(key = "empty") {
+                    MessageBody(text = state.emptyMessage)
+                }
+            } else {
+                items(state.transactions, key = { it.id }) { transaction ->
+                    TransactionRow(
+                        transaction = transaction,
+                        state = state,
+                        onOpenEdit = { viewModel.openEdit(transaction) },
                     )
+                }
+                if (state.nextCursor != null || state.loadMoreError != null) {
+                    item(key = "load-more") {
+                        LoadMoreSentinel(
+                            loading = state.loadingMore,
+                            error = state.loadMoreError,
+                            onAppear = viewModel::loadMore,
+                            onRetry = viewModel::retryLoadMore,
+                        )
+                    }
                 }
             }
         }
@@ -448,10 +522,34 @@ private fun SearchField(
         onValueChange = onValueChange,
         singleLine = true,
         placeholder = { Text("Search transactions…") },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        leadingIcon = {
+            Icon(Icons.Filled.Search, contentDescription = null, tint = Slate500)
+        },
         modifier = modifier
             .fillMaxWidth()
             .testTag("tx-search"),
+    )
+}
+
+/** The web's plain secondary-text action (ticket #44): Export to Excel and
+ * Clear all render as text-xs font-medium text-slate-600 links, never as
+ * tinted buttons — the web's exact link styling on the chips line and in
+ * the panel footer. */
+@Composable
+private fun TextLink(
+    text: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        color = if (enabled) Slate600 else Slate400,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 10.dp),
     )
 }
 
@@ -465,9 +563,7 @@ private fun SearchField(
  */
 @Composable
 private fun ExportToExcelButton(exporting: Boolean, onExport: () -> Unit) {
-    TextButton(onClick = onExport, enabled = !exporting) {
-        Text(if (exporting) "Exporting…" else "Export to Excel")
-    }
+    TextLink(text = if (exporting) "Exporting…" else "Export to Excel", enabled = !exporting, onClick = onExport)
 }
 
 /**
@@ -486,13 +582,12 @@ private fun ExportToExcelButton(exporting: Boolean, onExport: () -> Unit) {
 private fun FilterChipsLine(
     state: TransactionsViewModel.UiState,
     viewModel: TransactionsViewModel,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
+        modifier = modifier.fillMaxWidth(),
     ) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -503,9 +598,7 @@ private fun FilterChipsLine(
                 FilterChip(label = chip.label) { removeFilterChip(viewModel, chip.key) }
             }
         }
-        TextButton(onClick = viewModel::clearFiltersAndSearch) {
-            Text("Clear all")
-        }
+        TextLink(text = "Clear all", onClick = viewModel::clearFiltersAndSearch)
         ExportToExcelButton(exporting = state.exporting, onExport = viewModel::export)
     }
 }
@@ -536,14 +629,14 @@ private fun FilterChip(label: String, onRemove: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                color = Slate700,
                 modifier = Modifier.padding(start = 12.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
             )
             Text(
                 text = "✕",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                color = Slate400,
                 modifier = Modifier
                     .clickable(onClick = onRemove)
                     .semantics { contentDescription = "Remove $label filter" }
@@ -565,10 +658,12 @@ private fun FilterBar(
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        // The web card look: no gray outline — the soft shadow alone
+        // separates the panel from the page (ticket #44).
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(top = 8.dp, bottom = 4.dp),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -616,9 +711,7 @@ private fun FilterBar(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (state.filtersActive) {
-                    TextButton(onClick = viewModel::clearPanelFilters) {
-                        Text("Clear all filters")
-                    }
+                    TextLink(text = "Clear all filters", onClick = viewModel::clearPanelFilters)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 ExportToExcelButton(exporting = state.exporting, onExport = viewModel::export)
@@ -906,8 +999,9 @@ private fun TransactionRow(
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        tonalElevation = 1.dp,
+        // The web card look: no gray outline — the soft shadow alone
+        // separates the card from the page (ticket #44).
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
@@ -921,8 +1015,11 @@ private fun TransactionRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = transactionTitle(transaction, categoryName),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    // The web row type: text-sm font-medium — 14 sp Medium,
+                    // one step down from the old bodyLarge SemiBold (ticket
+                    // #44's exact web mapping).
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -930,15 +1027,17 @@ private fun TransactionRow(
                 val location = if (hasLocation(transaction)) " · 📍" else ""
                 Text(
                     text = "${transaction.date} · ${walletLabel(transaction, state.wallets)}$location",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // The web subtitle type: text-xs text-slate-500 — 12 sp
+                    // Normal in the web's exact gray (ticket #44).
+                    fontSize = 12.sp,
+                    color = Slate500,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             Text(
                 text = signedAmount(transaction),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(start = 8.dp),
@@ -950,15 +1049,17 @@ private fun TransactionRow(
 @Composable
 private fun FrozenBanner(text: String, modifier: Modifier = Modifier) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        // The web's info strip: rounded-lg, bordered white, no shadow — a
+        // banner, not a card (ticket #44's border taxonomy).
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier.fillMaxWidth(),
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            color = Slate500,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
         )
     }
@@ -1003,8 +1104,8 @@ private fun LoadMoreSentinel(
         when {
             loading -> Text(
                 text = "Loading more…",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                color = Slate500,
             )
             error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(

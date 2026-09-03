@@ -1,6 +1,5 @@
 package com.budjetame.android.ui.recurringcosts
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,12 +26,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.theme.Slate500
+import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.util.Money
 
 // The web app's Tailwind palette, ported for the Overdue and Backlog
@@ -112,12 +114,16 @@ private fun RecurringCostsHeader(onNewRecurringCost: () -> Unit) {
     ) {
         Text(
             text = "Recurring Costs",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
-        Button(onClick = onNewRecurringCost) {
+        Button(
+            onClick = onNewRecurringCost,
+            shape = RoundedCornerShape(8.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+        ) {
             Text("New recurring cost")
         }
     }
@@ -177,8 +183,9 @@ private fun SummaryLine(overdueCount: Int, unpaidCount: Int) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        tonalElevation = 1.dp,
+        // The web card look: no gray outline — the soft shadow alone
+        // separates the card from the page (ticket #44).
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp),
@@ -188,8 +195,9 @@ private fun SummaryLine(overdueCount: Int, unpaidCount: Int) {
                 (if (overdueCount == 1) "cost overdue" else "costs overdue") +
                 " · $unpaidCount " +
                 (if (unpaidCount == 1) "unpaid occurrence" else "unpaid occurrences"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // The web summary type: text-sm text-slate-600 (ticket #44).
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate600,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
     }
@@ -224,8 +232,9 @@ private fun RecurringCostRow(
             onClick = onClick,
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 1.dp,
+            // The web card look: no gray outline — the soft shadow alone
+            // separates the card from the page (ticket #44).
+            shadowElevation = 2.dp,
             modifier = Modifier.weight(1f),
         ) {
             Row(
@@ -235,21 +244,23 @@ private fun RecurringCostRow(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = cost.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        // The web row type: font-medium 14 sp (ticket #44).
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         text = "${intervalText(cost.interval_value, cost.interval_unit)} · " +
                             "next due ${cost.next_due_date}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        // The web subtitle type: text-xs text-slate-500 (ticket #44).
+                        fontSize = 12.sp,
+                        color = Slate500,
                     )
                     if (cost.next_unpaid_occurrence_date != cost.next_due_date) {
                         Text(
                             text = "Next unpaid ${cost.next_unpaid_occurrence_date}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            color = Slate500,
                         )
                     }
                     if (cost.overdue) {

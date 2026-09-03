@@ -11,6 +11,12 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Added
+
+- **Wallets & Categories** — a row's whole surface now opens the Transactions ledger already filtered to that Wallet or Category (the web's ledger jump), with the previous filters, search, and open Filters panel reset by the tap and a frozen Wallet landing on its read-only banner; editing moved to a trailing ✎ button on the card, and frozen rows gained one-tap Unfreeze beside it — the row tap itself never edits anymore (#44).
+- **Transactions** — the search bar and Filters toggle are now fixed under the header while only the records scroll; the filtered chips line, the open Filters panel, and the frozen-wallet banner stay put above the list the same way, like the Categories tab's pinned search bar (#44).
+- **Visual parity** — row text across the tabs now matches the web's scale (14sp titles, 12sp gray subtitles, 14sp semibold amounts, 18sp tab headers), buttons and text fields carry the web's rounded corners, white cards everywhere swapped their gray outlines for soft shadows, the "Import" link sits tight against New transaction, and every tab shares the same gaps between its header, search bar, and lists (#44).
+
 ## [v1.0.1] — 2026-09-03
 
 ### Changed

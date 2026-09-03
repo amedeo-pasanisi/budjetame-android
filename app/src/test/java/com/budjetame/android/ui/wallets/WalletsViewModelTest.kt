@@ -8,6 +8,7 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.WalletUpdateRequest
 import com.budjetame.android.data.wallet.ApiWalletRepository
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -25,7 +26,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * The Wallets flow tested at the single seam (the HTTP API): the ViewModel is
