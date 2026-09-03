@@ -11,6 +11,15 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Theme** — every Material 3 color role now maps to the web app's
+  slate/indigo/white palette, so the Material baseline's pinkish tones no
+  longer appear on any surface: the selected tab is a solid indigo pill with
+  white content above a slate-200 divider (the web shell's bottom nav), and
+  modal, date-picker, dropdown, divider and border colors all match the web
+  app's whites, slates and indigo accent.
+
 ## [v1.0.0] — 2026-09-02
 
 First release: the full spec #13 feature set — auth, the 5-tab shell,

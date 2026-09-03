@@ -180,26 +180,30 @@ private fun BottomTabs(navController: NavHostController) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    NavigationBar {
-        TABS.forEach { tab ->
-            NavigationBarItem(
-                selected = currentRoute == tab.route,
-                onClick = {
-                    navController.navigate(tab.route) {
-                        // Keep-alive (ADR-0002): the tab's back-stack entry —
-                        // and its ViewModel — survives while another tab is
-                        // shown, so switching back renders instantly from
-                        // held data.
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+    Column {
+        // The web shell's border-t border-slate-200 above the tab bar.
+        HorizontalDivider()
+        NavigationBar {
+            TABS.forEach { tab ->
+                NavigationBarItem(
+                    selected = currentRoute == tab.route,
+                    onClick = {
+                        navController.navigate(tab.route) {
+                            // Keep-alive (ADR-0002): the tab's back-stack entry —
+                            // and its ViewModel — survives while another tab is
+                            // shown, so switching back renders instantly from
+                            // held data.
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                icon = { Icon(imageVector = tab.icon, contentDescription = null) },
-                label = { Text(tab.label, fontSize = 11.sp) },
-            )
+                    },
+                    icon = { Icon(imageVector = tab.icon, contentDescription = null) },
+                    label = { Text(tab.label, fontSize = 11.sp) },
+                )
+            }
         }
     }
 }
