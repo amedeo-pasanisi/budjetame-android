@@ -26,6 +26,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Fixed
 
+- **Transactions** — the Expense/Income/Transfer type buttons in the
+  transaction form (and the import row editor's picker, which shares
+  them) keep their natural width and wrap as whole buttons onto further
+  lines when the dialog is narrow, so a label can never break mid-word
+  at large font scales (#36).
 - **App header** — the header's title, email, and Sign out now clear the
   status-bar clock/camera cutout on edge-to-edge devices: the surface still
   reaches the very top of the screen, while the row's content sits inside

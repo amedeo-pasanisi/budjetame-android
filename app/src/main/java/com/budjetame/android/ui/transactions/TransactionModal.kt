@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -353,13 +355,25 @@ internal fun TransactionForm(
     }
 }
 
+/**
+ * The Expense/Income/Transfer picker, shared by the Transaction modal and
+ * the Import row editor (ticket #36): the buttons keep their natural
+ * width and sit in a FlowRow with 8dp spacing, so a label can never be
+ * squeezed below one line — when the three do not fit the dialog, whole
+ * buttons wrap onto further lines instead of breaking mid-word. The
+ * selected type stays the filled Button; the others stay outlined.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TypeSelector(
     selected: TransactionType,
     enabled: Boolean,
     onSelect: (TransactionType) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         listOf(
             TransactionType.EXPENSE,
             TransactionType.INCOME,
@@ -370,7 +384,6 @@ internal fun TypeSelector(
                 Button(
                     onClick = { onSelect(type) },
                     enabled = enabled,
-                    modifier = Modifier.weight(1f),
                 ) {
                     Text(transactionTypeLabel(type))
                 }
@@ -378,7 +391,6 @@ internal fun TypeSelector(
                 OutlinedButton(
                     onClick = { onSelect(type) },
                     enabled = enabled,
-                    modifier = Modifier.weight(1f),
                 ) {
                     Text(transactionTypeLabel(type))
                 }
