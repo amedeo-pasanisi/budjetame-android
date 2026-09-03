@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.1.0] — 2026-09-03
+
 ### Added
 
 - **Wallets & Categories** — a row's whole surface now opens the Transactions ledger already filtered to that Wallet or Category (the web's ledger jump), with the previous filters, search, and open Filters panel reset by the tap and a frozen Wallet landing on its read-only banner; editing moved to a trailing ✎ button on the card, and frozen rows gained one-tap Unfreeze beside it — the row tap itself never edits anymore (#44).
@@ -247,5 +249,6 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.1.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.1.0
 [v1.0.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.1
 [v1.0.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.0
