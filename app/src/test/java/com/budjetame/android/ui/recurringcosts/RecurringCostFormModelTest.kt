@@ -4,15 +4,14 @@ import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.SkipAction
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Pure JVM tests for the Recurring Costs form/screen logic (ticket #22):
- * the interval text, the due-date override's shape per unit, the ordering,
- * the skip-button label (ADR-0016), and the form gates — ported from the
- * web app's recurringCosts.ts and RecurringCostForm.tsx. */
+ * the interval text, the interval-unit select labels (singular when N is 1),
+ * the ordering, the skip-button label (ADR-0016), and the form gates —
+ * ported from the web app's recurringCosts.ts and RecurringCostForm.tsx.
+ * The due-date override is gone (ADR-0024): no helper shapes one anymore. */
 class RecurringCostFormModelTest {
 
     @Test
@@ -28,15 +27,23 @@ class RecurringCostFormModelTest {
     }
 
     @Test
-    fun `interval unit labels match the web's option order`() {
+    fun `interval unit select labels match the web's option order and read singular for one`() {
         assertEquals(
             listOf(IntervalUnit.DAYS, IntervalUnit.WEEKS, IntervalUnit.MONTHS, IntervalUnit.YEARS),
             INTERVAL_UNIT_OPTIONS,
         )
-        assertEquals("Days", intervalUnitLabel(IntervalUnit.DAYS))
-        assertEquals("Weeks", intervalUnitLabel(IntervalUnit.WEEKS))
-        assertEquals("Months", intervalUnitLabel(IntervalUnit.MONTHS))
-        assertEquals("Years", intervalUnitLabel(IntervalUnit.YEARS))
+        // Next to a 1 the unit reads singular, plural otherwise — the
+        // interval row reads "Repeats every N months" (ADR-0024).
+        assertEquals("Day", intervalUnitLabel(1, IntervalUnit.DAYS))
+        assertEquals("Days", intervalUnitLabel(2, IntervalUnit.DAYS))
+        assertEquals("Week", intervalUnitLabel(1, IntervalUnit.WEEKS))
+        assertEquals("Weeks", intervalUnitLabel(2, IntervalUnit.WEEKS))
+        assertEquals("Month", intervalUnitLabel(1, IntervalUnit.MONTHS))
+        assertEquals("Months", intervalUnitLabel(3, IntervalUnit.MONTHS))
+        assertEquals("Year", intervalUnitLabel(1, IntervalUnit.YEARS))
+        assertEquals("Years", intervalUnitLabel(10, IntervalUnit.YEARS))
+        // An unparseable interval reads plural, the web's fallback.
+        assertEquals("Months", intervalUnitLabel(null, IntervalUnit.MONTHS))
     }
 
     @Test
@@ -48,36 +55,6 @@ class RecurringCostFormModelTest {
         assertNull(parseIntervalValue("2.5"))
         // A negative parses; the canSubmit gate (at least 1) rejects it.
         assertEquals(-1, parseIntervalValue("-1"))
-    }
-
-    @Test
-    fun `month intervals carry a day-of-month override only`() {
-        assertEquals(15 to null, dueOverrideFor(IntervalUnit.MONTHS, 15, 7))
-        assertEquals(null to null, dueOverrideFor(IntervalUnit.MONTHS, null, 7))
-        // A stale month pick from a year interval is dropped, never sent.
-        assertEquals(null to null, dueOverrideFor(IntervalUnit.MONTHS, null, null))
-    }
-
-    @Test
-    fun `year intervals carry a month plus day pair or nothing`() {
-        assertEquals(15 to 7, dueOverrideFor(IntervalUnit.YEARS, 15, 7))
-        assertEquals(null to null, dueOverrideFor(IntervalUnit.YEARS, 15, null))
-        assertEquals(null to null, dueOverrideFor(IntervalUnit.YEARS, null, 7))
-        assertEquals(null to null, dueOverrideFor(IntervalUnit.YEARS, null, null))
-    }
-
-    @Test
-    fun `day and week intervals never carry an override`() {
-        assertEquals(null to null, dueOverrideFor(IntervalUnit.DAYS, 15, 7))
-        assertEquals(null to null, dueOverrideFor(IntervalUnit.WEEKS, 15, 7))
-    }
-
-    @Test
-    fun `a half-picked year pair is incomplete and gates the save`() {
-        assertTrue(yearOverrideIncomplete(15, null))
-        assertTrue(yearOverrideIncomplete(null, 7))
-        assertFalse(yearOverrideIncomplete(15, 7))
-        assertFalse(yearOverrideIncomplete(null, null))
     }
 
     @Test
@@ -107,6 +84,8 @@ class RecurringCostFormModelTest {
         amount = "10.00",
         interval_value = 1,
         interval_unit = IntervalUnit.MONTHS,
+        // Every definition always carries a start date (ADR-0024).
+        start_date = "2026-08-01",
         next_due_date = nextDue,
         next_unpaid_occurrence_date = nextDue,
         created_at = "2026-08-01T10:00:00Z",

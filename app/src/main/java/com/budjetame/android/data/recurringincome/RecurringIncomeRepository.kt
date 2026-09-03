@@ -11,10 +11,10 @@ import retrofit2.HttpException
 /**
  * The fields the Recurring Income form drafts (UI-independent, like
  * TransactionDraft — a future Gemini App Functions capability calls the same
- * gateway methods). `startDate` null = unset (the creation date); the
- * due-date override (`dueDay`, `dueMonth`) is already shaped to the
- * interval unit by the form: a day-of-month alone for months, a month+day
- * pair for years, nothing for days/weeks.
+ * gateway methods). `startDate` is null only ever as a creation-time
+ * convenience: the backend sets it to the creation day (ADR-0024), and
+ * afterwards the definition always carries one — an edit always sends a
+ * date, never null.
  */
 data class RecurringIncomeDraft(
     val name: String,
@@ -22,8 +22,6 @@ data class RecurringIncomeDraft(
     val intervalValue: Int,
     val intervalUnit: IntervalUnit,
     val startDate: String? = null,
-    val dueDay: Int? = null,
-    val dueMonth: Int? = null,
 )
 
 /** The recurring-income operations screens call (UI-independent). */
@@ -54,8 +52,6 @@ class ApiRecurringIncomeRepository(private val api: RecurringIncomeApi) : Recurr
                     interval_value = draft.intervalValue,
                     interval_unit = draft.intervalUnit,
                     start_date = draft.startDate,
-                    due_day = draft.dueDay,
-                    due_month = draft.dueMonth,
                 ),
             )
         }
@@ -69,9 +65,13 @@ class ApiRecurringIncomeRepository(private val api: RecurringIncomeApi) : Recurr
                     amount = draft.amount,
                     interval_value = draft.intervalValue,
                     interval_unit = draft.intervalUnit,
-                    start_date = draft.startDate,
-                    due_day = draft.dueDay,
-                    due_month = draft.dueMonth,
+                    // An edit always sends a date: a definition always
+                    // carries its start date, it can be changed, never unset
+                    // (ADR-0024) — the backend rejects an explicit null, so
+                    // a null draft is a caller bug, failed here at the seam.
+                    start_date = requireNotNull(draft.startDate) {
+                        "An edited recurring income always carries its start date (ADR-0024)."
+                    },
                 ),
             )
         }

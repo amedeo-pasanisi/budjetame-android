@@ -47,13 +47,11 @@ import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.ui.recurringcosts.INTERVAL_UNIT_OPTIONS
 import com.budjetame.android.ui.recurringcosts.intervalUnitLabel
-import com.budjetame.android.ui.recurringcosts.yearOverrideIncomplete
+import com.budjetame.android.ui.recurringcosts.parseIntervalValue
 import com.budjetame.android.util.Dates
 import java.time.Instant
 
-// The web app's Tailwind palette, ported for the year-pair hint and the
-// delete confirmation.
-private val AMBER_600 = Color(0xFFD97706)
+// The web app's Tailwind palette, ported for the delete confirmation.
 private val RED_200 = Color(0xFFFECACA)
 private val RED_600 = Color(0xFFDC2626)
 
@@ -61,12 +59,16 @@ private val RED_600 = Color(0xFFDC2626)
  * The create/edit/delete Recurring Income form inside an AlertDialog (web
  * issue #60), mirroring the Recurring Cost form (ADR-0011). Create and edit
  * share one modal, like the Wallets and Categories forms: Name, Amount, the
- * interval (every N days/weeks/months/years), an optional start date (unset
- * defaults to the creation date), and the due-date override that follows
- * the interval unit — a day-of-month for months, a month+day for years,
- * nothing for days/weeks (ADR-0010 in the web repo) — plus the tap-again
- * delete confirmation. The definition itself never carries a Wallet or a
- * Category: they are chosen when a linked Income is recorded.
+ * interval ("Repeats every N days/weeks/months/years" — the unit reads
+ * singular when N is 1), and the start date: the first Occurrence, the one
+ * date the definition carries (ADR-0024). Left empty at creation it
+ * becomes the creation day — so "start today" needs no typing — while
+ * editing always shows a date, and an empty one blocks the save: the date
+ * can be changed, never unset. Occurrences repeat on the start date's day
+ * from there on (29–31 clamp to the last day of shorter months). The
+ * definition itself never carries a Wallet or a Category: they are chosen
+ * when a linked Income is recorded. The due-date override is gone
+ * (ADR-0024).
  */
 @Composable
 fun RecurringIncomesModal(
@@ -76,8 +78,6 @@ fun RecurringIncomesModal(
     onIntervalValueChange: (String) -> Unit,
     onIntervalUnitChange: (IntervalUnit) -> Unit,
     onStartDateChange: (String) -> Unit,
-    onDueDayChange: (Int?) -> Unit,
-    onDueMonthChange: (Int?) -> Unit,
     onSubmit: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
@@ -132,7 +132,8 @@ fun RecurringIncomesModal(
                             .testTag("ri-interval"),
                     )
                     IntervalUnitField(
-                        value = modal.intervalUnit,
+                        intervalValue = modal.intervalValue,
+                        unit = modal.intervalUnit,
                         onSelect = onIntervalUnitChange,
                         modifier = Modifier.weight(1.2f),
                     )
@@ -141,69 +142,16 @@ fun RecurringIncomesModal(
                 StartDateField(
                     value = modal.startDate,
                     onSelect = onStartDateChange,
+                    // While editing the definition always carries a start
+                    // date (ADR-0024): it can be changed, never cleared.
+                    clearable = !editing,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
                 )
-                Text(
-                    text = "The first occurrence. Unset means today.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-
-                if (modal.intervalUnit == IntervalUnit.MONTHS) {
-                    DueField(
-                        label = "Due day (optional)",
-                        value = modal.dueDay,
-                        options = (1..31).toList(),
-                        onSelect = onDueDayChange,
-                        tag = "ri-due-day",
-                        caption = "Due on this day of the month instead of the occurrence date. " +
-                            "Days 29–31 fall on the last day of shorter months.",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                    )
-                } else if (modal.intervalUnit == IntervalUnit.YEARS) {
+                if (!editing) {
                     Text(
-                        text = "Due date (optional)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(top = 12.dp),
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) {
-                        DueField(
-                            label = "Due month",
-                            value = modal.dueMonth,
-                            options = (1..12).toList(),
-                            onSelect = onDueMonthChange,
-                            tag = "ri-due-month",
-                            modifier = Modifier.weight(1f),
-                        )
-                        DueField(
-                            label = "Due day",
-                            value = modal.dueDay,
-                            options = (1..31).toList(),
-                            onSelect = onDueDayChange,
-                            tag = "ri-due-day",
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    if (yearOverrideIncomplete(modal.dueDay, modal.dueMonth)) {
-                        Text(
-                            text = "Pick both the month and the day, or leave both unset.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AMBER_600,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    Text(
-                        text = "Due on this month and day of each year. " +
-                            "Days 29–31 fall on the last day of shorter months.",
+                        text = "The first occurrence. Leave empty to start today.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),
@@ -246,18 +194,22 @@ fun RecurringIncomesModal(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IntervalUnitField(
-    value: IntervalUnit,
+    intervalValue: String,
+    unit: IntervalUnit,
     onSelect: (IntervalUnit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // The unit reads singular when N is 1 — "Repeats every 1 month", like
+    // the web form's option labels (ADR-0024).
+    val label = intervalUnitLabel(parseIntervalValue(intervalValue), unit)
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
         modifier = modifier,
     ) {
         OutlinedTextField(
-            value = intervalUnitLabel(value),
+            value = label,
             onValueChange = {},
             readOnly = true,
             label = { Text("Unit") },
@@ -271,11 +223,11 @@ private fun IntervalUnitField(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            INTERVAL_UNIT_OPTIONS.forEach { unit ->
+            INTERVAL_UNIT_OPTIONS.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(intervalUnitLabel(unit)) },
+                    text = { Text(intervalUnitLabel(parseIntervalValue(intervalValue), option)) },
                     onClick = {
-                        onSelect(unit)
+                        onSelect(option)
                         expanded = false
                     },
                 )
@@ -284,76 +236,17 @@ private fun IntervalUnitField(
     }
 }
 
-/** A "None or pick one number" select — the due-day and due-month fields. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DueField(
-    label: String,
-    value: Int?,
-    options: List<Int>,
-    onSelect: (Int?) -> Unit,
-    tag: String,
-    modifier: Modifier = Modifier,
-    caption: String? = null,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Column(modifier = modifier) {
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = it },
-        ) {
-            OutlinedTextField(
-                value = value?.toString() ?: "None",
-                onValueChange = {},
-                readOnly = true,
-                singleLine = true,
-                label = { Text(label) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    .testTag(tag),
-            )
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text("None") },
-                    onClick = {
-                        onSelect(null)
-                        expanded = false
-                    },
-                )
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.toString()) },
-                        onClick = {
-                            onSelect(option)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-        if (caption != null) {
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-    }
-}
-
-/** The optional start date as a tappable field opening a Material date
- * picker; "Clear" un-sets it (unset means the creation date). */
+/** The start date as a tappable field opening a Material date picker. At
+ * creation it is optional — "Clear" un-sets it, and an empty start date
+ * means today, the backend setting the creation day. While editing the
+ * definition always carries one (ADR-0024): the date can be changed, never
+ * unset, so "Clear" is not offered. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StartDateField(
     value: String,
     onSelect: (String) -> Unit,
+    clearable: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var pickerOpen by remember { mutableStateOf(false) }
@@ -364,7 +257,7 @@ private fun StartDateField(
             readOnly = true,
             enabled = false,
             singleLine = true,
-            label = { Text("Start date (optional)") },
+            label = { Text("Start date") },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             colors = OutlinedTextFieldDefaults.colors(
                 // Disabled but styled like an enabled field: the tap goes to
@@ -408,7 +301,7 @@ private fun StartDateField(
             },
             dismissButton = {
                 Row {
-                    if (value.isNotEmpty()) {
+                    if (clearable && value.isNotEmpty()) {
                         TextButton(
                             onClick = {
                                 onSelect("")

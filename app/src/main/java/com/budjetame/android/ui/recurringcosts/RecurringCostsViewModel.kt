@@ -19,11 +19,11 @@ import kotlinx.coroutines.launch
 /**
  * The create/edit/delete Recurring Cost modal's draft (null = modal closed)
  * — one modal serves create and edit, like the Wallets and Categories
- * forms. `startDate` is "" when unset (the creation date); `dueDay` and
- * `dueMonth` are the due-date override draft — null = unset — whose shape
- * follows the interval unit: a day-of-month for months, a month+day pair
- * for years, nothing for days/weeks (the fields render only for the unit
- * that carries them, and a stale pick is dropped at submit, never sent).
+ * forms. `startDate` is "" when unset — only possible at creation, where
+ * empty means "start today" (the backend sets it to the creation day): an
+ * existing definition always carries one (ADR-0024), so while editing the
+ * field is prefilled and can be changed but never cleared — the save gate
+ * below blocks an empty date.
  */
 data class RecurringCostModalState(
     val cost: RecurringCostDto? = null,
@@ -32,8 +32,6 @@ data class RecurringCostModalState(
     val intervalValue: String = "1",
     val intervalUnit: IntervalUnit = IntervalUnit.MONTHS,
     val startDate: String = "",
-    val dueDay: Int? = null,
-    val dueMonth: Int? = null,
     val error: String? = null,
     val submitting: Boolean = false,
     val confirmingDelete: Boolean = false,
@@ -43,20 +41,17 @@ data class RecurringCostModalState(
 
     val busy: Boolean get() = submitting || deleting
 
-    /** The web form's save gate: a non-blank name, an amount over €0, a
-     * whole interval of at least 1, and a year override never half-picked
-     * (a half pair blocks the save instead of silently dropping it). */
+    /** The web form's save gate (ADR-0024): a non-blank name, an amount
+     * over €0, a whole interval of at least 1, and — the start date is
+     * only optional at creation (empty = today); an existing definition
+     * always carries one, so an empty date blocks an edit's save. */
     val canSubmit: Boolean
         get() {
             if (busy) return false
             val interval = parseIntervalValue(intervalValue) ?: return false
             if (interval < 1) return false
             if (parseAmount(amount) == null) return false
-            if (intervalUnit == IntervalUnit.YEARS &&
-                yearOverrideIncomplete(dueDay, dueMonth)
-            ) {
-                return false
-            }
+            if (editing && startDate.isBlank()) return false
             return name.isNotBlank()
         }
 }
@@ -123,9 +118,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                     amount = cost.amount,
                     intervalValue = cost.interval_value.toString(),
                     intervalUnit = cost.interval_unit,
-                    startDate = cost.start_date ?: "",
-                    dueDay = cost.due_day,
-                    dueMonth = cost.due_month,
+                    startDate = cost.start_date,
                 ),
             )
         }
@@ -147,10 +140,6 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         updateModal { it.copy(intervalUnit = value, error = null) }
 
     fun onStartDateChange(value: String) = updateModal { it.copy(startDate = value, error = null) }
-
-    fun onDueDayChange(value: Int?) = updateModal { it.copy(dueDay = value, error = null) }
-
-    fun onDueMonthChange(value: Int?) = updateModal { it.copy(dueMonth = value, error = null) }
 
     fun submit() {
         val modal = _uiState.value.modal ?: return
@@ -313,18 +302,17 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         }
     }
 
-    private fun draftOf(modal: RecurringCostModalState): RecurringCostDraft {
-        val (dueDay, dueMonth) = dueOverrideFor(modal.intervalUnit, modal.dueDay, modal.dueMonth)
-        return RecurringCostDraft(
+    private fun draftOf(modal: RecurringCostModalState): RecurringCostDraft =
+        RecurringCostDraft(
             name = modal.name.trim(),
             amount = modal.amount.trim(),
             intervalValue = parseIntervalValue(modal.intervalValue) ?: 0,
             intervalUnit = modal.intervalUnit,
+            // Empty only ever at creation: "start today" needs no typing,
+            // the backend sets the creation day (ADR-0024). An edit's gate
+            // keeps the date non-empty, so an update never sends null.
             startDate = modal.startDate.trim().ifEmpty { null },
-            dueDay = dueDay,
-            dueMonth = dueMonth,
         )
-    }
 
     /**
      * Fetch the list. A failed background refetch keeps the held data on

@@ -8,10 +8,10 @@ import com.budjetame.android.data.api.SkipAction
 /**
  * Presentation-only logic for the Recurring Costs screen and form (ticket
  * #22), ported from the web app's recurringCosts.ts + RecurringCostForm.tsx:
- * the interval display text, the due-date override's shape per interval
- * unit, the next-due ordering, and the Skip/Un-skip button's label
- * (ADR-0016). These are the cheap spots where porting bugs hide, so they
- * get direct JVM tests. The reads are type-agnostic and
+ * the interval display text, the interval-unit select labels, the next-due
+ * ordering, and the Skip/Un-skip button's label (ADR-0016). These are the
+ * cheap spots where porting bugs hide, so they get direct JVM tests. The
+ * reads are type-agnostic and
  * shared with the Recurring Incomes side (web issue #60, ADR-0011), exactly
  * like the web's recurringIncomes.ts re-exporting them from recurringCosts.ts.
  */
@@ -26,12 +26,18 @@ import com.budjetame.android.data.api.SkipAction
 val INTERVAL_UNIT_OPTIONS: List<IntervalUnit> =
     listOf(IntervalUnit.DAYS, IntervalUnit.WEEKS, IntervalUnit.MONTHS, IntervalUnit.YEARS)
 
-/** A unit option's label in the interval select ("Days", "Months", …). */
-fun intervalUnitLabel(unit: IntervalUnit): String = when (unit) {
-    IntervalUnit.DAYS -> "Days"
-    IntervalUnit.WEEKS -> "Weeks"
-    IntervalUnit.MONTHS -> "Months"
-    IntervalUnit.YEARS -> "Years"
+/** A unit option's label in the interval select — the singular form when
+ * the interval value is 1, the plural otherwise ("Month" next to a 1,
+ * "Months" next to a 2): the interval row reads "Repeats every N months",
+ * the unit turning singular when N is 1, like the web form's option labels
+ * (ADR-0024). A null or unparseable value reads plural, the web's
+ * fallback.
+ */
+fun intervalUnitLabel(intervalValue: Int?, unit: IntervalUnit): String = when (unit) {
+    IntervalUnit.DAYS -> if (intervalValue == 1) "Day" else "Days"
+    IntervalUnit.WEEKS -> if (intervalValue == 1) "Week" else "Weeks"
+    IntervalUnit.MONTHS -> if (intervalValue == 1) "Month" else "Months"
+    IntervalUnit.YEARS -> if (intervalValue == 1) "Year" else "Years"
 }
 
 /**
@@ -59,31 +65,6 @@ fun intervalText(value: Int, unit: IntervalUnit): String = when (unit) {
 /** The draft interval value ("2") as an Int, or null when it is not a
  * whole number — the mandatory-interval gate. */
 fun parseIntervalValue(raw: String): Int? = raw.trim().toIntOrNull()
-
-/**
- * The due-date override the form sends, shaped to the interval unit
- * (ADR-0010 in the web repo): a day-of-month alone for month intervals, a
- * month+day pair for year intervals, nothing for day/week intervals — a
- * stale override from a unit switch is dropped, never sent (the web form's
- * `buildInput`). Returns (dueDay, dueMonth).
- */
-fun dueOverrideFor(
-    unit: IntervalUnit,
-    dueDay: Int?,
-    dueMonth: Int?,
-): Pair<Int?, Int?> = when (unit) {
-    IntervalUnit.MONTHS -> dueDay to null
-    IntervalUnit.YEARS -> if (dueDay != null && dueMonth != null) dueDay to dueMonth else null to null
-    else -> null to null
-}
-
-/**
- * A year interval's override is a month+day pair: half a pair blocks the
- * save instead of silently dropping the override (web RecurringCostForm).
- * Only meaningful for years — the other units never show the pair.
- */
-fun yearOverrideIncomplete(dueDay: Int?, dueMonth: Int?): Boolean =
-    (dueDay == null) != (dueMonth == null)
 
 /**
  * Definitions ordered by next due date ascending, ties by name

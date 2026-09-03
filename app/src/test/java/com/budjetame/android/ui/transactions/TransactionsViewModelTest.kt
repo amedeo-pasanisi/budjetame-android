@@ -764,6 +764,8 @@ class TransactionsViewModelTest {
         amount = "10.00",
         interval_value = 1,
         interval_unit = IntervalUnit.MONTHS,
+        // Every definition always carries a start date (ADR-0024).
+        start_date = "2026-08-01",
         next_due_date = "2026-09-05",
         next_unpaid_occurrence_date = nextUnpaid,
         created_at = "2026-08-01T10:00:00Z",
@@ -779,6 +781,8 @@ class TransactionsViewModelTest {
         amount = "10.00",
         interval_value = 1,
         interval_unit = IntervalUnit.MONTHS,
+        // Every definition always carries a start date (ADR-0024).
+        start_date = "2026-08-01",
         next_due_date = "2026-09-05",
         next_unpaid_occurrence_date = nextUnpaid,
         created_at = "2026-08-01T10:00:00Z",

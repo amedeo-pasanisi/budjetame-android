@@ -53,6 +53,8 @@ class TransactionFormTest {
         amount = "800.00",
         interval_value = 1,
         interval_unit = IntervalUnit.MONTHS,
+        // Every definition always carries a start date (ADR-0024).
+        start_date = "2026-08-01",
         next_due_date = "2026-09-01",
         next_unpaid_occurrence_date = "2026-08-01",
         created_at = "2026-08-01T10:00:00Z",
@@ -63,6 +65,8 @@ class TransactionFormTest {
         amount = "2500.00",
         interval_value = 1,
         interval_unit = IntervalUnit.MONTHS,
+        // Every definition always carries a start date (ADR-0024).
+        start_date = "2026-08-01",
         next_due_date = "2026-09-01",
         next_unpaid_occurrence_date = "2026-08-01",
         created_at = "2026-08-01T10:00:00Z",

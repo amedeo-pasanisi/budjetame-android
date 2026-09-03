@@ -31,6 +31,10 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+/** The fixture creation day — the date the fake's create materializes for
+ * an empty start date (ADR-0024). */
+private const val CREATION_DAY = "2026-08-01"
+
 /**
  * The Recurring Incomes flow tested at the single seam (the HTTP API), the
  * mirror of the Recurring Costs suite (ADR-0011): the ViewModel is driven
@@ -130,9 +134,9 @@ class RecurringIncomesViewModelTest {
                         amount = create.amount,
                         intervalValue = create.interval_value,
                         intervalUnit = create.interval_unit,
-                        startDate = create.start_date,
-                        dueDay = create.due_day,
-                        dueMonth = create.due_month,
+                        // The backend's creation-time convenience (ADR-0024):
+                        // an empty start date is set to the creation day.
+                        startDate = create.start_date ?: CREATION_DAY,
                     )
                     store.add(income)
                     jsonResponse(201, json.encodeToString(income))
@@ -165,9 +169,9 @@ class RecurringIncomesViewModelTest {
                             amount = update.amount,
                             interval_value = update.interval_value,
                             interval_unit = update.interval_unit,
+                            // An update always carries the start date: it can
+                            // be changed, never unset (ADR-0024).
                             start_date = update.start_date,
-                            due_day = update.due_day,
-                            due_month = update.due_month,
                         )
                         store[index] = updated
                         jsonResponse(200, json.encodeToString(updated))
@@ -218,15 +222,15 @@ class RecurringIncomesViewModelTest {
         incomes.forEach { nextId = maxOf(nextId, it.id + 1) }
     }
 
+    /** Every seeded definition carries the fixture creation day as its
+     * start date (ADR-0024): a definition's start date is always present. */
     private fun incomeDto(
         id: Int,
         name: String,
         amount: String = "10.00",
         intervalValue: Int = 1,
         intervalUnit: IntervalUnit = IntervalUnit.MONTHS,
-        startDate: String? = null,
-        dueDay: Int? = null,
-        dueMonth: Int? = null,
+        startDate: String = CREATION_DAY,
         nextDue: String = "2026-09-05",
         nextUnpaid: String = "2026-09-05",
         backlog: Int = 0,
@@ -239,8 +243,6 @@ class RecurringIncomesViewModelTest {
         interval_value = intervalValue,
         interval_unit = intervalUnit,
         start_date = startDate,
-        due_day = dueDay,
-        due_month = dueMonth,
         next_due_date = nextDue,
         next_unpaid_occurrence_date = nextUnpaid,
         backlog_count = backlog,
@@ -313,18 +315,17 @@ class RecurringIncomesViewModelTest {
 
         viewModel.openCreate()
         val modal = viewModel.uiState.value.modal!!
-        // The web form's defaults: monthly, every 1, no dates, no override.
+        // The web form's defaults: monthly, every 1, no start date (empty =
+        // today at creation, ADR-0024), and no due-date override — the
+        // override is gone from the model entirely.
         assertEquals(IntervalUnit.MONTHS, modal.intervalUnit)
         assertEquals("1", modal.intervalValue)
         assertEquals("", modal.startDate)
-        assertNull(modal.dueDay)
-        assertNull(modal.dueMonth)
         assertFalse(modal.editing)
 
         viewModel.onNameChange("Salary")
         viewModel.onAmountChange("2500.00")
         viewModel.onStartDateChange("2026-08-01")
-        viewModel.onDueDayChange(28)
         viewModel.submit()
         awaitState { it.modal == null && it.incomes.any { i -> i.name == "Salary" } }
 
@@ -334,13 +335,13 @@ class RecurringIncomesViewModelTest {
         assertEquals(1, create.interval_value)
         assertEquals(IntervalUnit.MONTHS, create.interval_unit)
         assertEquals("2026-08-01", create.start_date)
-        assertEquals(28, create.due_day)
-        assertNull(create.due_month)
+        // The due-date override never reaches the wire (ADR-0024).
+        assertFalse(call("POST", "/api/recurring-incomes").body.contains("due_"))
         assertEquals(listOf("Salary"), viewModel.uiState.value.incomes.map { it.name })
     }
 
     @Test
-    fun `an unset start date and override stay off the create wire`() = runBlocking {
+    fun `an unset start date stays off the create wire and the response carries the creation day`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
@@ -350,71 +351,36 @@ class RecurringIncomesViewModelTest {
         viewModel.submit()
         awaitState { it.modal == null }
 
+        // "Start today" needs no typing: the request omits the empty start
+        // date, and the fake backend materializes the creation day in the
+        // stored definition it returns (ADR-0024).
         val body = call("POST", "/api/recurring-incomes").body
         assertFalse(body.contains("start_date"))
-        assertFalse(body.contains("due_day"))
-        assertFalse(body.contains("due_month"))
+        assertFalse(body.contains("due_"))
         val create = json.decodeFromString<RecurringIncomeCreateRequest>(body)
         assertNull(create.start_date)
-        assertNull(create.due_day)
-        assertNull(create.due_month)
+        assertEquals(CREATION_DAY, viewModel.uiState.value.incomes.single().start_date)
     }
 
     @Test
-    fun `a year interval sends the month and day pair`() = runBlocking {
+    fun `every interval unit carries only the start date — the override fields are gone from the wire`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
+        // A yearly definition with a start date — the old override pair's
+        // (month+day) shape now lives in the start date alone (ADR-0024).
         viewModel.openCreate()
         viewModel.onNameChange("Bonus")
         viewModel.onAmountChange("5000.00")
         viewModel.onIntervalUnitChange(IntervalUnit.YEARS)
-        viewModel.onDueMonthChange(12)
-        viewModel.onDueDayChange(15)
+        viewModel.onStartDateChange("2026-12-15")
         viewModel.submit()
         awaitState { it.modal == null }
 
         val create = json.decodeFromString<RecurringIncomeCreateRequest>(call("POST", "/api/recurring-incomes").body)
         assertEquals(IntervalUnit.YEARS, create.interval_unit)
-        assertEquals(12, create.due_month)
-        assertEquals(15, create.due_day)
-    }
-
-    @Test
-    fun `a half-picked year pair never submits`() = runBlocking {
-        createViewModel()
-        awaitLoaded()
-
-        viewModel.openCreate()
-        viewModel.onNameChange("Bonus")
-        viewModel.onAmountChange("5000.00")
-        viewModel.onIntervalUnitChange(IntervalUnit.YEARS)
-        viewModel.onDueDayChange(30)
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
-        viewModel.submit()
-
-        assertTrue(calls.toList().none { it.method == "POST" })
-        assertTrue(viewModel.uiState.value.modal != null)
-    }
-
-    @Test
-    fun `switching a month's due day to a day interval drops the stale override`() = runBlocking {
-        createViewModel()
-        awaitLoaded()
-
-        viewModel.openCreate()
-        viewModel.onNameChange("Salary")
-        viewModel.onAmountChange("2500.00")
-        viewModel.onIntervalUnitChange(IntervalUnit.MONTHS)
-        viewModel.onDueDayChange(15)
-        viewModel.onIntervalUnitChange(IntervalUnit.DAYS)
-        viewModel.submit()
-        awaitState { it.modal == null }
-
-        val create = json.decodeFromString<RecurringIncomeCreateRequest>(call("POST", "/api/recurring-incomes").body)
-        assertEquals(IntervalUnit.DAYS, create.interval_unit)
-        assertNull(create.due_day)
-        assertNull(create.due_month)
+        assertEquals("2026-12-15", create.start_date)
+        assertEquals("2026-12-15", viewModel.uiState.value.incomes.single().start_date)
     }
 
     @Test
@@ -476,10 +442,10 @@ class RecurringIncomesViewModelTest {
     // --- Edit ---
 
     @Test
-    fun `edit prefills the definition and the patch sends the whole form with explicit nulls`() = runBlocking {
+    fun `edit prefills the definition with its start date and the patch always carries the date`() = runBlocking {
         seed(
             incomeDto(
-                1, "Salary", amount = "2500.00", startDate = "2026-01-01", dueDay = 28,
+                1, "Salary", amount = "2500.00", startDate = "2026-01-01",
                 nextDue = "2026-09-28", nextUnpaid = "2026-09-28",
             ),
         )
@@ -493,27 +459,54 @@ class RecurringIncomesViewModelTest {
         assertEquals("2500.00", modal.amount)
         assertEquals("1", modal.intervalValue)
         assertEquals(IntervalUnit.MONTHS, modal.intervalUnit)
+        // The definition's one date, always present (ADR-0024).
         assertEquals("2026-01-01", modal.startDate)
-        assertEquals(28, modal.dueDay)
-        assertNull(modal.dueMonth)
 
-        // Clearing the start date travels as an explicit null: the PATCH
-        // field present is applied even when null (the unset = creation
-        // date semantics are the backend's).
-        viewModel.onStartDateChange("")
+        // The date can be changed — a whole-form PATCH carries the new one,
+        // never a null (the old explicit-null clear is gone with the
+        // override; the backend rejects it).
+        viewModel.onStartDateChange("2026-02-01")
         viewModel.onNameChange("Salary (main)")
         viewModel.submit()
         awaitState { it.modal == null }
 
         val patch = call("PATCH", "/api/recurring-incomes/1")
-        assertTrue(patch.body.contains("\"start_date\":null"))
+        assertFalse(patch.body.contains("null"))
+        assertFalse(patch.body.contains("due_"))
         val update = json.decodeFromString<RecurringIncomeUpdateRequest>(patch.body)
         assertEquals("Salary (main)", update.name)
         assertEquals("2500.00", update.amount)
-        assertEquals(28, update.due_day)
-        assertNull(update.start_date)
+        assertEquals("2026-02-01", update.start_date)
         // The row landed, re-sorted in place.
         assertEquals("Salary (main)", viewModel.uiState.value.incomes.first().name)
+        assertEquals("2026-02-01", viewModel.uiState.value.incomes.first().start_date)
+    }
+
+    @Test
+    fun `an edit cannot clear the start date - the save gate blocks an empty date`() = runBlocking {
+        seed(
+            incomeDto(
+                1, "Salary", amount = "2500.00", startDate = "2026-01-01",
+                nextDue = "2026-09-28", nextUnpaid = "2026-09-28",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        // The web form's edit gate (ADR-0024): the start date can be
+        // changed, never unset — an empty date blocks the save, like the
+        // web's required date input.
+        viewModel.onStartDateChange("")
+        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
+        viewModel.submit()
+
+        assertTrue(calls.toList().none { it.method == "PATCH" })
+        assertTrue(viewModel.uiState.value.modal != null)
+
+        // Re-picking a date unblocks the save.
+        viewModel.onStartDateChange("2026-01-01")
+        assertTrue(viewModel.uiState.value.modal!!.canSubmit)
     }
 
     @Test

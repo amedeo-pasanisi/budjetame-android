@@ -100,8 +100,6 @@ fun RecurringIncomesScreen(recurringIncomes: RecurringIncomeGateway) {
             onIntervalValueChange = viewModel::onIntervalValueChange,
             onIntervalUnitChange = viewModel::onIntervalUnitChange,
             onStartDateChange = viewModel::onStartDateChange,
-            onDueDayChange = viewModel::onDueDayChange,
-            onDueMonthChange = viewModel::onDueMonthChange,
             onSubmit = viewModel::submit,
             onDelete = viewModel::onDeleteTap,
             onClose = viewModel::closeModal,
