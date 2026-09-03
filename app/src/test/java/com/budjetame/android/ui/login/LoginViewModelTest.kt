@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.login
 
+import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
 import com.budjetame.android.InMemoryTokenStorage
 import com.budjetame.android.MainDispatcherRule
 import com.budjetame.android.data.Session
@@ -169,5 +170,34 @@ class LoginViewModelTest {
         assertEquals(true, viewModel.uiState.value.canSubmit)
         viewModel.switchMode(LoginViewModel.Mode.Forgot)
         assertEquals(true, viewModel.uiState.value.canSubmit) // forgot needs only email
+    }
+
+    @Test
+    fun `a rejected Google token shows the backend-leg message`() = runBlocking {
+        serve(
+            mapOf(
+                "/api/auth/config" to emptyConfig,
+                "/api/auth/google" to MockResponse().setResponseCode(401)
+                    .setBody("""{"detail":"Invalid Google token"}"""),
+            ),
+        )
+        viewModel.onGoogleIdToken("an-id-token")
+        awaitOutcome()
+
+        assertEquals(
+            "Google could not verify the sign-in. Please try again.",
+            viewModel.uiState.value.error,
+        )
+        assertNull(viewModel.uiState.value.account)
+        assertNull(storage.stored)
+    }
+
+    @Test
+    fun `a failed credential sheet shows the client-leg message`() {
+        viewModel.onGoogleError(
+            GetCredentialProviderConfigurationException("no Android OAuth client registered"),
+        )
+
+        assertEquals("Could not sign in with Google. Please try again.", viewModel.uiState.value.error)
     }
 }

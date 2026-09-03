@@ -46,6 +46,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Fixed
 
+- **Auth** — a failed 'Sign in with Google' now tells the two failure legs
+  apart instead of one generic line: a problem with the Google credential
+  sheet (client-side, e.g. a missing Android OAuth client registration)
+  keeps the standard message, while the backend rejecting the Google token
+  now shows 'Google could not verify the sign-in. Please try again.' — and
+  both legs log their underlying error under one 'Google sign-in failed'
+  marker for diagnosis (#43).
 - **Dashboard** — the trend chart now always fills its card's inner
   width: a short From/To range spreads its bars evenly across the plot
   (bar widths unchanged, the gaps grown symmetrically, the gridlines

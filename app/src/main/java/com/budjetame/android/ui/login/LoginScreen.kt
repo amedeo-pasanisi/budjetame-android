@@ -247,7 +247,7 @@ private fun ModeLinkRow(
 private fun GoogleButton(
     clientId: String?,
     onIdToken: (String) -> Unit,
-    onError: () -> Unit,
+    onError: (GetCredentialException) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (clientId.isNullOrBlank()) return
@@ -276,8 +276,11 @@ private fun GoogleButton(
                     }
                 } catch (_: GetCredentialCancellationException) {
                     // The user dismissed the sheet — not an error.
-                } catch (_: GetCredentialException) {
-                    onError()
+                } catch (error: GetCredentialException) {
+                    // Leg 1: the credential fetch itself failed (client-side /
+                    // registration problem); the ViewModel logs it and shows
+                    // the web-parity message.
+                    onError(error)
                 }
             }
         },

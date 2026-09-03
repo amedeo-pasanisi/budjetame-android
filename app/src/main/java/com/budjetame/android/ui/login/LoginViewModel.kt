@@ -1,6 +1,7 @@
 package com.budjetame.android.ui.login
 
 import android.util.Log
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budjetame.android.data.api.AccountDto
@@ -90,16 +91,24 @@ class LoginViewModel(private val auth: AuthGateway) : ViewModel() {
                 _uiState.update { it.copy(account = auth.signInWithGoogle(idToken)) }
             } catch (error: Exception) {
                 Log.e(TAG, "Google sign-in failed", error)
-                // A rejected Google token (clock skew, wrong origin) leaves
-                // the user on the auth screen; the password form remains the
+                // The backend rejected the token (POST /auth/google: clock
+                // skew, an audience mismatch); the password form remains the
                 // fallback.
-                onGoogleError()
+                _uiState.update {
+                    it.copy(error = "Google could not verify the sign-in. Please try again.")
+                }
             }
         }
     }
 
-    /** The credential fetch itself failed (dismissed sheets stay silent). */
-    fun onGoogleError() {
+    /**
+     * The credential sheet itself threw — a client-side / registration
+     * problem (e.g. no Android OAuth client for this package in Google
+     * Cloud); a dismissed sheet never calls this. Keeps the web-parity copy;
+     * the password form remains the fallback.
+     */
+    fun onGoogleError(cause: GetCredentialException) {
+        Log.e(TAG, "Google sign-in failed", cause)
         _uiState.update { it.copy(error = "Could not sign in with Google. Please try again.") }
     }
 
