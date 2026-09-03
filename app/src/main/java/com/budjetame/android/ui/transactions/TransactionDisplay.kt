@@ -8,11 +8,12 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.util.Money
 
 /**
- * Presentation-only logic for the ledger rows and the filter bar (ticket
- * #19), ported from the web app's transactions.ts + TransactionsScreen: the
- * description-led row title, the signed amount, the frozen-wallet read-only
- * determination (the edit/delete entry points ticket #20 wires honor it),
- * and the filter options' labels.
+ * Presentation-only logic for the ledger rows and the filter chrome
+ * (ticket #19, web issue #92 / ticket #35), ported from the web app's
+ * transactions.ts + TransactionsScreen: the description-led row title, the
+ * signed amount, the frozen-wallet read-only determination (the edit/delete
+ * entry points ticket #20 wires honor it), the filter options' labels, and
+ * the filtered chips line's chips.
  */
 
 /** Expense/Income show signs; a Transfer and an Opening Balance never do. */
@@ -79,6 +80,66 @@ fun isOnFrozenWallet(transaction: TransactionDto, wallets: List<WalletDto>): Boo
  */
 fun isEditable(transaction: TransactionDto, wallets: List<WalletDto>): Boolean =
     transaction.type != TransactionType.OPENING_BALANCE && !isOnFrozenWallet(transaction, wallets)
+
+/**
+ * The filtered line's chip keys (web issue #92, ticket #35): the five
+ * panel filters collapse into at most four chips — the date range's From
+ * and To merge into one — and each key routes its chip's ✕ to the single
+ * filter (or the date pair) it clears.
+ */
+enum class FilterChipKey { WALLET, CATEGORY, DATES, RECURRING }
+
+/** One filtered-line chip: which filter it stands for and its label. */
+data class FilterChipSpec(val key: FilterChipKey, val label: String)
+
+/**
+ * The merged date chip's label (web issue #92): "From X" and "To Y"
+ * alone, "X – Y" when both bounds are set (one chip, one ✕, one
+ * date-range filter), null when neither is. The dates are the filter's
+ * raw API-day strings, exactly as the web renders its date inputs'
+ * values.
+ */
+fun filterDateChipLabel(fromDate: String?, toDate: String?): String? = when {
+    fromDate != null && toDate != null -> "$fromDate – $toDate"
+    fromDate != null -> "From $fromDate"
+    toDate != null -> "To $toDate"
+    else -> null
+}
+
+/**
+ * The filtered chips line's chips (web issue #92, ticket #35), in the
+ * web's order — wallet, category, the merged date range, the recurring
+ * definition — labelled with the plain names read from the already-loaded
+ * lists (the balance/frozen marks belong to the panel options). A set
+ * filter whose entity the lists do not know (still loading, or vanished)
+ * shows no chip — the line's visibility is the five filters' own count,
+ * like the web.
+ */
+fun activeFilterChips(state: TransactionsViewModel.UiState): List<FilterChipSpec> = buildList {
+    state.filterWalletId?.let { id ->
+        state.wallets.find { it.id == id }?.name?.let { name ->
+            add(FilterChipSpec(FilterChipKey.WALLET, name))
+        }
+    }
+    state.filterCategoryId?.let { id ->
+        state.categories.find { it.id == id }?.name?.let { name ->
+            add(FilterChipSpec(FilterChipKey.CATEGORY, name))
+        }
+    }
+    filterDateChipLabel(state.filterFromDate, state.filterToDate)?.let { label ->
+        add(FilterChipSpec(FilterChipKey.DATES, label))
+    }
+    state.filterRecurring?.let { selection ->
+        // Each kind resolves against its own list — a Recurring Cost and a
+        // Recurring Income may share a name — the same lookup the
+        // recurring select's collapsed field does.
+        val name = when (selection.kind) {
+            RecurringFilterKind.COST -> state.recurringCosts.find { it.id == selection.id }?.name
+            RecurringFilterKind.INCOME -> state.recurringIncomes.find { it.id == selection.id }?.name
+        }
+        if (name != null) add(FilterChipSpec(FilterChipKey.RECURRING, name))
+    }
+}
 
 /** The Wallet name for a row's subtitle; unknown → "Frozen wallet" (the web app). */
 fun walletName(wallets: List<WalletDto>, walletId: Int?): String =

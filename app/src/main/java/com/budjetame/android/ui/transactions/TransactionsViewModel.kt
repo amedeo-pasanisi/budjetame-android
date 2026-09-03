@@ -118,9 +118,10 @@ class TransactionsViewModel(
         val search: String = "",
         val searchNeedle: String = "",
         val savedWarning: String? = null,
-        /** True while the export request is in flight — the header's Export
-         * button shows "Exporting…" and a second press cannot fire a
-         * concurrent request (web parity: one file per press). */
+        /** True while the export request is in flight — the chips line's and
+         * the panel footer's Export to Excel buttons show "Exporting…" and a
+         * second press cannot fire a concurrent request (web parity: one
+         * file per press). */
         val exporting: Boolean = false,
         /** A failed export's message (the web screen's export error line),
          * null = no failure. Cleared by the next Export press. */
@@ -329,6 +330,44 @@ class TransactionsViewModel(
     fun onFilterRecurringChange(selection: RecurringFilter?) {
         if (_uiState.value.filterRecurring == selection) return
         changeFilters { it.copy(filterRecurring = selection) }
+    }
+
+    // --- Filtered-line and panel-footer clear actions (web issue #92, ticket #35) ---
+
+    /**
+     * The merged date-range chip's ✕ (web issue #92): one chip, one ✕, one
+     * date-range filter — both bounds reset together in a single refetch,
+     * like the web's one batched state update (two separate clears would
+     * fetch twice). Nothing set: a no-op.
+     */
+    fun clearFilterDates() {
+        val state = _uiState.value
+        if (state.filterFromDate == null && state.filterToDate == null) return
+        changeFilters { it.copy(filterFromDate = null, filterToDate = null) }
+    }
+
+    /**
+     * Clear all filters (the panel footer, web issue #92): resets the five
+     * panel filters only — the search box keeps its text — in a single
+     * refetch. Nothing set: a no-op (the footer hides the button then).
+     */
+    fun clearPanelFilters() {
+        if (!_uiState.value.filtersActive) return
+        changeFilters(::panelFiltersCleared)
+    }
+
+    /**
+     * Clear all (the filtered line, web issue #92): the five panel filters
+     * AND the search — input and debounced needle together, so no late
+     * debounce can resurrect the query (the pending job is cancelled
+     * first) — one tap back to a fully clean list, in a single refetch.
+     */
+    fun clearFiltersAndSearch() {
+        val state = _uiState.value
+        if (!state.filtersActive && state.search.isEmpty() && state.searchNeedle.isEmpty()) return
+        searchDebounceJob?.cancel()
+        _uiState.update { panelFiltersCleared(it).copy(search = "", searchNeedle = "") }
+        reload()
     }
 
     /**
@@ -860,7 +899,10 @@ class TransactionsViewModel(
      * Export the ledger exactly as the filters and the search show it
      * (US 7.3, ticket #28): the whole matching set — not just the visible
      * page — fetched through the gateway and handed to the screen as a
-     * pending `exportFile`. One press, one request: a press while one is
+     * pending `exportFile`. The screen's two Export to Excel buttons — the
+     * filtered chips line and the filter panel's footer (web issue #92,
+     * ticket #35) — are the web's only entry points; the header no longer
+     * carries one. One press, one request: a press while one is
      * already in flight is ignored, and a press supersedes a file the
      * screen has not yet shared. A failure surfaces as the export error
      * line with the web's copy; the ledger itself is untouched (a GET
@@ -1065,6 +1107,19 @@ class TransactionsViewModel(
         // model).
         location = modal.location,
         place = modal.place.takeIf { modal.location != null },
+    )
+
+    /** The five panel filters reset to "all" (web issue #92's taxonomy) —
+     * wallet, category, from-date, to-date, recurring. The search is
+     * separate and untouched here: the panel footer's Clear all filters
+     * clears exactly these, and the filtered line's Clear all clears the
+     * search on top. */
+    private fun panelFiltersCleared(state: UiState): UiState = state.copy(
+        filterWalletId = null,
+        filterFromDate = null,
+        filterToDate = null,
+        filterCategoryId = null,
+        filterRecurring = null,
     )
 
     private fun changeFilters(transform: (UiState) -> UiState) {

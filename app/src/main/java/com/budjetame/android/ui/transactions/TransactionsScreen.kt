@@ -11,8 +11,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -50,6 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,12 +103,16 @@ private val AMBER_700 = Color(0xFFB45309)
  * header's Import button opens the bulk Import flow (ticket #26), which
  * replaces the tab's content while its Draft is open — the web screen's
  * shape; the draft lives in its own ViewModel on this tab's back-stack
- * entry, so it survives tab switches (ADR-0002). The header's Export
- * button (ticket #28) fetches the whole filtered ledger — current filters
- * and search, not just the visible page — as the import template's .xlsx
- * and hands it to the system share sheet (SAF-backed save targets
- * included).
+ * entry, so it survives tab switches (ADR-0002). The chrome mirrors the web
+ * app's v1.2.0 screen (web issue #92, ticket #35): the header row carries
+ * only the title, Import, and New transaction — Export left it entirely;
+ * the search field row is the toolbar with the Filters toggle at its right;
+ * a filtered chips line (visible while a panel filter is set) and the
+ * filter panel's footer are the web's two Export to Excel entry points
+ * (ticket #28's flow unchanged underneath: the whole filtered ledger +
+ * search as the import template's .xlsx, handed to the system share sheet).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TransactionsScreen(
     transactions: TransactionGateway,
@@ -201,8 +212,19 @@ fun TransactionsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        // The header row (web issue #92, ticket #35): the title takes its
+        // natural width — never squeezed behind the actions, which is what
+        // used to make it wrap mid-word — and the actions (Import as the
+        // web's plain text link, then the filled New transaction) follow
+        // it in the web's order. The row is a FlowRow: an action that does
+        // not fit wraps to a second line as a whole item, so a label can
+        // never break mid-word at 360dp+/1.3x. Export is gone from the
+        // header — the web's two entry points sit on the filtered chips
+        // line and in the filter panel's footer, below.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -212,26 +234,15 @@ fun TransactionsScreen(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
             )
+            TextButton(onClick = importViewModel::open) {
+                Text("Import")
+            }
             Button(
                 onClick = viewModel::openCreate,
                 enabled = !state.loading && state.loadError == null,
             ) {
                 Text("New transaction")
-            }
-            OutlinedButton(
-                onClick = importViewModel::open,
-                modifier = Modifier.padding(start = 8.dp),
-            ) {
-                Text("Import")
-            }
-            OutlinedButton(
-                onClick = viewModel::export,
-                enabled = !state.exporting,
-                modifier = Modifier.padding(start = 8.dp),
-            ) {
-                Text(if (state.exporting) "Exporting…" else "Export")
             }
         }
 
@@ -347,30 +358,38 @@ private fun Ledger(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        item(key = "all-transactions") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "All transactions",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedButton(onClick = viewModel::toggleFilters) {
-                    Text(if (state.filtersOpen) "Filters ▾" else "Filters ▸")
+        // The toolbar row (web issue #92, ticket #35): the search field
+        // takes the width and the Filters ▸/▾ toggle sits at its right —
+        // the old "All transactions" label row is gone. A truly empty
+        // ledger hides the whole row (web behavior; the search alone was
+        // hidden before): there is nothing to search or filter.
+        if (!state.ledgerEmpty) {
+            item(key = "toolbar") {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                ) {
+                    SearchField(
+                        value = state.search,
+                        onValueChange = viewModel::onSearchChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(onClick = viewModel::toggleFilters) {
+                        Text(if (state.filtersOpen) "Filters ▾" else "Filters ▸")
+                    }
                 }
             }
         }
 
-        if (!state.ledgerEmpty) {
-            item(key = "search") {
-                SearchField(
-                    value = state.search,
-                    onValueChange = viewModel::onSearchChange,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+        // The filtered chips line (web issue #92, ticket #35): visible
+        // only while at least one of the five panel filters is set — the
+        // search never appears here.
+        if (state.filtersActive) {
+            item(key = "filtered-chips") {
+                FilterChipsLine(state = state, viewModel = viewModel)
             }
         }
 
@@ -429,8 +448,108 @@ private fun SearchField(
         singleLine = true,
         placeholder = { Text("Search transactions…") },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("tx-search"),
     )
+}
+
+/**
+ * The web's Export entry-point label (ticket #35): a plain text button
+ * reading "Export to Excel" — the web's copy everywhere, the old
+ * "Export" is gone — on the filtered chips line and in the filter
+ * panel's footer. While a request is in flight every export button
+ * disables and reads "Exporting…" (ticket #28's one press = one
+ * request).
+ */
+@Composable
+private fun ExportToExcelButton(exporting: Boolean, onExport: () -> Unit) {
+    TextButton(onClick = onExport, enabled = !exporting) {
+        Text(if (exporting) "Exporting…" else "Export to Excel")
+    }
+}
+
+/**
+ * The filtered chips line (web issue #92, ticket #35): one chip per
+ * active panel filter — wallet, category, the date range (From and To
+ * merge into one chip when both are set), the recurring definition — in
+ * that order, each with its own ✕ that removes just that filter; a set
+ * filter whose entity the loaded lists do not know yet shows no chip (the
+ * panel select remains the way back to it). Clear all (the five filters
+ * AND the search — web semantics) and Export to Excel sit on the right.
+ * The chips wrap to further lines when the width needs it; the actions
+ * keep their natural width.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterChipsLine(
+    state: TransactionsViewModel.UiState,
+    viewModel: TransactionsViewModel,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+    ) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            activeFilterChips(state).forEach { chip ->
+                FilterChip(label = chip.label) { removeFilterChip(viewModel, chip.key) }
+            }
+        }
+        TextButton(onClick = viewModel::clearFiltersAndSearch) {
+            Text("Clear all")
+        }
+        ExportToExcelButton(exporting = state.exporting, onExport = viewModel::export)
+    }
+}
+
+/** A chip's ✕ routes by key to the one filter it stands for (web issue
+ * #92): the wallet/category/recurring chips clear their single filter
+ * like the panel's "All" pick; the merged date chip clears both date
+ * bounds together. */
+private fun removeFilterChip(viewModel: TransactionsViewModel, key: FilterChipKey) {
+    when (key) {
+        FilterChipKey.WALLET -> viewModel.onFilterWalletChange(null)
+        FilterChipKey.CATEGORY -> viewModel.onFilterCategoryChange(null)
+        FilterChipKey.DATES -> viewModel.clearFilterDates()
+        FilterChipKey.RECURRING -> viewModel.onFilterRecurringChange(null)
+    }
+}
+
+/** One filtered-line chip: a pill with the filter's label and its ✕,
+ * whose content description mirrors the web's aria-label
+ * ("Remove <label> filter"). */
+@Composable
+private fun FilterChip(label: String, onRemove: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
+            )
+            Text(
+                text = "✕",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clickable(onClick = onRemove)
+                    .semantics { contentDescription = "Remove $label filter" }
+                    .padding(start = 2.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
+    }
 }
 
 /** The collapsible filter bar (closed by default): wallet, date range,
@@ -484,6 +603,25 @@ private fun FilterBar(
                 categories = state.categories,
                 onSelect = viewModel::onFilterCategoryChange,
             )
+
+            // Panel footer (web issue #92, ticket #35): Clear all filters —
+            // visible only while at least one of the five panel filters is
+            // set, and it clears exactly those, the search untouched — with
+            // Export to Excel always present while the panel is open
+            // (nothing set: the full-ledger export path).
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.filtersActive) {
+                    TextButton(onClick = viewModel::clearPanelFilters) {
+                        Text("Clear all filters")
+                    }
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                ExportToExcelButton(exporting = state.exporting, onExport = viewModel::export)
+            }
         }
     }
 }

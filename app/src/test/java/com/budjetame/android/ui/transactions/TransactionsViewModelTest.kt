@@ -1098,6 +1098,154 @@ class TransactionsViewModelTest {
         assertEquals("caffe", viewModel.uiState.value.searchNeedle)
     }
 
+    // --- Filtered-line and panel clears (web issue #92, ticket #35) ---
+
+    @Test
+    fun `the date chip's clear resets both bounds in one refetch`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        seedTransactions(
+            transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1),
+            transaction(2, TransactionType.EXPENSE, "6.00", "2026-09-01", walletId = 1),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.onFilterFromDateChange("2026-08-01")
+        viewModel.onFilterToDateChange("2026-08-31")
+        awaitState { it.transactions.map { t -> t.id } == listOf(1) }
+
+        val before = listCalls().size
+        viewModel.clearFilterDates()
+        awaitState { it.filterFromDate == null && it.filterToDate == null && it.transactions.size == 2 }
+
+        // One chip, one ✕, one date-range filter: both bounds reset in a
+        // single refetch, never two.
+        withTimeout(5_000) {
+            while (listCalls().size < before + 1) delay(10)
+        }
+        assertEquals(before + 1, listCalls().size)
+        val last = listCalls().last()
+        assertNull(last.query["from_date"])
+        assertNull(last.query["to_date"])
+        assertFalse(viewModel.uiState.value.filtersActive)
+    }
+
+    @Test
+    fun `the panel footer's Clear all filters clears only the panel filters leaving the search`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "0.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedCategories(category(1, "Housing", CategoryType.EXPENSE))
+        seedRecurringCosts(recurringCost(1, "Rent"))
+        seedTransactions(
+            transaction(1, TransactionType.EXPENSE, "800.00", "2026-08-01", walletId = 1, categoryId = 1, recurringCostId = 1, description = "Rent August"),
+            transaction(2, TransactionType.EXPENSE, "6.00", "2026-09-01", walletId = 2, description = "Lunch"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.onFilterWalletChange(1)
+        viewModel.onFilterCategoryChange(1)
+        viewModel.onFilterFromDateChange("2026-08-01")
+        viewModel.onFilterToDateChange("2026-08-31")
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
+        viewModel.onSearchChange("august")
+        awaitState { it.searchNeedle == "august" && it.transactions.map { t -> t.id } == listOf(1) }
+
+        val before = listCalls().size
+        viewModel.clearPanelFilters()
+        // The five panel filters go, the search box keeps its text: one
+        // refetch with the needle alone — the search's own match stays.
+        withTimeout(5_000) {
+            while (listCalls().size < before + 1) delay(10)
+        }
+        assertEquals(before + 1, listCalls().size)
+        awaitState {
+            !it.filtersActive && it.search == "august" && it.searchNeedle == "august" &&
+                it.transactions.map { t -> t.id } == listOf(1)
+        }
+        val last = listCalls().last()
+        assertNull(last.query["wallet_id"])
+        assertNull(last.query["category_id"])
+        assertNull(last.query["from_date"])
+        assertNull(last.query["to_date"])
+        assertNull(last.query["recurring_cost_id"])
+        assertNull(last.query["recurring_income_id"])
+        assertEquals("august", last.query["q"])
+    }
+
+    @Test
+    fun `the filtered line's Clear all removes the five filters and the search in one refetch`() = runBlocking {
+        seedWallets(
+            wallet(1, "Cash", WalletType.CASH, "0.00"),
+            wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedTransactions(
+            transaction(1, TransactionType.EXPENSE, "800.00", "2026-08-01", walletId = 1, description = "Rent August"),
+            transaction(2, TransactionType.EXPENSE, "6.00", "2026-09-01", walletId = 2, description = "Lunch"),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.onFilterWalletChange(1)
+        viewModel.onSearchChange("  august ")
+        awaitState { it.searchNeedle == "august" && it.transactions.map { t -> t.id } == listOf(1) }
+
+        val before = listCalls().size
+        viewModel.clearFiltersAndSearch()
+        // Input and debounced needle go together, back to a fully clean
+        // list — one refetch with no filters and no q.
+        withTimeout(5_000) {
+            while (listCalls().size < before + 1) delay(10)
+        }
+        assertEquals(before + 1, listCalls().size)
+        awaitState {
+            it.search.isEmpty() && it.searchNeedle.isEmpty() && !it.filtersActive &&
+                it.transactions.map { t -> t.id } == listOf(2, 1)
+        }
+        val last = listCalls().last()
+        assertNull(last.query["wallet_id"])
+        assertNull(last.query["q"])
+        assertNull(last.query["cursor"])
+    }
+
+    @Test
+    fun `clearing with nothing set never refetches`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        createViewModel()
+        awaitLoaded()
+
+        val before = listCalls().size
+        viewModel.clearFilterDates()
+        viewModel.clearPanelFilters()
+        viewModel.clearFiltersAndSearch()
+        delay(100)
+        assertEquals(before, listCalls().size)
+    }
+
+    @Test
+    fun `Clear all cancels a pending search debounce so no late refetch resurrects the needle`() {
+        val gateway = RecordingGateway()
+        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway, location = location)
+        mainRule.dispatcher.scheduler.runCurrent()
+        val callsBefore = gateway.transactionCalls
+
+        viewModel.onSearchChange("caffe")
+        // The keystroke is still inside the debounce window: Clear all must
+        // cancel the pending job, not leave it to fire afterwards.
+        viewModel.clearFiltersAndSearch()
+        mainRule.dispatcher.scheduler.advanceTimeBy(TransactionsViewModel.SEARCH_DEBOUNCE_MILLIS)
+        mainRule.dispatcher.scheduler.runCurrent()
+
+        // The clear's own single refetch is the only request: the stale
+        // needle never comes back.
+        assertEquals(callsBefore + 1, gateway.transactionCalls)
+        assertEquals("", viewModel.uiState.value.search)
+        assertEquals("", viewModel.uiState.value.searchNeedle)
+        assertNull(gateway.lastFilters.q)
+    }
+
     // --- Export (US 7.3, ticket #28) ---
 
     @Test

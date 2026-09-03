@@ -1,5 +1,7 @@
 package com.budjetame.android.ui.transactions
 
+import com.budjetame.android.data.api.CategoryDto
+import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
@@ -14,12 +16,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pure presentation logic for the ledger rows and the filter bar, ported
- * from the web app's transactions.ts + TransactionsScreen (ticket #19):
- * the description-led row title with the "Uncategorized" label, the signed
- * amount, the frozen-wallet read-only determination, and the filter option
- * labels. These are the cheap spots where porting bugs hide (spec #13
- * testing decisions), so they get direct JVM tests.
+ * Pure presentation logic for the ledger rows and the filter chrome,
+ * ported from the web app's transactions.ts + TransactionsScreen (ticket
+ * #19): the description-led row title with the "Uncategorized" label, the
+ * signed amount, the frozen-wallet read-only determination, the filter
+ * option labels, and the filtered chips line's chips (web issue #92,
+ * ticket #35). These are the cheap spots where porting bugs hide (spec
+ * #13 testing decisions), so they get direct JVM tests.
  */
 class TransactionDisplayTest {
 
@@ -51,6 +54,12 @@ class TransactionDisplayTest {
 
     private fun wallet(id: Int, frozen: Boolean = false) =
         WalletDto(id, "Wallet $id", WalletType.CASH, "0.00", frozen, "2026-08-01T10:00:00Z")
+
+    private fun namedWallet(id: Int, name: String, frozen: Boolean = false) =
+        WalletDto(id, name, WalletType.CASH, "0.00", frozen, "2026-08-01T10:00:00Z")
+
+    private fun category(id: Int, name: String) =
+        CategoryDto(id, name, CategoryType.EXPENSE, "🍕", "#ef4444", "2026-08-01T10:00:00Z")
 
     private val activeWallet = wallet(1)
     private val frozenWallet = wallet(2, frozen = true)
@@ -246,5 +255,110 @@ class TransactionDisplayTest {
     fun `a location exists exactly when both coordinates are present`() {
         assertFalse(hasLocation(transaction(1, TransactionType.EXPENSE, latitude = "1.0")))
         assertTrue(hasLocation(transaction(1, TransactionType.EXPENSE, latitude = "1.0", longitude = "2.0")))
+    }
+
+    // --- Filtered chips line (web issue #92, ticket #35) ---
+
+    @Test
+    fun `one chip per set filter in the web's order with plain names and merged dates`() {
+        val state = TransactionsViewModel.UiState(
+            wallets = listOf(namedWallet(1, "Old Card"), namedWallet(2, "Cash")),
+            categories = listOf(category(1, "Food")),
+            recurringCosts = listOf(recurringCost(1, "Rent")),
+            recurringIncomes = listOf(recurringIncome(1, "Salary")),
+            filterWalletId = 2,
+            filterCategoryId = 1,
+            filterFromDate = "2026-01-01",
+            filterToDate = "2026-01-31",
+            filterRecurring = RecurringFilter(RecurringFilterKind.COST, 1),
+        )
+        // Wallet, category, the two dates merged into one range chip, the
+        // recurring definition — the chips read in the web's order, with
+        // the plain names (no balances, no frozen marks, no icons).
+        assertEquals(
+            listOf(
+                FilterChipSpec(FilterChipKey.WALLET, "Cash"),
+                FilterChipSpec(FilterChipKey.CATEGORY, "Food"),
+                FilterChipSpec(FilterChipKey.DATES, "2026-01-01 – 2026-01-31"),
+                FilterChipSpec(FilterChipKey.RECURRING, "Rent"),
+            ),
+            activeFilterChips(state),
+        )
+    }
+
+    @Test
+    fun `a lone date bound chips as From or To and none as no chip`() {
+        val base = TransactionsViewModel.UiState(
+            wallets = listOf(namedWallet(1, "Cash")),
+            categories = listOf(category(1, "Food")),
+            recurringCosts = listOf(recurringCost(1, "Rent")),
+            filterWalletId = 1,
+            filterCategoryId = 1,
+        )
+        // From alone: one chip "From …" between the category chip and the
+        // recurring chip, in the web's order.
+        assertEquals(
+            listOf(
+                FilterChipSpec(FilterChipKey.WALLET, "Cash"),
+                FilterChipSpec(FilterChipKey.CATEGORY, "Food"),
+                FilterChipSpec(FilterChipKey.DATES, "From 2026-01-01"),
+            ),
+            activeFilterChips(base.copy(filterFromDate = "2026-01-01")),
+        )
+        // To alone: "To …". Neither bound: no date chip at all.
+        assertEquals(
+            FilterChipSpec(FilterChipKey.DATES, "To 2026-01-31"),
+            activeFilterChips(base.copy(filterToDate = "2026-01-31")).last(),
+        )
+        assertNull(filterDateChipLabel(null, null))
+        assertNull(activeFilterChips(base).firstOrNull { it.key == FilterChipKey.DATES })
+    }
+
+    @Test
+    fun `the recurring chip resolves each kind against its own list`() {
+        // A Recurring Cost and a Recurring Income may share an id (and a
+        // name): the chip must read the picked kind's own list.
+        val state = TransactionsViewModel.UiState(
+            wallets = listOf(namedWallet(1, "Cash")),
+            categories = listOf(category(1, "Food")),
+            recurringCosts = listOf(recurringCost(1, "Rent")),
+            recurringIncomes = listOf(recurringIncome(1, "Salary")),
+            filterWalletId = 1,
+            filterRecurring = RecurringFilter(RecurringFilterKind.INCOME, 1),
+        )
+        assertEquals(
+            listOf(
+                FilterChipSpec(FilterChipKey.WALLET, "Cash"),
+                FilterChipSpec(FilterChipKey.RECURRING, "Salary"),
+            ),
+            activeFilterChips(state),
+        )
+    }
+
+    @Test
+    fun `a set filter whose entity the lists do not know shows no chip`() {
+        // Still loading, or the entity vanished: the filter is kept (the
+        // panel select remains the way back to it), but its chip — and
+        // only its chip — is omitted.
+        val state = TransactionsViewModel.UiState(
+            wallets = listOf(namedWallet(1, "Cash")),
+            categories = listOf(category(1, "Food")),
+            filterWalletId = 99,
+            filterCategoryId = 1,
+        )
+        assertEquals(
+            listOf(FilterChipSpec(FilterChipKey.CATEGORY, "Food")),
+            activeFilterChips(state),
+        )
+        // The recurring pick whose definition vanished reads no chip too.
+        val orphaned = state.copy(
+            filterWalletId = 1,
+            filterCategoryId = null,
+            filterRecurring = RecurringFilter(RecurringFilterKind.COST, 99),
+        )
+        assertEquals(
+            listOf(FilterChipSpec(FilterChipKey.WALLET, "Cash")),
+            activeFilterChips(orphaned),
+        )
     }
 }

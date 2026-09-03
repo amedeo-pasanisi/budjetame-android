@@ -11,6 +11,19 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Transactions** — the ledger chrome now mirrors the web app's v1.2.0
+  screen: the header row keeps just the title with Import (a plain text
+  link) and New transaction, Export leaves it for the two web entry
+  points labelled "Export to Excel" (the filtered line and the Filters
+  panel's footer, the old header Export is gone); the search field row is
+  the toolbar with the Filters toggle at its right, hidden together on a
+  truly empty ledger; and set panel filters show as chips under the
+  toolbar, each removable with its own ✕, beside Clear all (filters and
+  search together) and Export to Excel, while the panel footer gained
+  Clear all filters (#35).
+
 ### Fixed
 
 - **App header** — the header's title, email, and Sign out now clear the
