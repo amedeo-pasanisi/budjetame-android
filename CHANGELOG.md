@@ -13,6 +13,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Fixed
 
+- **App header** — the header's title, email, and Sign out now clear the
+  status-bar clock/camera cutout on edge-to-edge devices: the surface still
+  reaches the very top of the screen, while the row's content sits inside
+  the status-bar inset with its padding intact, and nothing below the
+  header shifts twice (#34).
 - **Theme** — every Material 3 color role now maps to the web app's
   slate/indigo/white palette, so the Material baseline's pinkish tones no
   longer appear on any surface: the selected tab is a solid indigo pill with

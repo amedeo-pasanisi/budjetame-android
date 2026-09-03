@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -140,11 +141,18 @@ private fun AppHeader(
     onSignOut: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // The Surface stays full-bleed so its color reaches the very top of the
+    // screen behind the transparent status bar (edge-to-edge, ticket #34);
+    // only the Row's content clears the status-bar inset — the content keeps
+    // its own 16/8dp padding inside the safe area, and the Scaffold still
+    // measures the whole header into its innerPadding, so nothing below
+    // shifts twice.
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
