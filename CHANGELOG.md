@@ -13,6 +13,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Changed
 
+- **Dashboard** — pressing and holding a bar of the monthly trend chart now
+  floats that month's exact amount in a small chip just above the bar, and
+  lifting the finger hides it again (a full-height bar's chip stays inside
+  the chart); the tap-to-toggle readout line is gone (#42).
 - **App shell** — the five tabs now sit in one finger-following swipeable
   pager: dragging the content moves it with the finger and a release snaps
   to the nearest tab (a fling crosses exactly one), the bottom bar's

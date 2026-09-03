@@ -75,3 +75,23 @@ internal class TrendChartGeometry(
         return if (index in 0 until count) index else null
     }
 }
+
+/**
+ * The pressed bar's value chip top edge (ticket #42): the chip floats
+ * [chipGapPx] above the bar's top — and never above the chart's top edge,
+ * so a near-full-height bar's chip stays inside the chart. In content
+ * pixels, whose y = 0 is the chart's top edge.
+ */
+internal fun chipTopForBar(topOfBarPx: Float, chipHeightPx: Float, chipGapPx: Float): Float =
+    (topOfBarPx - chipGapPx - chipHeightPx).coerceAtLeast(0f)
+
+/**
+ * The pressed bar's value chip left edge (ticket #42): centered on the
+ * bar and kept inside the chart's sides — a chip wider than the first
+ * bar's inset never starts left of the chart, and over the last
+ * fixed-layout bar (flush with the content's end) it never runs past the
+ * content's right edge.
+ */
+internal fun chipLeftForBar(barCenterPx: Float, chipWidthPx: Float, contentWidthPx: Float): Float =
+    (barCenterPx - chipWidthPx / 2f)
+        .coerceIn(0f, (contentWidthPx - chipWidthPx).coerceAtLeast(0f))

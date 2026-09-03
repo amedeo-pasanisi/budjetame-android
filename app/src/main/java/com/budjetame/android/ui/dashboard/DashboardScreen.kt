@@ -3,7 +3,9 @@ package com.budjetame.android.ui.dashboard
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,7 +57,9 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextPainter
@@ -83,6 +87,7 @@ import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.round
+import kotlin.math.roundToInt
 
 /** The neutral gray for the "Uncategorized" slice — the backend sends no
  * color for it, and the rendering choice stays in the frontend (the web
@@ -102,6 +107,9 @@ private val BarLabelHeight = 16.dp
 private val ChartHeight = 150.dp
 private val BarColor = Color(0xFF4F46E5) // indigo-600
 private val BarSelectedColor = Color(0xFF4338CA) // indigo-700
+
+/** The pressed bar's value chip floats this high above the bar's top. */
+private val ChipGap = 4.dp
 
 /** The Y axis gridlines at 0/¼/½/¾/1 of the tallest bar. */
 private val GridlineFractions = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)
@@ -758,20 +766,22 @@ private data class ChartLayout(
  * spreads its bars evenly across the full plot — bar widths unchanged,
  * the gaps grown symmetrically, gridlines spanning the whole plot — while
  * a wide range keeps the fixed geometry and scrolls, exactly as before.
- * Drawing and hit testing share one TrendChartGeometry, so tap targets
+ * Drawing and hit testing share one TrendChartGeometry, so press targets
  * always move with the bars (tickets #40 and #42 land on the same
  * geometry).
  *
  * The bars carry no always-on labels — an amount above every column was
  * wider than its column on a phone, so neighbouring labels collided. The
- * exact amount is read on demand: tapping a column shows the month and its
- * total in the readout above the chart; tapping it again hides it (the web
- * app's interaction). Zero months render as a light stub, so the month
- * sequence stays visible even when empty.
+ * exact amount is read on demand while the finger is down (ticket #42):
+ * pressing a column — the whole column is the target, like the web app's
+ * transparent column rects — floats the amount chip just above that bar
+ * and darkens the bar, and lifting the finger hides the chip again, even
+ * when it lifts over the bar; nothing persists after the release. Zero
+ * months render as a light stub and read €0.00 the same way.
  */
 @Composable
 private fun TrendChart(months: List<MonthBucketDto>, modifier: Modifier = Modifier) {
-    var selected by remember(months) { mutableStateOf<Int?>(null) }
+    var pressed by remember(months) { mutableStateOf<Int?>(null) }
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val labelStyle = MaterialTheme.typography.labelSmall
@@ -805,60 +815,136 @@ private fun TrendChart(months: List<MonthBucketDto>, modifier: Modifier = Modifi
             },
         )
     }
-    Column(modifier = modifier) {
-        selected?.let { index ->
-            months.getOrNull(index)?.let { bucket ->
-                Text(
-                    text = "${Dates.monthLabel(bucket.month)} · ${Money.formatEuros(bucket.amount)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
+    // The measured content width: the card's inner width wins when it
+    // is wider than the fixed geometry (short ranges stretch to fill),
+    // the fixed geometry wins when the range outgrows the card (wide
+    // ranges keep today's layout and scroll horizontally).
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val fixedWidth = ChartLeftPad + (BarWidth + BarGap) * months.size
+        val contentWidth = if (fixedWidth > maxWidth) fixedWidth else maxWidth
+        val geometry = remember(months.size, contentWidth, density) {
+            TrendChartGeometry(
+                count = months.size,
+                barWidth = with(density) { BarWidth.toPx() },
+                barGap = with(density) { BarGap.toPx() },
+                leftPad = with(density) { ChartLeftPad.toPx() },
+                contentWidth = with(density) { contentWidth.toPx() },
+            )
         }
-        // The measured content width: the card's inner width wins when it
-        // is wider than the fixed geometry (short ranges stretch to fill),
-        // the fixed geometry wins when the range outgrows the card (wide
-        // ranges keep today's layout and scroll horizontally).
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val fixedWidth = ChartLeftPad + (BarWidth + BarGap) * months.size
-            val contentWidth = if (fixedWidth > maxWidth) fixedWidth else maxWidth
-            val geometry = remember(months.size, contentWidth, density) {
-                TrendChartGeometry(
-                    count = months.size,
-                    barWidth = with(density) { BarWidth.toPx() },
-                    barGap = with(density) { BarGap.toPx() },
-                    leftPad = with(density) { ChartLeftPad.toPx() },
-                    contentWidth = with(density) { contentWidth.toPx() },
-                )
-            }
+        // The chart scrolls horizontally, and the pressed bar's chip rides
+        // inside the same scrollable content so it always sits over its
+        // bar, wherever the range is scrolled to.
+        Box(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .height(ChartHeight)
+                .width(contentWidth),
+        ) {
             Canvas(
                 modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .height(ChartHeight)
-                    .width(contentWidth)
+                    .matchParentSize()
+                    .testTag("trend-chart")
                     .pointerInput(geometry) {
-                        detectTapGestures { offset ->
-                            // The tap target is the whole column, like the
-                            // web app's transparent column rects — the
-                            // shared geometry keeps it under its bar.
+                        awaitEachGesture {
+                            // The press target is the whole column, like
+                            // the web app's transparent column rects —
+                            // the shared geometry keeps it under its bar.
+                            // The chip lives only while this finger is
+                            // down: releasing hides it (even over the
+                            // bar), and a drag the scrollers win cancels
+                            // the press, so the chip never sticks.
+                            val down = awaitFirstDown()
                             val topPad = ChartTopPad.toPx()
-                            val plotHeight = (ChartHeight - ChartTopPad - BarLabelHeight).toPx()
+                            val plotHeight =
+                                (ChartHeight - ChartTopPad - BarLabelHeight).toPx()
                             val inPlot =
-                                offset.y >= topPad && offset.y <= topPad + plotHeight
-                            val index = if (inPlot) geometry.columnIndexAt(offset.x) else null
-                            selected = when {
-                                index == null -> null
-                                selected == index -> null
-                                else -> index
-                            }
+                                down.position.y >= topPad && down.position.y <= topPad + plotHeight
+                            pressed =
+                                if (inPlot) geometry.columnIndexAt(down.position.x) else null
+                            waitForUpOrCancellation()
+                            pressed = null
                         }
                     },
             ) {
-                drawTrendChart(layout, selected, geometry)
+                drawTrendChart(layout, pressed, geometry)
+            }
+            pressed?.let { index ->
+                months.getOrNull(index)?.let { bucket ->
+                    // The bar's top edge, from the same scale the draw
+                    // uses: value / maxValue of the plot height below the
+                    // top pad.
+                    val plotHeightPx =
+                        with(density) { (ChartHeight - ChartTopPad - BarLabelHeight).toPx() }
+                    val barTopPx = with(density) { ChartTopPad.toPx() } + plotHeightPx -
+                        layout.values[index] / layout.maxValue * plotHeightPx
+                    TrendValueChip(
+                        amount = Money.formatEuros(bucket.amount),
+                        barCenterPx = geometry.barCenter(index),
+                        barTopPx = barTopPx,
+                        chipGapPx = with(density) { ChipGap.toPx() },
+                        contentWidthPx = with(density) { contentWidth.toPx() },
+                    )
+                }
             }
         }
+    }
+}
+
+/**
+ * The pressed bar's value chip (ticket #42): the month's amount alone,
+ * floating just above its bar — its bottom [ChipGap] above the bar's top,
+ * centered on the bar and clamped inside the chart's edges by the pure
+ * rules in TrendChartGeometry (a near-full-height bar's chip never clips
+ * above the chart). The chip handles no pointers itself — the press stays
+ * on the chart underneath, so the chip is pure readout while the finger
+ * is down.
+ */
+@Composable
+private fun TrendValueChip(
+    amount: String,
+    barCenterPx: Float,
+    barTopPx: Float,
+    chipGapPx: Float,
+    contentWidthPx: Float,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .floatAboveBar(
+                barCenterPx = barCenterPx,
+                barTopPx = barTopPx,
+                chipGapPx = chipGapPx,
+                contentWidthPx = contentWidthPx,
+            )
+            .background(color = BarSelectedColor, shape = RoundedCornerShape(3.dp))
+            .testTag("trend-value-chip"),
+    ) {
+        Text(
+            text = amount,
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+/** Places the chip over its pressed bar once the chip has measured itself:
+ * centered on the bar's center, its bottom [chipGapPx] above the bar's top
+ * — the TrendChartGeometry placement rules, applied in pixels. */
+private fun Modifier.floatAboveBar(
+    barCenterPx: Float,
+    barTopPx: Float,
+    chipGapPx: Float,
+    contentWidthPx: Float,
+) = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    layout(placeable.width, placeable.height) {
+        placeable.placeRelative(
+            x = chipLeftForBar(barCenterPx, placeable.width.toFloat(), contentWidthPx).roundToInt(),
+            y = chipTopForBar(barTopPx, placeable.height.toFloat(), chipGapPx).roundToInt(),
+        )
     }
 }
 
@@ -877,13 +963,13 @@ private fun DrawScope.paintLabel(layout: TextLayoutResult, topLeft: Offset) {
 /** One draw of the bar chart: gridlines with € labels spanning the full
  * plot (the gridlines always run the content's whole width — flush with
  * the last bar in the fixed layout, to the card's inner edge once
- * stretched), the bars (the selected one darkened, zero months as light
- * stubs), and the month labels centered under their bars. Every horizontal
- * position comes from the shared geometry, so the drawn bars and the tap
- * columns can never drift apart. */
+ * stretched), the bars (the pressed one darkened while the finger is
+ * down, zero months as light stubs), and the month labels centered under
+ * their bars. Every horizontal position comes from the shared geometry,
+ * so the drawn bars and the press columns can never drift apart. */
 private fun DrawScope.drawTrendChart(
     layout: ChartLayout,
-    selected: Int?,
+    pressed: Int?,
     geometry: TrendChartGeometry,
 ) {
     val topPad = ChartTopPad.toPx()
@@ -916,7 +1002,7 @@ private fun DrawScope.drawTrendChart(
         val y = topPad + plotHeight - barHeight
         drawRoundRect(
             color = when {
-                selected == index -> BarSelectedColor
+                pressed == index -> BarSelectedColor
                 value > 0f -> BarColor
                 else -> Slate200
             },

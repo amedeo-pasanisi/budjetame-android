@@ -149,4 +149,65 @@ class TrendChartGeometryTest {
         assertEquals(0, g.columnIndexAt(g.barLeft(0)))
         assertEquals(0, g.columnIndexAt(g.contentWidth - 0.1f))
     }
+
+    // The pressed bar's value chip (ticket #42) — pure placement rules.
+
+    @Test
+    fun chipFloatsJustAboveTheBar() {
+        // A baseline bar's top sits 134 px down the 150 px chart; the
+        // 20 px chip keeps its 4 px gap below it.
+        assertEquals(
+            110f,
+            chipTopForBar(topOfBarPx = 134f, chipHeightPx = 20f, chipGapPx = 4f),
+            1e-4f,
+        )
+    }
+
+    @Test
+    fun chipNeverRisesAboveTheChartsTopEdge() {
+        // A full-height bar's top sits at the plot's top (ChartTopPad, 20
+        // at density 1): the chip would start above the chart, so it
+        // clamps to the chart's top edge — and so does any bar closer to
+        // the top than the chip plus its gap.
+        assertEquals(0f, chipTopForBar(20f, 20f, 4f), 1e-4f)
+        assertEquals(0f, chipTopForBar(23f, 20f, 4f), 1e-4f)
+        // The threshold bar top (gap + chip height) exactly touches the
+        // top edge; just below it the chip floats normally.
+        assertEquals(0f, chipTopForBar(24f, 20f, 4f), 1e-4f)
+        assertEquals(1f, chipTopForBar(25f, 20f, 4f), 1e-4f)
+    }
+
+    @Test
+    fun chipCentersOnTheBar() {
+        assertEquals(
+            33f,
+            chipLeftForBar(barCenterPx = 53f, chipWidthPx = 40f, contentWidthPx = 234f),
+            1e-4f,
+        )
+    }
+
+    @Test
+    fun chipStaysInsideTheChartAtBothEdges() {
+        // A chip wider than the first bar's inset never starts left of
+        // the chart.
+        assertEquals(
+            0f,
+            chipLeftForBar(barCenterPx = 53f, chipWidthPx = 120f, contentWidthPx = 234f),
+            1e-4f,
+        )
+        // The last fixed-layout bar sits flush with the content's end
+        // (center 234 − 11); a chip centered on it would run past the
+        // right edge, so it is pushed back inside the content.
+        assertEquals(
+            188f,
+            chipLeftForBar(barCenterPx = 223f, chipWidthPx = 46f, contentWidthPx = 234f),
+            1e-4f,
+        )
+        // A mid-plot bar keeps the chip centered on it (never clamped).
+        assertEquals(
+            71f,
+            chipLeftForBar(barCenterPx = 100f, chipWidthPx = 58f, contentWidthPx = 234f),
+            1e-4f,
+        )
+    }
 }
