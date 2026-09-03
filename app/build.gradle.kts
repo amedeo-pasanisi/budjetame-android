@@ -43,8 +43,8 @@ android {
         applicationId = "com.budjetame.android"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
         buildConfigField("String", "MAP_PROVIDER", "\"$mapProvider\"")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey

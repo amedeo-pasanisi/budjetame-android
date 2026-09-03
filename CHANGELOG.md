@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.0.1] — 2026-09-03
+
 ### Changed
 
 - **Dashboard** — pressing and holding a bar of the monthly trend chart now
@@ -239,4 +241,5 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.0.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.1
 [v1.0.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.0
