@@ -26,6 +26,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Fixed
 
+- **Auth** — the login screen's mode-switch link rows ("Don't have an
+  Account? Sign up", "Forgot your password? Reset it", and the
+  sign-up-mode "Already have an Account? Sign in") now sit their action
+  text on the same visual line as the label at any font scale, instead
+  of hanging it lower inside the button's taller touch target (#38).
 - **Transactions** — the Location section's "Add location" / "Change
   location" and "Use my location" buttons now keep their natural width
   in a wrapping row instead of splitting the dialog's line in half: the

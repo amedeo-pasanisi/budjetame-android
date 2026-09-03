@@ -222,6 +222,7 @@ private fun ModeLinkRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
         modifier = modifier.fillMaxWidth(),
     ) {
