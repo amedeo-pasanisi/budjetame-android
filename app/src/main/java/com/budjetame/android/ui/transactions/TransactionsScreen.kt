@@ -102,8 +102,9 @@ private val AMBER_700 = Color(0xFFB45309)
  * themselves land with ticket #20's forms and honor `isEditable`). The
  * header's Import button opens the bulk Import flow (ticket #26), which
  * replaces the tab's content while its Draft is open — the web screen's
- * shape; the draft lives in its own ViewModel on this tab's back-stack
- * entry, so it survives tab switches (ADR-0002). The chrome mirrors the web
+ * shape; the draft lives in its own ViewModel on the Transactions tab —
+ * the shell's Activity-scoped store keeps it across page disposal, so it
+ * survives tab switches (ADR-0002/0003). The chrome mirrors the web
  * app's v1.2.0 screen (web issue #92, ticket #35): the header row carries
  * only the title, Import, and New transaction — Export left it entirely;
  * the search field row is the toolbar with the Filters toggle at its right;
@@ -153,11 +154,11 @@ fun TransactionsScreen(
     }
 
     // The Import Draft (web issue #43, ticket #26): its own ViewModel on
-    // the Transactions tab's back-stack entry — the draft survives tab
-    // switches with the entry (ADR-0002's keep-alive), discarded only by
-    // Cancel, picking another file, or a successful import. The entity
-    // gateways back the row editor's inline Wallet/Category creation
-    // (ADR-0014, ticket #27).
+    // the Transactions tab — the shell's Activity-scoped store keeps it
+    // across the pager's page disposal, so the draft survives tab switches
+    // (ADR-0003), discarded only by Cancel, picking another file, or a
+    // successful import. The entity gateways back the row editor's inline
+    // Wallet/Category creation (ADR-0014, ticket #27).
     val importViewModel: ImportViewModel = viewModel {
         ImportViewModel(imports, wallets, categories)
     }

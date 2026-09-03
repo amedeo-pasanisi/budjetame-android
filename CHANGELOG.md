@@ -13,6 +13,15 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Changed
 
+- **App shell** — the five tabs now sit in one finger-following swipeable
+  pager: dragging the content moves it with the finger and a release snaps
+  to the nearest tab (a fling crosses exactly one), the bottom bar's
+  selection follows the pages live, and tab taps glide to their page —
+  while the header and bottom bar stay fixed. Returning to a tab still
+  shows its held data and scroll position instantly, and the back button
+  now exits the app from any tab instead of stepping back through the
+  visited tabs; signing out or deleting the account clears every tab's
+  state, so the next account starts clean (#41).
 - **Dashboard** — the category-pie card now owns its month selector like
   the web app: the standalone month-totals card (its ◀/▶ arrows and the
   Expenses/Incomes totals pair) is gone, and the donut card carries a

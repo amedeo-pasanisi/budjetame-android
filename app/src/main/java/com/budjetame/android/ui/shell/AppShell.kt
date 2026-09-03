@@ -1,13 +1,18 @@
 package com.budjetame.android.ui.shell
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Category
@@ -32,19 +37,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
@@ -61,16 +62,18 @@ import com.budjetame.android.ui.transactions.TransactionsScreen
 import com.budjetame.android.ui.wallets.WalletsScreen
 import kotlinx.coroutines.launch
 
-/** The tabs in bottom-nav order, mirroring the web app's AppShell. */
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+/** The five tabs in bottom-nav order, mirroring the web app's AppShell. The
+ * enum's name is the pager page's stable identity: it keys the per-tab
+ * saveable-state registry (ADR-0003) and the pager never reorders it. */
+private enum class Tab(val label: String, val icon: ImageVector) {
+    Dashboard("Dashboard", Icons.Filled.Home),
+    Wallets("Wallets", Icons.Filled.AccountBalanceWallet),
+    Transactions("Transactions", Icons.Filled.ReceiptLong),
+    Categories("Categories", Icons.Filled.Category),
+    Recurring("Recurring", Icons.Filled.EventRepeat),
+}
 
-private val TABS = listOf(
-    Tab("dashboard", "Dashboard", Icons.Filled.Home),
-    Tab("wallets", "Wallets", Icons.Filled.AccountBalanceWallet),
-    Tab("transactions", "Transactions", Icons.Filled.ReceiptLong),
-    Tab("categories", "Categories", Icons.Filled.Category),
-    Tab("recurring", "Recurring", Icons.Filled.EventRepeat),
-)
+private val TABS = Tab.entries
 
 @Composable
 fun AppShell(
@@ -88,8 +91,21 @@ fun AppShell(
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
-    val navController = rememberNavController()
     var showSettings by remember { mutableStateOf(false) }
+
+    // The five tabs in one finger-following pager (ADR-0003): the content
+    // drags with the finger, a release snaps to the nearest tab, a fling
+    // crosses one tab, and the bottom bar's taps animate to the page. The
+    // pages' ViewModels resolve to the Activity's store now that the nav
+    // back stack is gone — they survive page disposal, so returning to a
+    // tab renders instantly from held data (ADR-0002), and the app clears
+    // that store itself on sign-out / account deletion (ADR-0003). Only
+    // the current page stays composed once settled; the per-tab transient
+    // UI state (scroll positions, toggles — whatever rememberSaveable
+    // holds) is retained in a SaveableStateHolder keyed per tab, replacing
+    // the back-stack entries' saved-state keep-alive.
+    val pagerState = rememberPagerState(pageCount = { TABS.size })
+    val tabState = rememberSaveableStateHolder()
 
     Scaffold(
         topBar = {
@@ -99,29 +115,35 @@ fun AppShell(
                 onOpenSettings = { showSettings = true },
             )
         },
-        bottomBar = { BottomTabs(navController) },
+        bottomBar = { BottomTabs(pagerState) },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "dashboard",
-            modifier = Modifier.padding(innerPadding),
-        ) {
-            composable("dashboard") { DashboardScreen(dashboardRepository) }
-            composable("wallets") { WalletsScreen(walletRepository) }
-            composable("transactions") {
-                TransactionsScreen(
-                    transactionRepository,
-                    importRepository,
-                    walletRepository,
-                    categoryRepository,
-                    recurringCostRepository,
-                    recurringIncomeRepository,
-                    location = location,
-                )
-            }
-            composable("categories") { CategoriesScreen(categoryRepository) }
-            composable("recurring") {
-                RecurringScreen(recurringCostRepository, recurringIncomeRepository)
+        HorizontalPager(
+            state = pagerState,
+            // The header and the bottom bar stay fixed; only the content
+            // area pages. The tag lets the UI tests drag the pager itself
+            // (never a scrollable card inside a page).
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .testTag("tab-pager"),
+        ) { page ->
+            val tab = TABS[page]
+            tabState.SaveableStateProvider(key = tab.name) {
+                when (tab) {
+                    Tab.Dashboard -> DashboardScreen(dashboardRepository)
+                    Tab.Wallets -> WalletsScreen(walletRepository)
+                    Tab.Transactions -> TransactionsScreen(
+                        transactionRepository,
+                        importRepository,
+                        walletRepository,
+                        categoryRepository,
+                        recurringCostRepository,
+                        recurringIncomeRepository,
+                        location = location,
+                    )
+                    Tab.Categories -> CategoriesScreen(categoryRepository)
+                    Tab.Recurring -> RecurringScreen(recurringCostRepository, recurringIncomeRepository)
+                }
             }
         }
     }
@@ -184,28 +206,26 @@ private fun AppHeader(
 }
 
 @Composable
-private fun BottomTabs(navController: NavHostController) {
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route
+private fun BottomTabs(pagerState: PagerState) {
+    val scope = rememberCoroutineScope()
 
     Column {
         // The web shell's border-t border-slate-200 above the tab bar.
         HorizontalDivider()
         NavigationBar {
-            TABS.forEach { tab ->
+            TABS.forEachIndexed { index, tab ->
                 NavigationBarItem(
-                    selected = currentRoute == tab.route,
+                    // currentPage, not settledPage: the selection follows
+                    // the drag live and only settles where the page does.
+                    selected = pagerState.currentPage == index,
                     onClick = {
-                        navController.navigate(tab.route) {
-                            // Keep-alive (ADR-0002): the tab's back-stack entry —
-                            // and its ViewModel — survives while another tab is
-                            // shown, so switching back renders instantly from
-                            // held data.
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
+                        // A tap glides to the tab (~250 ms, ADR-0003), so
+                        // taps and drags feel like one motion.
+                        scope.launch {
+                            pagerState.animateScrollToPage(
+                                page = index,
+                                animationSpec = tween(durationMillis = 250),
+                            )
                         }
                     },
                     icon = { Icon(imageVector = tab.icon, contentDescription = null) },

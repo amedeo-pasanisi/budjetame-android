@@ -82,6 +82,10 @@ class TransactionExportTest {
     /** The ledger is loaded once the toolbar's Filters toggle is up (the
      * row below proves the ledger itself). */
     private fun waitForLedger() {
+        // The shell opens on the Dashboard; these tests drive the whole
+        // flow from the Transactions tab (a tab tap glides the pager
+        // there, ADR-0003).
+        composeRule.onNodeWithText("Transactions").performClick()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("Filters ▸").fetchSemanticsNodes().isNotEmpty()
         }

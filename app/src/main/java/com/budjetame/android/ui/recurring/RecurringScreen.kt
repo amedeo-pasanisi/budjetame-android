@@ -30,13 +30,14 @@ private enum class RecurringSide { COSTS, INCOMES }
  * The Recurring tab (web issue #60): a Costs | Incomes toggle above the two
  * sides, mirroring the web app's RecurringScreen.tsx + recurringSide.ts.
  * Default Costs; the last side is remembered for the app session — the
- * saved state survives the tab's destination leaving the composition on a
- * tab switch (navigation keeps the back-stack entry, ADR-0002) and resets
- * on app load, exactly when the web's module-level memory resets. The Costs
+ * saved state survives the tab leaving the composition on a tab switch
+ * (the pager disposes the page; its per-tab saveable registry keeps the
+ * state, ADR-0003) and resets on app load, exactly when the web's
+ * module-level memory resets. The Costs
  * side renders exactly as before; the Incomes side mirrors it (ADR-0011).
- * The two sides' ViewModels are scoped to this destination, so a toggled-away
- * side keeps its loaded data and its background refetches (ADR-0002) — a
- * toggle back renders instantly, never stale.
+ * The two sides' ViewModels live in the shell's Activity-scoped store, so
+ * a toggled-away side keeps its loaded data and its background refetches
+ * (ADR-0002/0003) — a toggle back renders instantly, never stale.
  */
 @Composable
 fun RecurringScreen(

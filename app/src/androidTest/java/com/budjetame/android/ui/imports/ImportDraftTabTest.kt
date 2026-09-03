@@ -43,11 +43,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The Import Draft survives tab switches (web issue #43, ticket #26): the
- * draft lives in the Transactions tab's ViewModel, which the shell's
- * keep-alive navigation retains while another tab is shown — switching to
- * the Wallets tab and back resumes the flow exactly where it was left. The
- * only discard paths are Cancel, picking another file, and a successful
+ * The Import Draft survives tab switches (web issue #43, ticket #26, #41):
+ * the draft lives in the Transactions tab's ViewModel, which the shell's
+ * Activity-scoped store keeps while the pager disposes the page — switching
+ * to the Wallets tab and back resumes the flow exactly where it was left.
+ * The only discard paths are Cancel, picking another file, and a successful
  * import; the shell is rendered with trivial in-memory gateways, and the
  * flow is driven as far as the pick phase (the system file picker itself
  * is not drivable in tests).
@@ -79,6 +79,11 @@ class ImportDraftTabTest {
     @Test
     fun `the import draft survives a tab switch and only cancel discards it`() {
         launchShell()
+
+        // The shell opens on the Dashboard; the test drives the whole flow
+        // from the Transactions tab. (A tab tap glides the pager there —
+        // the same motion a drag would end in, ADR-0003.)
+        composeRule.onNodeWithText("Transactions").performClick()
 
         // The Transactions tab's ledger loads, then Import opens the pick
         // phase — the flow's own header replaces the ledger's.

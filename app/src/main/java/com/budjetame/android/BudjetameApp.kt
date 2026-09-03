@@ -1,5 +1,6 @@
 package com.budjetame.android
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.AccountDto
@@ -50,6 +52,17 @@ fun BudjetameApp(container: AppContainer) {
         }
     }
 
+    // The tab screens' ViewModels resolve to the Activity's store since the
+    // pager replaced the nav back stack (ADR-0003), so nothing clears them
+    // when the shell leaves the composition. Sign-out and account deletion
+    // must clear the store themselves, before the auth state flips: a
+    // second account must never see the previous session's screens or data
+    // (the login screen's own ViewModel is recreated fresh with it).
+    val context = LocalContext.current
+    val clearSessionViewModels = {
+        (context as? ComponentActivity)?.viewModelStore?.clear()
+    }
+
     when (val state = authState) {
         AuthState.Checking -> CheckingScreen()
         AuthState.CheckingFailed -> CheckingFailedScreen(onRetry = { checkAttempt++ })
@@ -69,11 +82,13 @@ fun BudjetameApp(container: AppContainer) {
             location = container.deviceLocation,
             onSignOut = {
                 container.authRepository.signOut()
+                clearSessionViewModels()
                 authState = AuthState.SignedOut
             },
             onDeleteAccount = {
                 container.authRepository.deleteAccount()
                 container.authRepository.signOut()
+                clearSessionViewModels()
                 authState = AuthState.SignedOut
             },
         )

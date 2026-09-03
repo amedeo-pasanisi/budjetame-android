@@ -34,8 +34,9 @@ enum class ImportPhase { PICK, PREVIEW, DONE }
  * The Import Draft (ticket #26, web issue #43): the unconfirmed import
  * state — the picked file, the parsed Preview, and the row selections —
  * held by the Transactions tab's ViewModel, which survives tab switches
- * (ADR-0002's keep-alive), so leaving the tab and coming back resumes the
- * Preview exactly where it was left. The only discard paths are Cancel,
+ * (ADR-0003: the shell's Activity-scoped ViewModel store keeps it while
+ * the pager disposes the page), so leaving the tab and coming back resumes
+ * the Preview exactly where it was left. The only discard paths are Cancel,
  * picking another file, and a successful import (then Back); nothing is
  * ever persisted, so a process death loses the draft like a web page
  * reload does. The picked file's bytes sit outside the flow (`pickedFile`
@@ -423,8 +424,9 @@ class ImportViewModel(
     /**
      * The on-resume re-check (web issue #76): the Preview resumes — the
      * user returns to the Transactions tab with a live Draft, which the
-     * screen observes as this flow re-entering composition (ADR-0002's
-     * keep-alive ViewModel never leaves) — and every problem row is
+     * screen observes as this flow re-entering composition (the tab's
+     * ViewModel never leaves the shell's Activity store, ADR-0003) — and
+     * every problem row is
      * re-validated in one batch (POST /import/revalidate-rows) against the
      * Account's current Wallets and Categories: rows that now pass flip to
      * Ready and join the selection, rows still broken keep their narrowed

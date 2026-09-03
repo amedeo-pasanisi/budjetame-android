@@ -132,7 +132,7 @@ fun ImportScreen(
         }
 
         // The on-resume re-check (web issue #76, ticket #27): the Draft
-        // survives tab switches in the tab's ViewModel (ADR-0002), so the
+        // survives tab switches in the tab's ViewModel (ADR-0003), so the
         // Preview "resumes" when this screen re-enters composition — the
         // user returns to the Transactions tab — and every re-entry
         // re-checks the live Preview's problem rows in one batch against
