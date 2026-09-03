@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.2.0] — 2026-09-03
+
 ### Changed
 
 - **Recurring definitions carry one date** — the optional Due day / Due date override is gone (ADR-0024 in the web repo): an Occurrence's due date is its own date, and the start date is the definition's only date. Left empty at creation it becomes the creation day; afterwards it can be changed, never unset — a definition can no longer silently snap back to its creation day.
@@ -254,6 +256,7 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.2.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.0
 [v1.1.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.1.0
 [v1.0.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.1
 [v1.0.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.0
