@@ -13,6 +13,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Changed
 
+- **Dashboard** — the category-pie card now owns its month selector like
+  the web app: the standalone month-totals card (its ◀/▶ arrows and the
+  Expenses/Incomes totals pair) is gone, and the donut card carries a
+  "Month" field that opens the month picker — picking a month refetches
+  that month's summary and drives the title, donut, and legend together,
+  with the toggle and the picker staying usable while the month loads
+  (#39).
 - **Transactions** — the ledger chrome now mirrors the web app's v1.2.0
   screen: the header row keeps just the title with Import (a plain text
   link) and New transaction, Export leaves it for the two web entry

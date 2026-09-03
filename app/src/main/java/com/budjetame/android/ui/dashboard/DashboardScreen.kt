@@ -107,9 +107,9 @@ private val GridlineFractions = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)
 
 /**
  * The Dashboard (tickets #17, #18): Net Worth front and center, the
- * reference month's Income/Expense totals with previous/next month
- * navigation, the category pie toggled between Expenses and Incomes, the
- * Budget card — the current Europe/Rome month's frame from
+ * category pie card with its own reference-month picker and
+ * Expenses/Incomes toggle (web parity — the donut card owns its month
+ * selector), the Budget card — the current Europe/Rome month's frame from
  * GET /dashboard/budget, rendered raw — and the monthly trend chart with
  * its own Expenses/Incomes toggle over a user-picked From/To month range
  * (GET /dashboard/expense-trend and /dashboard/income-trend). Every number
@@ -169,22 +169,10 @@ private fun DashboardContent(
     ) {
         // Net Worth never waits on a month change: balances are current.
         item(key = "net-worth") { NetWorthCard(netWorth = summary.net_worth) }
-        // The Budget is current-month-only: it ignores the month selector
-        // below, exactly like the web app's card (web issue #66).
+        // The Budget is current-month-only: it ignores the pie card's month
+        // selector below, exactly like the web app's card (web issue #66).
         item(key = "budget") { BudgetCard(state = state) }
-        item(key = "month") {
-            MonthTotalsCard(
-                state = state,
-                onPrevious = viewModel::previousMonth,
-                onNext = viewModel::nextMonth,
-            )
-        }
-        item(key = "pie") {
-            PieCard(
-                state = state,
-                onPieSideChange = viewModel::onPieSideChange,
-            )
-        }
+        item(key = "pie") { PieCard(state = state, viewModel = viewModel) }
         item(key = "trend") { TrendCard(state = state, viewModel = viewModel) }
     }
 }
@@ -297,84 +285,6 @@ private fun BudgetCard(state: DashboardViewModel.UiState) {
     }
 }
 
-/**
- * The reference month card: the previous/next arrows drive both the totals
- * and the pie (one summary response serves both). While the new month's
- * summary is in flight, the loaded totals are still the previous month's —
- * show "Loading…" instead of titling them with the new month (US27).
- */
-@Composable
-private fun MonthTotalsCard(
-    state: DashboardViewModel.UiState,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-) {
-    DashboardCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrevious) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = "Previous month",
-                )
-            }
-            Text(
-                text = Dates.monthLabel(state.requestedMonth.toString()),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onNext) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "Next month",
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        val summary = state.summary
-        if (summary == null || !state.monthInSync) {
-            Text(
-                text = "Loading…",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MonthTotal(
-                    label = "Expenses",
-                    amount = Money.formatEuros(summary.expenses),
-                    modifier = Modifier.weight(1f),
-                )
-                MonthTotal(
-                    label = "Incomes",
-                    amount = Money.formatEuros(summary.income),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonthTotal(label: String, amount: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = amount,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-    }
-}
-
 /** The Expenses/Incomes side toggle shared by the pie and the trend cards:
  * a segmented control with the active side highlighted — the web app's
  * KindToggle. */
@@ -401,58 +311,97 @@ private fun ExpenseIncomeToggle(
 }
 
 /**
- * The category pie card, toggled between Expenses and Incomes (both pies
- * arrive in one summary response, so the toggle never refetches). While the
- * new pie month's summary is in flight, the loaded data is still the
- * previous month's — never title the pie with the new month (US27).
+ * The category pie card, self-contained (web parity, US27): it owns its
+ * reference month — the title ("June 2026 · Expenses by Category"), the
+ * Expenses/Incomes toggle, and a "Month" field opening the same
+ * MonthPickerDialog the trend card's From/To fields use — with the donut
+ * and legend below. Picking a month refetches the summary for it, driving
+ * title, donut, and legend together; both pies arrive in one summary
+ * response, so the toggle never refetches. The toggle and the month field
+ * stay usable while the picked month's summary is in flight — only the
+ * data area shows "Loading…" — and the card never titles itself with a
+ * month whose data has not arrived: title, donut, and legend render only
+ * once the held summary is the requested month's (US27, as before).
  */
 @Composable
 private fun PieCard(
     state: DashboardViewModel.UiState,
-    onPieSideChange: (PieSide) -> Unit,
+    viewModel: DashboardViewModel,
 ) {
     DashboardCard {
-        if (!state.monthInSync) {
+        // The title carries the month, so it only renders once that month's
+        // summary has arrived — never the requested month over stale data.
+        if (state.monthInSync) {
+            val sideLabel = if (state.pieSide == PieSide.EXPENSE) "Expenses" else "Incomes"
             Text(
-                text = "Loading…",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "${Dates.monthLabel(state.requestedMonth.toString())} · $sideLabel by Category".uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            return@DashboardCard
         }
-        val sideLabel = if (state.pieSide == PieSide.EXPENSE) "Expenses" else "Incomes"
-        Text(
-            text = "${Dates.monthLabel(state.requestedMonth.toString())} · $sideLabel by Category".uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         ExpenseIncomeToggle(
             expenseSelected = state.pieSide == PieSide.EXPENSE,
-            onSelect = { expense -> onPieSideChange(if (expense) PieSide.EXPENSE else PieSide.INCOME) },
+            onSelect = { expense ->
+                viewModel.onPieSideChange(if (expense) PieSide.EXPENSE else PieSide.INCOME)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
         )
-        if (state.pieSlices.isEmpty()) {
-            val lower = if (state.pieSide == PieSide.EXPENSE) "expenses" else "incomes"
-            Text(
-                text = "No $lower recorded in ${Dates.monthLabel(state.requestedMonth.toString())}.",
+        var monthPickerOpen by remember { mutableStateOf(false) }
+        MonthField(
+            label = "Month",
+            month = state.requestedMonth,
+            onClick = { monthPickerOpen = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+        )
+        // The data area. While the picked month's summary is in flight, the
+        // held slices are still the previous month's — show "Loading…"
+        // instead of old data under the new month (US27); the toggle and
+        // the month field above stay usable throughout.
+        when {
+            !state.monthInSync -> Text(
+                text = "Loading…",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 16.dp),
             )
-        } else {
-            DonutChart(
-                slices = state.pieSlices,
-                centerLabel = Money.formatEuros(state.pieTotal),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-            )
-            PieLegend(
-                slices = state.pieSlices,
-                modifier = Modifier.padding(top = 16.dp),
+
+            state.pieSlices.isEmpty() -> {
+                val lower = if (state.pieSide == PieSide.EXPENSE) "expenses" else "incomes"
+                Text(
+                    text = "No $lower recorded in ${Dates.monthLabel(state.requestedMonth.toString())}.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
+
+            else -> {
+                DonutChart(
+                    slices = state.pieSlices,
+                    centerLabel = Money.formatEuros(state.pieTotal),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                )
+                PieLegend(
+                    slices = state.pieSlices,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
+        }
+        if (monthPickerOpen) {
+            MonthPickerDialog(
+                initial = state.requestedMonth,
+                onDismiss = { monthPickerOpen = false },
+                onSelect = { month ->
+                    viewModel.onPieMonthChange(month)
+                    monthPickerOpen = false
+                },
             )
         }
     }

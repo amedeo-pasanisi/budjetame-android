@@ -22,18 +22,19 @@ enum class PieSide { EXPENSE, INCOME }
 
 /**
  * The Dashboard's state machine (tickets #17, #18), ported from the web
- * app's DashboardScreen: Net Worth plus the reference month's Income/Expense
- * totals and its category pie, toggled between Expenses and Incomes; the
+ * app's DashboardScreen: Net Worth plus the reference month's category pie
+ * — the pie card owns its month picker and its Expenses/Incomes toggle
+ * (web parity), one summary response serving the toggle's two pies — the
  * monthly trend chart with its own Expenses/Incomes toggle over a
  * user-picked From/To month range (T12, US28); and the Budget card — the
  * current Europe/Rome month's Monthly Spendable, Daily Allowance, and
  * Spendable Today, rendered raw from GET /dashboard/budget (negative
  * Spendable Today is the card's job to floor, ADR-0012 semantics). The
- * month defaults to the current Europe/Rome one; the previous/next arrows
- * refetch the summary for the neighbouring month, and every month-driven
- * card titles itself with the loaded summary's month, never the requested
- * one (US27). Data is refetched in the background when the global data
- * version bumps (ADR-0002).
+ * month defaults to the current Europe/Rome one; the pie card's Month
+ * picker refetches the summary for the picked month, and the card titles
+ * itself with the loaded summary's month, never the requested one (US27).
+ * Data is refetched in the background when the global data version bumps
+ * (ADR-0002).
  */
 class DashboardViewModel(
     private val dashboard: DashboardGateway,
@@ -115,9 +116,14 @@ class DashboardViewModel(
         }
     }
 
-    fun previousMonth() = showMonth(_uiState.value.requestedMonth.minusMonths(1))
-
-    fun nextMonth() = showMonth(_uiState.value.requestedMonth.plusMonths(1))
+    /** The pie card's month picker (web parity): picking a month refetches
+     * the summary for it. Only the summary is month-driven: the Budget is
+     * current-month-only and the trend has its own range, so a month change
+     * refetches the summary alone (exactly like the web app's effects). */
+    fun onPieMonthChange(month: YearMonth) {
+        _uiState.update { it.copy(requestedMonth = month) }
+        viewModelScope.launch { reloadSummary() }
+    }
 
     fun onPieSideChange(side: PieSide) {
         _uiState.update { it.copy(pieSide = side) }
@@ -153,14 +159,6 @@ class DashboardViewModel(
             _uiState.update { it.copy(loading = true, loadError = null) }
             reload()
         }
-    }
-
-    private fun showMonth(month: YearMonth) {
-        _uiState.update { it.copy(requestedMonth = month) }
-        // Only the summary is month-driven: the Budget is current-month-only
-        // and the trend has its own range, so a month change refetches the
-        // summary alone (exactly like the web app's effects).
-        viewModelScope.launch { reloadSummary() }
     }
 
     /** Refetch every card: the summary for the requested month, the current

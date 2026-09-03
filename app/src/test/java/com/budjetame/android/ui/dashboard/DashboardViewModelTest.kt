@@ -39,8 +39,9 @@ import java.util.concurrent.TimeUnit
  * The Dashboard flow tested at the single seam (the HTTP API): the ViewModel
  * is driven through the real repository, Retrofit, OkHttp, and a
  * MockWebServer whose dispatcher is a small stateful fake of the
- * /dashboard/summary resource — echoing the requested month back, so month
- * navigation and the stale-response guard (US27) are observable on the wire.
+ * /dashboard/summary resource — echoing the requested month back, so the
+ * pie month picker and the stale-response guard (US27) are observable on
+ * the wire.
  * The month clock is injected for determinism.
  */
 class DashboardViewModelTest {
@@ -276,19 +277,19 @@ class DashboardViewModelTest {
         assertEquals(listOf("2026-08"), months())
     }
 
-    // --- Month navigation ---
+    // --- The pie card's month picker (web parity) ---
 
     @Test
-    fun `month navigation drives the request month and the held summary`() = runBlocking {
+    fun `a month pick drives the requested month and the held summary`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
-        viewModel.previousMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2026, 7))
         awaitState { it.summary?.month == "2026-07" && it.monthInSync }
 
-        viewModel.nextMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2026, 8))
         awaitState { it.summary?.month == "2026-08" }
-        viewModel.nextMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2026, 9))
         awaitState { it.summary?.month == "2026-09" }
 
         assertEquals(listOf("2026-08", "2026-07", "2026-08", "2026-09"), months())
@@ -297,12 +298,25 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `previous month crosses the year boundary`() = runBlocking {
+    fun `the month picker lands on any month in one pick`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        // The dialog (unlike the old arrows) jumps straight to any month —
+        // no neighbouring months are fetched along the way.
+        viewModel.onPieMonthChange(YearMonth.of(2025, 3))
+        awaitState { it.summary?.month == "2025-03" && it.monthInSync }
+
+        assertEquals(listOf("2026-08", "2025-03"), months())
+    }
+
+    @Test
+    fun `a month pick crosses the year boundary`() = runBlocking {
         now = YearMonth.of(2026, 1)
         createViewModel()
         awaitLoaded()
 
-        viewModel.previousMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2025, 12))
         awaitState { it.summary?.month == "2025-12" }
 
         assertEquals(listOf("2026-01", "2025-12"), months())
@@ -313,7 +327,7 @@ class DashboardViewModelTest {
         createViewModel()
         awaitDashboard()
 
-        viewModel.nextMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2026, 9))
         awaitState { it.summary?.month == "2026-09" && it.monthInSync }
 
         // The Budget is current-month-only and the trend has its own range:
@@ -372,7 +386,7 @@ class DashboardViewModelTest {
         awaitLoaded()
         failMonths.add("2026-07")
 
-        viewModel.previousMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2026, 7))
         awaitState { it.requestedMonth == YearMonth.of(2026, 7) }
         awaitState { it.requestedMonth == YearMonth.of(2026, 8) }
 
@@ -385,15 +399,15 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `a late response for a previous month never overwrites the current one`() = runBlocking {
+    fun `a late response for a superseded month never overwrites the current one`() = runBlocking {
         val holdJuly = CountDownLatch(1)
         heldMonths["2026-07"] = holdJuly
         createViewModel()
         awaitLoaded()
 
-        viewModel.previousMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2026, 7))
         awaitState { it.requestedMonth == YearMonth.of(2026, 7) }
-        viewModel.nextMonth()
+        viewModel.onPieMonthChange(YearMonth.of(2026, 8))
         awaitState { it.requestedMonth == YearMonth.of(2026, 8) && it.summary?.month == "2026-08" }
 
         // The July response finally arrives — long after the user moved on.
