@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.RecurringCostDto
@@ -866,14 +867,64 @@ private fun BalancePreviewCard(
 }
 
 /**
+ * The Add/Change location and "Use my location" button pair (ticket #37):
+ * the two keep their natural width inside a FlowRow with 8dp spacing, so
+ * they share one row at a dialog's width and a label is never squeezed
+ * below one line by a cramped half-row — when the pair does not fit at a
+ * larger font scale, whole buttons wrap onto further lines instead of
+ * breaking mid-word. As the safety net at extreme scales — where even
+ * one button cannot fit its label on a single line — each label centers
+ * itself across its lines rather than hugging the left. The open button reads
+ * "Add location", or "Change location" once a location is attached; the
+ * GPS button reads "Locating…" and disables while the lookup runs. The
+ * test tags tx-location-open and tx-location-gps ride the buttons for the
+ * location section's UI tests.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun LocationButtons(
+    location: LatLng?,
+    locating: Boolean,
+    onOpenPicker: () -> Unit,
+    onUseMyLocation: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier,
+    ) {
+        OutlinedButton(
+            onClick = onOpenPicker,
+            modifier = Modifier.testTag("tx-location-open"),
+        ) {
+            Text(
+                text = if (location != null) "Change location" else "Add location",
+                textAlign = TextAlign.Center,
+            )
+        }
+        OutlinedButton(
+            onClick = onUseMyLocation,
+            enabled = !locating,
+            modifier = Modifier.testTag("tx-location-gps"),
+        ) {
+            Text(
+                text = if (locating) "Locating…" else "Use my location",
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/**
  * The Transaction form's Location section (ticket #29), mirroring the web
  * form's block: the attached location's chip — the Place's name when the
  * location carries one, else the coordinates — with the client-built maps
  * link (place_id → name → coordinates, never stored as text) and the
  * Remove action, then the Add/Change location and "Use my location"
- * buttons with the locating state and the inline GPS failure line. While
- * the map picker dialog is open the buttons give way to it, like the web's
- * inline picker area.
+ * buttons (the LocationButtons pair, ticket #37) with the locating state
+ * and the inline GPS failure line. While the map picker dialog is open
+ * the buttons give way to it, like the web's inline picker area.
  */
 @Composable
 private fun LocationSection(
@@ -939,28 +990,13 @@ private fun LocationSection(
             )
         }
         if (!showingPicker) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            LocationButtons(
+                location = location,
+                locating = locating,
+                onOpenPicker = onOpenPicker,
+                onUseMyLocation = onUseMyLocation,
                 modifier = Modifier.padding(top = 8.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onOpenPicker,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("tx-location-open"),
-                ) {
-                    Text(if (location != null) "Change location" else "Add location")
-                }
-                OutlinedButton(
-                    onClick = onUseMyLocation,
-                    enabled = !locating,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("tx-location-gps"),
-                ) {
-                    Text(if (locating) "Locating…" else "Use my location")
-                }
-            }
+            )
             gpsError?.let { error ->
                 Text(
                     text = error,

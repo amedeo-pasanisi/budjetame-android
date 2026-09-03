@@ -26,6 +26,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Fixed
 
+- **Transactions** — the Location section's "Add location" / "Change
+  location" and "Use my location" buttons now keep their natural width
+  in a wrapping row instead of splitting the dialog's line in half: the
+  two share one line at dialog widths, and when they no longer fit at a
+  large font scale whole buttons wrap onto further lines, never a label
+  mid-word — a label squeezed to two lines at an extreme scale stays
+  centered inside its button (#37).
 - **Transactions** — the Expense/Income/Transfer type buttons in the
   transaction form (and the import row editor's picker, which shares
   them) keep their natural width and wrap as whole buttons onto further
