@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -752,6 +753,15 @@ private data class ChartLayout(
  * magnitude is readable at a glance (T12 AC: X months, Y totals). Wide
  * ranges scroll horizontally so every month stays readable.
  *
+ * The plot always fills the card's inner width (ticket #40): the content
+ * width is max(fixed geometry, available card width). A short range
+ * spreads its bars evenly across the full plot — bar widths unchanged,
+ * the gaps grown symmetrically, gridlines spanning the whole plot — while
+ * a wide range keeps the fixed geometry and scrolls, exactly as before.
+ * Drawing and hit testing share one TrendChartGeometry, so tap targets
+ * always move with the bars (tickets #40 and #42 land on the same
+ * geometry).
+ *
  * The bars carry no always-on labels — an amount above every column was
  * wider than its column on a phone, so neighbouring labels collided. The
  * exact amount is read on demand: tapping a column shows the month and its
@@ -807,37 +817,47 @@ private fun TrendChart(months: List<MonthBucketDto>, modifier: Modifier = Modifi
                 )
             }
         }
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .height(ChartHeight)
-                .width(ChartLeftPad + (BarWidth + BarGap) * months.size)
-                .pointerInput(months) {
-                    detectTapGestures { offset ->
-                        // The tap target is the whole column, like the web
-                        // app's transparent column rects.
-                        val leftPad = ChartLeftPad.toPx()
-                        val gap = BarGap.toPx()
-                        val barWidth = BarWidth.toPx()
-                        val topPad = ChartTopPad.toPx()
-                        val plotHeight = (ChartHeight - ChartTopPad - BarLabelHeight).toPx()
-                        val inPlot = offset.x >= leftPad + gap &&
-                            offset.y >= topPad && offset.y <= topPad + plotHeight
-                        val index = if (inPlot) {
-                            ((offset.x - leftPad - gap) / (barWidth + gap)).toInt()
-                        } else {
-                            -1
+        // The measured content width: the card's inner width wins when it
+        // is wider than the fixed geometry (short ranges stretch to fill),
+        // the fixed geometry wins when the range outgrows the card (wide
+        // ranges keep today's layout and scroll horizontally).
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val fixedWidth = ChartLeftPad + (BarWidth + BarGap) * months.size
+            val contentWidth = if (fixedWidth > maxWidth) fixedWidth else maxWidth
+            val geometry = remember(months.size, contentWidth, density) {
+                TrendChartGeometry(
+                    count = months.size,
+                    barWidth = with(density) { BarWidth.toPx() },
+                    barGap = with(density) { BarGap.toPx() },
+                    leftPad = with(density) { ChartLeftPad.toPx() },
+                    contentWidth = with(density) { contentWidth.toPx() },
+                )
+            }
+            Canvas(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .height(ChartHeight)
+                    .width(contentWidth)
+                    .pointerInput(geometry) {
+                        detectTapGestures { offset ->
+                            // The tap target is the whole column, like the
+                            // web app's transparent column rects — the
+                            // shared geometry keeps it under its bar.
+                            val topPad = ChartTopPad.toPx()
+                            val plotHeight = (ChartHeight - ChartTopPad - BarLabelHeight).toPx()
+                            val inPlot =
+                                offset.y >= topPad && offset.y <= topPad + plotHeight
+                            val index = if (inPlot) geometry.columnIndexAt(offset.x) else null
+                            selected = when {
+                                index == null -> null
+                                selected == index -> null
+                                else -> index
+                            }
                         }
-                        selected = when {
-                            index !in months.indices -> null
-                            selected == index -> null
-                            else -> index
-                        }
-                    }
-                },
-        ) {
-            drawTrendChart(layout, selected)
+                    },
+            ) {
+                drawTrendChart(layout, selected, geometry)
+            }
         }
     }
 }
@@ -854,33 +874,37 @@ private fun DrawScope.paintLabel(layout: TextLayoutResult, topLeft: Offset) {
     }
 }
 
-/** One draw of the bar chart: gridlines with € labels, the bars (the
- * selected one darkened, zero months as light stubs), and the month
- * labels under the X axis. */
-private fun DrawScope.drawTrendChart(layout: ChartLayout, selected: Int?) {
-    val leftPad = ChartLeftPad.toPx()
-    val gap = BarGap.toPx()
-    val barWidth = BarWidth.toPx()
+/** One draw of the bar chart: gridlines with € labels spanning the full
+ * plot (the gridlines always run the content's whole width — flush with
+ * the last bar in the fixed layout, to the card's inner edge once
+ * stretched), the bars (the selected one darkened, zero months as light
+ * stubs), and the month labels centered under their bars. Every horizontal
+ * position comes from the shared geometry, so the drawn bars and the tap
+ * columns can never drift apart. */
+private fun DrawScope.drawTrendChart(
+    layout: ChartLayout,
+    selected: Int?,
+    geometry: TrendChartGeometry,
+) {
     val topPad = ChartTopPad.toPx()
     val labelHeight = BarLabelHeight.toPx()
     val height = ChartHeight.toPx()
     val plotHeight = height - topPad - labelHeight
-    val plotWidth = layout.values.size * (barWidth + gap)
 
     layout.gridLabelLayouts.forEachIndexed { index, label ->
         val fraction = GridlineFractions[index]
         val y = topPad + plotHeight * (1f - fraction)
         drawLine(
             color = Slate200,
-            start = Offset(leftPad, y),
-            end = Offset(leftPad + plotWidth, y),
+            start = Offset(geometry.leftPad, y),
+            end = Offset(geometry.contentWidth, y),
             strokeWidth = 1.dp.toPx(),
             pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 3.dp.toPx())),
         )
         paintLabel(
             layout = label,
             topLeft = Offset(
-                leftPad - 4.dp.toPx() - label.size.width,
+                geometry.leftPad - 4.dp.toPx() - label.size.width,
                 y - label.size.height / 2f,
             ),
         )
@@ -888,7 +912,7 @@ private fun DrawScope.drawTrendChart(layout: ChartLayout, selected: Int?) {
 
     layout.values.forEachIndexed { index, value ->
         val barHeight = value / layout.maxValue * plotHeight
-        val x = leftPad + gap + index * (barWidth + gap)
+        val x = geometry.barLeft(index)
         val y = topPad + plotHeight - barHeight
         drawRoundRect(
             color = when {
@@ -897,14 +921,14 @@ private fun DrawScope.drawTrendChart(layout: ChartLayout, selected: Int?) {
                 else -> Slate200
             },
             topLeft = Offset(x, y),
-            size = Size(barWidth, max(barHeight, if (value > 0f) 2.dp.toPx() else 0f)),
+            size = Size(geometry.barWidth, max(barHeight, if (value > 0f) 2.dp.toPx() else 0f)),
             cornerRadius = CornerRadius(3.dp.toPx()),
         )
         val label = layout.monthLabelLayouts[index]
         paintLabel(
             layout = label,
             topLeft = Offset(
-                x + barWidth / 2f - label.size.width / 2f,
+                geometry.barCenter(index) - label.size.width / 2f,
                 height - labelHeight + (labelHeight - label.size.height) / 2f,
             ),
         )

@@ -33,6 +33,12 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Fixed
 
+- **Dashboard** — the trend chart now always fills its card's inner
+  width: a short From/To range spreads its bars evenly across the plot
+  (bar widths unchanged, the gaps grown symmetrically, the gridlines
+  spanning the full width) instead of clustering at the card's left,
+  while wide ranges keep their fixed geometry and horizontal scroll —
+  month labels and tap targets move with the bars (#40).
 - **Auth** — the login screen's mode-switch link rows ("Don't have an
   Account? Sign up", "Forgot your password? Reset it", and the
   sign-up-mode "Already have an Account? Sign in") now sit their action
