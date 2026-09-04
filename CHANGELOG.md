@@ -11,6 +11,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Transactions** — the header spreads like the web's: the title on the left, Import and New transaction pushed to the right; the open Filters panel is outlined like the Filters toggle instead of floating on a shadow; and the record cards on every tab are now inset a few pixels toward the center, so their shadows no longer peek around the pinned search bar and filter panel while the list scrolls under them (#44).
+
 ## [v1.2.0] — 2026-09-03
 
 ### Changed
