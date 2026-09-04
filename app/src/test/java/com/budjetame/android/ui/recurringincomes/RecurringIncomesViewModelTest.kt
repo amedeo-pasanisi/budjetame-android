@@ -65,6 +65,11 @@ class RecurringIncomesViewModelTest {
     private var updateStatus = 200
     private var deleteStatus = 204
 
+    /** A raw list body served verbatim (when non-null): lets a test send a
+     * definition JSON that the fixtures cannot produce — e.g. one still
+     * carrying the backend's derived `overdue` field (web ADR-0025). */
+    private var rawListBody: String? = null
+
     /** The Skip/Un-skip button's fixture responses (ADR-0016), one per
      * definition: each press pops the next recorded state — the fake's
      * emulation of the backend's derived re-derivation — and stores it, so
@@ -85,6 +90,7 @@ class RecurringIncomesViewModelTest {
         createStatus = 201
         updateStatus = 200
         deleteStatus = 204
+        rawListBody = null
         skipScripts.clear()
         toggleStatus = 200
         server.dispatcher = object : Dispatcher() {
@@ -111,6 +117,7 @@ class RecurringIncomesViewModelTest {
 
         return when {
             method == "GET" && path == "/api/recurring-incomes" -> when {
+                rawListBody != null -> jsonResponse(200, rawListBody!!)
                 listStatus != 200 -> jsonResponse(listStatus, """{"detail":"boom"}""")
                 else -> jsonResponse(200, json.encodeToString(store))
             }
@@ -234,7 +241,6 @@ class RecurringIncomesViewModelTest {
         nextDue: String = "2026-09-05",
         nextUnpaid: String = "2026-09-05",
         backlog: Int = 0,
-        overdue: Boolean = false,
         nextSkipAction: SkipAction = SkipAction.SKIP,
     ) = RecurringIncomeDto(
         id = id,
@@ -246,7 +252,6 @@ class RecurringIncomesViewModelTest {
         next_due_date = nextDue,
         next_unpaid_occurrence_date = nextUnpaid,
         backlog_count = backlog,
-        overdue = overdue,
         next_skip_action = nextSkipAction,
         created_at = "2026-08-01T10:00:00Z",
     )
@@ -265,11 +270,11 @@ class RecurringIncomesViewModelTest {
     // --- Load: the next-due order with the derived state intact ---
 
     @Test
-    fun `the list loads ordered by next due date with the backlog and overdue state`() = runBlocking {
+    fun `the list loads ordered by next due date with the backlog state`() = runBlocking {
         seed(
             // Deliberately out of next-due order: the screen renders sorted.
             incomeDto(1, "Salary", amount = "2500.00", nextDue = "2026-09-01", nextUnpaid = "2026-09-01"),
-            incomeDto(2, "Freelance", amount = "300.00", nextDue = "2026-08-15", nextUnpaid = "2026-08-01", backlog = 1, overdue = true),
+            incomeDto(2, "Freelance", amount = "300.00", nextDue = "2026-08-15", nextUnpaid = "2026-08-01", backlog = 1),
         )
         createViewModel()
         awaitLoaded()
@@ -278,7 +283,6 @@ class RecurringIncomesViewModelTest {
         assertEquals(listOf(2, 1), incomes.map { it.id })
         val freelance = incomes.first { it.id == 2 }
         assertEquals(1, freelance.backlog_count)
-        assertTrue(freelance.overdue)
         // The row's data is the API's derived state, never computed locally.
         assertEquals("2026-08-15", freelance.next_due_date)
         assertEquals("2026-08-01", freelance.next_unpaid_occurrence_date)
@@ -286,8 +290,46 @@ class RecurringIncomesViewModelTest {
     }
 
     @Test
+    fun `a definition JSON still carrying the backend's derived overdue field parses like one without it`() = runBlocking {
+        // Web ADR-0025 / ticket #45: the backend no longer sends the
+        // derived `overdue` field and the DTO dropped it; a backend that
+        // still sends it (either deploy order) must parse cleanly — the
+        // JSON config ignores unknown keys — and the badge state reads
+        // from backlog_count alone.
+        rawListBody = """
+            [
+              {
+                "id": 1, "name": "Salary", "amount": "2500.00",
+                "interval_value": 1, "interval_unit": "months",
+                "start_date": "2026-08-01", "next_due_date": "2026-09-01",
+                "next_unpaid_occurrence_date": "2026-08-01",
+                "backlog_count": 2, "overdue": true,
+                "next_skip_action": "skip",
+                "created_at": "2026-08-01T10:00:00Z"
+              },
+              {
+                "id": 2, "name": "Freelance", "amount": "300.00",
+                "interval_value": 1, "interval_unit": "months",
+                "start_date": "2026-08-01", "next_due_date": "2026-09-05",
+                "next_unpaid_occurrence_date": "2026-09-05",
+                "backlog_count": 0,
+                "next_skip_action": "skip",
+                "created_at": "2026-08-01T10:00:00Z"
+              }
+            ]
+        """.trimIndent()
+        createViewModel()
+        awaitLoaded()
+
+        val incomes = viewModel.uiState.value.incomes
+        assertEquals(listOf(1, 2), incomes.map { it.id })
+        assertEquals(2, incomes.first { it.id == 1 }.backlog_count)
+        assertEquals(0, incomes.first { it.id == 2 }.backlog_count)
+    }
+
+    @Test
     fun `a write elsewhere refetches the list in the background`() = runBlocking {
-        seed(incomeDto(1, "Salary", nextDue = "2026-09-01", backlog = 1, overdue = true))
+        seed(incomeDto(1, "Salary", nextDue = "2026-09-01", backlog = 1))
         createViewModel()
         awaitLoaded()
         assertEquals(1, viewModel.uiState.value.incomes.size)
@@ -296,14 +338,12 @@ class RecurringIncomesViewModelTest {
         // derived state re-renders from the fresh API response (ADR-0002).
         store[0] = store[0].copy(
             backlog_count = 0,
-            overdue = false,
             next_unpaid_occurrence_date = "2026-10-01",
         )
         DataVersion.bump()
         awaitState { it.incomes.first().next_unpaid_occurrence_date == "2026-10-01" }
         val refreshed = viewModel.uiState.value.incomes.first()
         assertEquals(0, refreshed.backlog_count)
-        assertFalse(refreshed.overdue)
     }
 
     // --- Create ---
@@ -588,26 +628,23 @@ class RecurringIncomesViewModelTest {
 
     @Test
     fun `a skip press calls the incomes skip-toggle and swaps in the refreshed row`() = runBlocking {
-        // Salary has one Unpaid, un-Skipped Occurrence due (badge 1,
-        // Overdue); Rent is clean. One press excuses it: the response's
-        // refreshed state re-renders the row — badge gone, Overdue cleared,
-        // the button reads Un-skip — and the summary re-totals.
+        // Salary has one Unpaid, un-Skipped Occurrence due (badge 1); Rent
+        // is clean. One press excuses it: the response's refreshed state
+        // re-renders the row — badge gone, the button reads Un-skip.
         seed(
-            incomeDto(1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-08-25", backlog = 1, overdue = true),
+            incomeDto(1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-08-25", backlog = 1),
             incomeDto(2, "Rent", nextDue = "2026-09-05", nextUnpaid = "2026-09-05"),
         )
         skipScripts[1] = ArrayDeque(
             listOf(
                 incomeDto(
                     1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-09-01",
-                    backlog = 0, overdue = false, nextSkipAction = SkipAction.UNSKIP,
+                    backlog = 0, nextSkipAction = SkipAction.UNSKIP,
                 ),
             ),
         )
         createViewModel()
         awaitLoaded()
-        assertEquals(1, viewModel.uiState.value.overdueCount)
-        assertEquals(1, viewModel.uiState.value.unpaidCount)
 
         viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
         awaitState {
@@ -619,10 +656,7 @@ class RecurringIncomesViewModelTest {
         assertEquals("/api/recurring-incomes/1/skip-toggle", skipToggleCalls().first().path)
         val salary = viewModel.uiState.value.incomes.first { it.id == 1 }
         assertEquals(0, salary.backlog_count)
-        assertFalse(salary.overdue)
         assertEquals(SkipAction.UNSKIP, salary.next_skip_action)
-        assertEquals(0, viewModel.uiState.value.overdueCount)
-        assertEquals(0, viewModel.uiState.value.unpaidCount)
         // The list order is unchanged when the dates do not move.
         assertEquals(listOf(1, 2), viewModel.uiState.value.incomes.map { it.id })
     }
@@ -630,20 +664,19 @@ class RecurringIncomesViewModelTest {
     @Test
     fun `repeated presses clear the backlog oldest-first then an un-skip restores one`() = runBlocking {
         // A daily income missed for ten days (badge 10): each press skips
-        // the oldest Unpaid Occurrence, so the badge ticks 10, 9, ..., 0 and
-        // Overdue clears with the last one; once nothing is left to skip the
-        // button reads Un-skip, and the next press restores the oldest
-        // Skipped Occurrence (badge 1, Overdue back, button reads Skip).
-        val salary = incomeDto(1, "Salary", nextDue = "2026-09-05", nextUnpaid = "2026-08-27", backlog = 10, overdue = true)
+        // the oldest Unpaid Occurrence, so the badge ticks 10, 9, ..., 0;
+        // once nothing is left to skip the button reads Un-skip, and the
+        // next press restores the oldest Skipped Occurrence (badge 1 back,
+        // the button reads Skip again).
+        val salary = incomeDto(1, "Salary", nextDue = "2026-09-05", nextUnpaid = "2026-08-27", backlog = 10)
         seed(salary)
         skipScripts[1] = ArrayDeque(
             (1..10).map { press ->
                 salary.copy(
                     backlog_count = 10 - press,
-                    overdue = press < 10,
                     next_skip_action = if (press == 10) SkipAction.UNSKIP else SkipAction.SKIP,
                 )
-            } + salary.copy(backlog_count = 1, overdue = true, next_skip_action = SkipAction.SKIP),
+            } + salary.copy(backlog_count = 1, next_skip_action = SkipAction.SKIP),
         )
         createViewModel()
         awaitLoaded()
@@ -660,8 +693,6 @@ class RecurringIncomesViewModelTest {
                 row.next_skip_action,
             )
         }
-        assertEquals(0, viewModel.uiState.value.unpaidCount)
-        assertFalse(viewModel.uiState.value.incomes.first { it.id == 1 }.overdue)
 
         // The Un-skip press restores the oldest Skipped Occurrence.
         viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
@@ -670,14 +701,12 @@ class RecurringIncomesViewModelTest {
                 it.incomes.first { i -> i.id == 1 }.backlog_count == 1
         }
         assertEquals(SkipAction.SKIP, viewModel.uiState.value.incomes.first { it.id == 1 }.next_skip_action)
-        assertEquals(1, viewModel.uiState.value.unpaidCount)
-        assertTrue(viewModel.uiState.value.incomes.first { it.id == 1 }.overdue)
         assertEquals(11, skipToggleCalls().size)
     }
 
     @Test
     fun `a double tap on the same row fires one toggle`() = runBlocking {
-        seed(incomeDto(1, "Salary", backlog = 1, overdue = true))
+        seed(incomeDto(1, "Salary", backlog = 1))
         skipScripts[1] = ArrayDeque(
             listOf(
                 incomeDto(1, "Salary", backlog = 0, nextSkipAction = SkipAction.UNSKIP),
@@ -715,7 +744,7 @@ class RecurringIncomesViewModelTest {
     @Test
     fun `a failed toggle keeps the rows and shows the web message`() = runBlocking {
         seed(
-            incomeDto(1, "Salary", nextDue = "2026-09-01", backlog = 1, overdue = true),
+            incomeDto(1, "Salary", nextDue = "2026-09-01", backlog = 1),
             incomeDto(2, "Rent", nextDue = "2026-09-05"),
         )
         createViewModel()

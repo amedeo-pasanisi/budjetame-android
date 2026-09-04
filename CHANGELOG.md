@@ -11,6 +11,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Recurring definitions & Transactions** — a definition with unpaid dues now shows exactly one red "N unpaid" badge on the Recurring screens: the per-row "Overdue" mark and the "X costs overdue · N unpaid occurrences" summary pill are gone, and the badge is read from the Backlog alone. On Transactions, the filtered chips line never wraps: overflow hides behind edge fades and scrolls sideways on one line, Clear all stays pinned beside the strip, and Export to Excel left the chips line — the filter panel's footer is its one home (#45).
+
 ## [v1.2.1] — 2026-09-03
 
 ### Fixed

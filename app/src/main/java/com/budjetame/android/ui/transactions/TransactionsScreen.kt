@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,8 +22,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -55,6 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -117,9 +122,11 @@ private val AMBER_700 = Color(0xFFB45309)
  * app's v1.2.0 screen (web issue #92, ticket #35): the header row carries
  * only the title, Import, and New transaction — Export left it entirely;
  * the search field row is the toolbar with the Filters toggle at its
- * right, pinned under the header (ADR-0005); a filtered chips line
- * (visible while a panel filter is set) and the
- * filter panel's footer are the web's two Export to Excel entry points
+ * right, pinned under the header (ADR-0005); a filtered chips line —
+ * one non-wrapping strip whose overflow hides behind edge fades and
+ * scrolls sideways (web ADR-0025, ticket #45) — visible while a panel
+ * filter is set, and Export to Excel with its one home in the filter
+ * panel's footer
  * (ticket #28's flow unchanged underneath: the whole filtered ledger +
  * search as the import template's .xlsx, handed to the system share sheet).
  */
@@ -261,9 +268,9 @@ fun TransactionsScreen(
         // justify-between. The row is a FlowRow: the actions form one
         // cluster that, when it does not fit beside the title at
         // 360dp+/1.3x, wraps to a second line as a whole item, so a label
-        // can never break mid-word. Export is gone from the header — the
-        // web's two entry points sit on the filtered chips line and in the
-        // filter panel's footer, below.
+        // can never break mid-word. Export is gone from the header — its
+        // one entry point sits in the filter panel's footer below (web
+        // ADR-0025, ticket #45).
         FlowRow(
             // The weighted spacer creates the justify-between spread, so no
             // inter-item spacing is needed (a second gap would push the
@@ -470,7 +477,9 @@ private fun Ledger(
         ) {
             // The filtered chips line (web issue #92, ticket #35): visible
             // only while at least one of the five panel filters is set — the
-            // search never appears here.
+            // search never appears here. Its sticky list-head placement is
+            // ADR-0005's; the one-line scrolling strip inside it is web
+            // ADR-0025's (ticket #45) — only the inner layout changed.
             if (state.filtersActive) {
                 stickyHeader(key = "filtered-chips") {
                     Surface(color = MaterialTheme.colorScheme.background) {
@@ -553,8 +562,8 @@ private fun SearchField(
 
 /** The web's plain secondary-text action (ticket #44): Export to Excel and
  * Clear all render as text-xs font-medium text-slate-600 links, never as
- * tinted buttons — the web's exact link styling on the chips line and in
- * the panel footer. */
+ * tinted buttons — the web's exact link styling on the chips line's Clear
+ * all and in the panel footer (Clear all filters, Export to Excel). */
 @Composable
 private fun TextLink(
     text: String,
@@ -576,8 +585,9 @@ private fun TextLink(
 /**
  * The web's Export entry-point label (ticket #35): a plain text button
  * reading "Export to Excel" — the web's copy everywhere, the old
- * "Export" is gone — on the filtered chips line and in the filter
- * panel's footer. While a request is in flight every export button
+ * "Export" is gone. The filter panel's footer is its one home (web
+ * ADR-0025, ticket #45): the chips line carries no export. While a
+ * request is in flight every export button
  * disables and reads "Exporting…" (ticket #28's one press = one
  * request).
  */
@@ -587,17 +597,19 @@ private fun ExportToExcelButton(exporting: Boolean, onExport: () -> Unit) {
 }
 
 /**
- * The filtered chips line (web issue #92, ticket #35): one chip per
- * active panel filter — wallet, category, the date range (From and To
- * merge into one chip when both are set), the recurring definition — in
- * that order, each with its own ✕ that removes just that filter; a set
- * filter whose entity the loaded lists do not know yet shows no chip (the
- * panel select remains the way back to it). Clear all (the five filters
- * AND the search — web semantics) and Export to Excel sit on the right.
- * The chips wrap to further lines when the width needs it; the actions
- * keep their natural width.
+ * The filtered chips line (web issue #92, ticket #35; web ADR-0025,
+ * ticket #45): one chip per active panel filter — wallet, category, the
+ * date range (From and To merge into one chip when both are set), the
+ * recurring definition — in that order, each with its own ✕ that removes
+ * just that filter; a set filter whose entity the loaded lists do not
+ * know yet shows no chip (the panel select remains the way back to it).
+ * The chips form one line that never wraps: overflow hides behind the
+ * strip's edge fades and the strip scrolls left/right (no scrollbar),
+ * the fades recomputing on scroll and when the chip set changes; Clear
+ * all stays pinned to the strip's right, always visible (the five
+ * filters AND the search — web semantics). Export to Excel left the
+ * line: its one home is the filter panel's footer (web ADR-0025).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FilterChipsLine(
     state: TransactionsViewModel.UiState,
@@ -609,18 +621,75 @@ private fun FilterChipsLine(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth(),
     ) {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.weight(1f),
+        val scrollState = rememberScrollState()
+        // The one-line strip: a horizontally scrolling row that clips its
+        // overflow — the wrapping FlowRow is gone (web ADR-0025).
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .testTag("tx-filter-chips"),
         ) {
-            activeFilterChips(state).forEach { chip ->
-                FilterChip(label = chip.label) { removeFilterChip(viewModel, chip.key) }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(scrollState),
+            ) {
+                activeFilterChips(state).forEach { chip ->
+                    FilterChip(label = chip.label) { removeFilterChip(viewModel, chip.key) }
+                }
+            }
+            // The edge fades (web ADR-0025): each end that hides chips is
+            // covered — the left once the strip has scrolled, the right
+            // while more chips sit beyond it. Reading the scroll state in
+            // composition keeps them current on every scroll and whenever
+            // the chip set changes the laid-out width (and so maxValue)
+            // moves with it.
+            if (scrollState.value > 0) {
+                EdgeFade(fromEnd = false, modifier = Modifier.matchParentSize())
+            }
+            if (scrollState.value < scrollState.maxValue) {
+                EdgeFade(fromEnd = true, modifier = Modifier.matchParentSize())
+            }
+        }
+        // A chip removal can shrink the laid-out content while the strip
+        // is scrolled; once the new max lands, pull the offset back inside
+        // it so the strip never rests past its own end.
+        LaunchedEffect(scrollState.maxValue) {
+            if (scrollState.value > scrollState.maxValue) {
+                scrollState.scrollTo(scrollState.maxValue)
             }
         }
         TextLink(text = "Clear all", onClick = viewModel::clearFiltersAndSearch)
-        ExportToExcelButton(exporting = state.exporting, onExport = viewModel::export)
     }
+}
+
+/** One end fade over the chips strip (web ADR-0025): a 24 dp gradient
+ * from the page background at the strip's very edge to transparent
+ * inwards — the strip sits on the page background, so a chip scrolling
+ * under the fade sinks into it. Drawn over the strip but input
+ * transparent: the fade Box holds no pointer handling, so a partially
+ * faded chip's ✕ stays tappable. */
+@Composable
+private fun EdgeFade(
+    fromEnd: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val background = MaterialTheme.colorScheme.background
+    Box(
+        modifier = modifier.drawBehind {
+            val fadeWidth = 24.dp.toPx()
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = if (fromEnd) {
+                        listOf(Color.Transparent, background)
+                    } else {
+                        listOf(background, Color.Transparent)
+                    },
+                    startX = if (fromEnd) size.width - fadeWidth else 0f,
+                    endX = if (fromEnd) size.width else fadeWidth,
+                ),
+            )
+        },
+    )
 }
 
 /** A chip's ✕ routes by key to the one filter it stands for (web issue
@@ -638,7 +707,10 @@ private fun removeFilterChip(viewModel: TransactionsViewModel, key: FilterChipKe
 
 /** One filtered-line chip: a pill with the filter's label and its ✕,
  * whose content description mirrors the web's aria-label
- * ("Remove <label> filter"). */
+ * ("Remove <label> filter"). The label ellipsizes past ~192 dp — the
+ * web's max-w-[12rem] truncate (web ADR-0025) — before the ✕, so one
+ * long filter can never push the strip's height up or its ✕ out of the
+ * pill. */
 @Composable
 private fun FilterChip(label: String, onRemove: () -> Unit) {
     Surface(
@@ -651,7 +723,11 @@ private fun FilterChip(label: String, onRemove: () -> Unit) {
                 text = label,
                 fontSize = 12.sp,
                 color = Slate700,
-                modifier = Modifier.padding(start = 12.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(start = 12.dp, end = 2.dp, top = 6.dp, bottom = 6.dp)
+                    .widthIn(max = 192.dp),
             )
             Text(
                 text = "✕",
@@ -722,11 +798,13 @@ private fun FilterBar(
                 onSelect = viewModel::onFilterCategoryChange,
             )
 
-            // Panel footer (web issue #92, ticket #35): Clear all filters —
+            // Panel footer (web issue #92, ticket #35; web ADR-0025,
+            // ticket #45): Clear all filters —
             // visible only while at least one of the five panel filters is
             // set, and it clears exactly those, the search untouched — with
             // Export to Excel always present while the panel is open
-            // (nothing set: the full-ledger export path).
+            // (nothing set: the full-ledger export path). The footer is
+            // Export's one home: the chips line carries none.
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
                 verticalAlignment = Alignment.CenterVertically,

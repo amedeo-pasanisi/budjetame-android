@@ -45,11 +45,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The Export entry points' wiring (US 7.3, ticket #28, chrome web issue
- * #92 / ticket #35) through the composed Transactions screen: the header no
- * longer carries an Export button — the web's two places, the filtered
- * chips line and the filter panel's footer, do — and a failed export
- * surfaces the web screen's error line from either. The happy path stops
+ * The Export entry point's wiring (US 7.3, ticket #28, chrome web issue
+ * #92 / ticket #35, web ADR-0025 / ticket #45) through the composed
+ * Transactions screen: the header carries no Export button — the filter
+ * panel's footer is Export to Excel's one home, exactly once on screen
+ * while the panel is open and never with it closed (the filtered chips
+ * line carries none) — and a failed export
+ * surfaces the web screen's error line from the footer. The happy path stops
  * at the gateway seam here by design — the file's journey from the
  * response to the system share sheet is the seam test's (the mapping is
  * driven through MockWebServer) and the share sheet itself is not drivable
@@ -103,8 +105,8 @@ class TransactionExportTest {
         assertEquals(0, composeRule.onAllNodesWithText("Export").fetchSemanticsNodes().size)
         assertEquals(0, composeRule.onAllNodesWithText("All transactions").fetchSemanticsNodes().size)
 
-        // The filter panel's footer is one of the web's two Export entry
-        // points: Export to Excel is always there while the panel is open,
+        // The filter panel's footer is Export's one entry
+        // point: Export to Excel is always there while the panel is open,
         // even with no filter set — the full-ledger export path.
         composeRule.onNodeWithText("Filters ▸").performClick()
         composeRule.waitUntil(5_000) {
@@ -129,13 +131,14 @@ class TransactionExportTest {
     }
 
     @Test
-    fun `the filtered line's Export to Excel press surfaces the same error line`() {
+    fun `Export to Excel appears exactly once - the panel footer's - while the panel is open and never with it closed`() {
         launchShell(FakeTransactionGateway())
         waitForLedger()
 
         // Set a wallet filter through the panel: the chips line appears
-        // with its own Clear all and Export to Excel — the panel's footer
-        // carries the second copy while it stays open.
+        // with its Clear all. Export left the chips line (web ADR-0025,
+        // ticket #45): the panel's footer carries the one copy while it
+        // stays open.
         composeRule.onNodeWithText("Filters ▸").performClick()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("All wallets").fetchSemanticsNodes().isNotEmpty()
@@ -146,29 +149,39 @@ class TransactionExportTest {
         }
         composeRule.onNodeWithText("Cash (€0.00)").performClick()
 
-        // The chip names the filter; both entry points are now on screen.
+        // The chip names the filter; the single Export is the footer's.
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("Clear all").fetchSemanticsNodes().isNotEmpty()
         }
-        assertEquals(2, composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().size)
+        assertEquals(1, composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().size)
 
-        // Closing the panel leaves the filtered line's own Export as the
-        // single entry point — export without the panel, like the web.
-        composeRule.onNodeWithText("Filters ▾").performClick()
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().size == 1
-        }
+        // The footer's press surfaces the web's error line; the chips
+        // line and the ledger survive — still one Export, still on the
+        // footer.
         composeRule.onNodeWithText("Export to Excel").performClick()
-
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("Could not export transactions.")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        // The chip line and the ledger survive the failed export.
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("Cash").fetchSemanticsNodes().isNotEmpty()
         }
+        assertEquals(1, composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().size)
+
+        // Closing the panel takes Export off the screen entirely: the
+        // chips line stays (its Clear all is still there) but carries no
+        // export — export without the panel is gone, like the web.
+        composeRule.onNodeWithText("Filters ▾").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().isEmpty()
+        }
         assertEquals(1, composeRule.onAllNodesWithText("Clear all").fetchSemanticsNodes().size)
+
+        // Reopening the panel brings the footer's single Export back.
+        composeRule.onNodeWithText("Filters ▸").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().size == 1
+        }
     }
 
     // --- Trivial in-memory gateways -----------------------------------------

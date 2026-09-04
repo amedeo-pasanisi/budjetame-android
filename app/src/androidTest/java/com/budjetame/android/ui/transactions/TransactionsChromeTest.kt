@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -64,10 +65,12 @@ import org.junit.runner.RunWith
 
 /**
  * The Transactions chrome's web v1.2.0 shape (web issue #92, ticket #35)
- * through the composed screen: the header row (title + Import + New
+ * plus the web ADR-0025 chips strip (ticket #45) through the composed
+ * screen: the header row (title + Import + New
  * transaction — no Export), the toolbar row (search with the Filters
  * toggle at its right, hidden on a truly empty ledger), the filtered chips
- * line (per-filter ✕, Clear all, Export to Excel) and the filter panel's
+ * line (per-filter ✕ and Clear all pinned beside the one-line scrolling
+ * strip — Export left it) and the filter panel's
  * footer (Clear all filters + Export to Excel). The screen is composed
  * directly with trivial in-memory gateways, like the form tests.
  */
@@ -266,9 +269,10 @@ class TransactionsChromeTest {
         }
 
         // The chips line shows the three chips with plain names (no
-        // balance, no icon), each with its ✕; Clear all and Export to
-        // Excel sit on the right, and the panel's footer shows Clear all
-        // filters plus its own Export to Excel.
+        // balance, no icon), each with its ✕; Clear all stays pinned at
+        // the strip's right — Export to Excel left the line (web
+        // ADR-0025) — and the panel's footer shows Clear all filters
+        // beside the one Export to Excel.
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("Clear all").fetchSemanticsNodes().isNotEmpty()
         }
@@ -276,7 +280,7 @@ class TransactionsChromeTest {
         assertTrue(composeRule.onAllNodesWithText("Food").fetchSemanticsNodes().isNotEmpty())
         assertTrue(composeRule.onAllNodesWithText("Rent").fetchSemanticsNodes().isNotEmpty())
         assertTrue(composeRule.onAllNodesWithText("Clear all filters").fetchSemanticsNodes().isNotEmpty())
-        assertEquals(2, composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().size)
+        assertEquals(1, composeRule.onAllNodesWithText("Export to Excel").fetchSemanticsNodes().size)
 
         // A chip's ✕ removes just that filter: Rent goes, Cash and Food
         // stay; then Food; then Cash — the last removal takes the whole
@@ -400,6 +404,114 @@ class TransactionsChromeTest {
         }
     }
 
+    @Test
+    fun `an overflowing chips strip stays one line and scrolls to an off-screen chip x while Clear all stays pinned`() {
+        // Web ADR-0025 (ticket #45): the chips never wrap — an overflowing
+        // strip scrolls sideways, and Clear all stays pinned beside it. A
+        // 360 dp width forces the overflow (the header test's density
+        // trick): the long wallet's chip fills most of the 192 dp label
+        // cap, and the Food and Rent chips after it end off-screen.
+        wallets.rows = listOf(cash, card, longWallet)
+        composeRule.setContent {
+            val base = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(base.density, fontScale = 1f),
+            ) {
+                Box(modifier = Modifier.width(360.dp)) {
+                    TransactionsScreen(
+                        transactions = transactions,
+                        imports = imports,
+                        wallets = wallets,
+                        categories = categories,
+                        recurringCosts = recurringCosts,
+                        recurringIncomes = recurringIncomes,
+                        location = ChromeSilentLocation(),
+                    )
+                }
+            }
+        }
+        waitForLedger()
+        openFilters()
+
+        // The long wallet, Food, and Rent: three chips whose one line is
+        // wider than the strip.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("All wallets").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("All wallets").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("$longWalletName (€0.00)").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("$longWalletName (€0.00)").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("All categories").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("All categories").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("🍕 Food").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("🍕 Food").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("All transactions").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("All transactions").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Rent").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Rent").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Remove Rent filter")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // The strip is one line — a wrapped chip row would make it taller
+        // than the single chip it holds.
+        val stripHeight = composeRule.onNodeWithTag("tx-filter-chips")
+            .getUnclippedBoundsInRoot().height
+        assertTrue(
+            "the chips strip should stay one line, was ${stripHeight} tall",
+            stripHeight < 60.dp,
+        )
+
+        // Clear all never moves: pinned beside the strip before the
+        // scroll and after it.
+        composeRule.onNodeWithText("Clear all").assertIsDisplayed()
+
+        // The off-screen Rent chip's ✕ needs a scroll to reach: the
+        // scroll-aware press removes just that filter.
+        composeRule.onNodeWithContentDescription("Remove Rent filter")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Remove Rent filter")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithText("Clear all").assertIsDisplayed()
+
+        // Food's ✕, then the wallet's — the strip scrolls back left to
+        // reach them, Clear all pinned the whole way.
+        composeRule.onNodeWithContentDescription("Remove Food filter")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Remove Food filter")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Remove $longWalletName filter")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithContentDescription("Remove $longWalletName filter")
+                .fetchSemanticsNodes().isEmpty()
+        }
+
+        // The last chip's removal takes the whole line away.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Clear all").fetchSemanticsNodes().isEmpty()
+        }
+        assertTrue(composeRule.onAllNodesWithText("Clear all filters").fetchSemanticsNodes().isEmpty())
+    }
+
     // --- Trivial in-memory gateways -----------------------------------------
 
     /** The ledger: two rows on the seeded Wallets, unfiltered by the fakes
@@ -455,7 +567,9 @@ class TransactionsChromeTest {
     }
 
     private class FakeWalletGateway : WalletGateway {
-        override suspend fun fetchWallets(): List<WalletDto> = listOf(cash, card)
+        var rows: List<WalletDto> = listOf(cash, card)
+
+        override suspend fun fetchWallets(): List<WalletDto> = rows
         override suspend fun createWallet(name: String, type: WalletType, openingBalance: String): WalletDto =
             error("unused")
         override suspend fun renameWallet(id: Int, name: String): WalletDto = error("unused")
@@ -510,6 +624,19 @@ class TransactionsChromeTest {
     companion object {
         private val cash = WalletDto(1, "Cash", WalletType.CASH, "0.00", false, "2026-08-01T10:00:00Z")
         private val card = WalletDto(2, "Card", WalletType.CREDIT_CARD, "0.00", false, "2026-08-01T10:00:00Z")
+
+        /** The overflow test's wallet (ticket #45): a name long enough that
+         * its chip, capped at the 192 dp label limit, still overflows a
+         * 360 dp strip once the Food and Rent chips follow it. */
+        private val longWalletName = "This very long wallet name overflows the chips strip"
+        private val longWallet = WalletDto(
+            id = 3,
+            name = longWalletName,
+            type = WalletType.CASH,
+            balance = "0.00",
+            frozen = false,
+            created_at = "2026-08-01T10:00:00Z",
+        )
         private val food = CategoryDto(1, "Food", CategoryType.EXPENSE, "🍕", "#ef4444", "2026-08-01T10:00:00Z")
         private val rent = RecurringCostDto(
             id = 1,

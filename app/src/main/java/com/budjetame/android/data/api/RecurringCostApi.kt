@@ -56,8 +56,11 @@ enum class SkipAction {
  * `next_unpaid_occurrence_date` is the Occurrence a new linked Expense
  * would pay — the oldest Unpaid one's own date (web issue #57), what the
  * transaction form's picker shows; `backlog_count` is the Backlog (web
- * issue #58) — Unpaid Occurrences due today or earlier, the "N unpaid"
- * badge; `overdue` is true exactly when the Backlog is non-empty.
+ * issue #58) — Unpaid Occurrences due today or earlier, the red "N
+ * unpaid" badge (web ADR-0025 / ticket #45). The backend's derived
+ * `overdue` field is no longer sent — the badge is the one Backlog
+ * signal — so the DTO dropped it; a backend that still sends the field
+ * parses cleanly (the JSON config ignores unknown keys).
  * `start_date` is the stored start date — every definition always carries
  * one (ADR-0024): left empty at creation it is set to the creation day,
  * and an Occurrence's due date is its own date, so the optional due-date
@@ -79,7 +82,6 @@ data class RecurringCostDto(
     override val next_due_date: String,
     val next_unpaid_occurrence_date: String,
     val backlog_count: Int = 0,
-    val overdue: Boolean = false,
     val next_skip_action: SkipAction = SkipAction.SKIP,
     val created_at: String,
 ) : RecurringDefinition

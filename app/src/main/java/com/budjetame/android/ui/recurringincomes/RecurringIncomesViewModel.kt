@@ -64,7 +64,8 @@ data class RecurringIncomeModalState(
  * the Skip/Un-skip button by ticket #24), mirroring the Recurring Costs
  * side (web issue #60, ADR-0011): the list of definitions sorted by next
  * due date — each row naming the amount, the interval, the next due date,
- * the next Unpaid Occurrence date, the Backlog badge, and the Overdue mark
+ * the next Unpaid Occurrence date, and the red "N unpaid" Backlog badge
+ * (the one Backlog signal, web ADR-0025 / ticket #45)
  * — plus create/edit/delete in a modal, with the names unique
  * case-insensitively (409 → the web's exact message), and the per-row
  * Skip/Un-skip button (ADR-0016), mirroring the Costs side. Data is
@@ -88,13 +89,7 @@ class RecurringIncomesViewModel(
          * stay on screen (the web screen's inline load-error paragraph). */
         val actionError: String? = null,
         val modal: RecurringIncomeModalState? = null,
-    ) {
-        /** The summary line's counts (web issue #62): only shown when there
-         * is at least one income — the empty state already answers the
-         * screen for a definition-less Account. */
-        val overdueCount: Int get() = incomes.count { it.overdue }
-        val unpaidCount: Int get() = incomes.sumOf { it.backlog_count }
-    }
+    )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -204,7 +199,7 @@ class RecurringIncomesViewModel(
      * backend flips the oldest Unpaid Occurrence — skipping it, or
      * un-skipping the oldest Skipped one once the whole Backlog is excused
      * — and returns the refreshed definition, which replaces the row in
-     * place and re-sorts, so the badge, the Overdue mark, the dates, and the
+     * place and re-sorts, so the badge, the dates, and the
      * button's own label all re-render from the response (the web screen
      * swaps the card the same way). A double tap on the same row cannot
      * flip the state twice (skip then un-skip): the button disables while
