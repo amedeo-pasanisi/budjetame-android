@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.2.1] — 2026-09-03
+
 ### Fixed
 
 - **Transactions** — the header spreads like the web's: the title on the left, Import and New transaction pushed to the right; the open Filters panel is outlined like the Filters toggle instead of floating on a shadow; and the record cards on every tab are now inset a few pixels toward the center, so their shadows no longer peek around the pinned search bar and filter panel while the list scrolls under them (#44).
@@ -260,6 +262,7 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.2.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.1
 [v1.2.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.0
 [v1.1.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.1.0
 [v1.0.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.0.1
