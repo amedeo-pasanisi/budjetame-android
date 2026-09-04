@@ -11,6 +11,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Recurring definitions & Transactions** — a recurring card's whole surface now jumps to the Transactions ledger pre-filtered to that definition's linked Transactions, the edit moved to a trailing ✎ button, and the card Skip/Un-skip button is gone: skipping lives in the edit modal's new Occurrences section, where every non-Paid Occurrence has its own Skip/Un-skip — skip the top row and the next incoming one surfaces above it, so a whole month can be excused in one sitting — and skipped rows stay greyed with Un-skip, always reachable (#46).
+- **Transactions** — a ledger card whose Transaction carries a Place now reads `date · wallet · 📍 place name` next to the pin; a located card without a Place keeps the bare pin, and one without a location shows neither (#46).
+
 ## [v1.3.0] — 2026-09-04
 
 ### Changed
