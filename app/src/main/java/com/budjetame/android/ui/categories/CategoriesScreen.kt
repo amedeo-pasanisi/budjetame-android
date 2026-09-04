@@ -218,7 +218,7 @@ private fun CategoryCard(
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

@@ -247,7 +247,7 @@ private fun WalletCard(
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(horizontal = 6.dp, vertical = 6.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

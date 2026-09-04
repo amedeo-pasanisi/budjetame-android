@@ -224,7 +224,7 @@ private fun RecurringCostRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
         Surface(
             onClick = onClick,

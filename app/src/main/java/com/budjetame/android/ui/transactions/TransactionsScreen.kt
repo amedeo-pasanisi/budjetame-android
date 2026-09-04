@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -250,17 +252,24 @@ fun TransactionsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // The header row (web issue #92, ticket #35): the title takes its
-        // natural width — never squeezed behind the actions, which is what
-        // used to make it wrap mid-word — and the actions (Import as the
-        // web's plain text link, then the filled New transaction) follow
-        // it in the web's order. The row is a FlowRow: an action that does
-        // not fit wraps to a second line as a whole item, so a label can
-        // never break mid-word at 360dp+/1.3x. Export is gone from the
-        // header — the web's two entry points sit on the filtered chips
-        // line and in the filter panel's footer, below.
+        // The header row (web issue #92, ticket #35): the title sits on
+        // the left at its natural width — never squeezed behind the
+        // actions, which is what used to make it wrap mid-word — and the
+        // actions (Import as the web's plain text link, then the filled
+        // New transaction, in the web's order and ~12 dp apart) sit on the
+        // right, pushed there by the weighted spacer — the web's
+        // justify-between. The row is a FlowRow: the actions form one
+        // cluster that, when it does not fit beside the title at
+        // 360dp+/1.3x, wraps to a second line as a whole item, so a label
+        // can never break mid-word. Export is gone from the header — the
+        // web's two entry points sit on the filtered chips line and in the
+        // filter panel's footer, below.
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            // The weighted spacer creates the justify-between spread, so no
+            // inter-item spacing is needed (a second gap would push the
+            // actions past 360dp width): only the cluster's own 12 dp
+            // Import→button gap applies.
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -273,27 +282,38 @@ fun TransactionsScreen(
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            // The web's Import is a plain text link (text-sm font-medium
-            // text-slate-600), not a tinted button: a tappable label with
-            // no internal side padding, so its text sits ~12 dp from the
-            // New transaction button like the web's gap-3 (ticket #44).
-            Text(
-                text = "Import",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = Slate600,
+            Spacer(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = importViewModel::open)
-                    .padding(vertical = 10.dp),
+                    .weight(1f, fill = true)
+                    .height(1.dp),
             )
-            Button(
-                onClick = viewModel::openCreate,
-                enabled = !state.loading && state.loadError == null,
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("New transaction")
+                // The web's Import is a plain text link (text-sm
+                // font-medium text-slate-600), not a tinted button: a
+                // tappable label with no internal side padding, so its
+                // text sits ~12 dp from the New transaction button like the
+                // web's gap-3 (ticket #44).
+                Text(
+                    text = "Import",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = Slate600,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = importViewModel::open)
+                        .padding(vertical = 10.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Button(
+                    onClick = viewModel::openCreate,
+                    enabled = !state.loading && state.loadError == null,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                ) {
+                    Text("New transaction")
+                }
             }
         }
 
@@ -658,9 +678,11 @@ private fun FilterBar(
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        // The web card look: no gray outline — the soft shadow alone
-        // separates the panel from the page (ticket #44).
-        shadowElevation = 2.dp,
+        // The filter panel is a control surface, not a record card: the
+        // Filters toggle's own outlined look — a slate-300 border, no
+        // shadow — so a record scrolling beneath the pinned panel never
+        // shows card shadows through it (ticket #44 feedback).
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp, bottom = 4.dp),
@@ -1004,7 +1026,7 @@ private fun TransactionRow(
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(horizontal = 6.dp, vertical = 4.dp)
             .alpha(if (editable) 1f else 0.7f)
             .clickable(enabled = editable, onClick = onOpenEdit),
     ) {
