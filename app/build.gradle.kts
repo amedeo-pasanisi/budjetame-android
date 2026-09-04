@@ -69,6 +69,18 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "API_BASE_URL", "\"https://budjetame.de/api/\"")
+            // Ask AGP to extract native debug symbols into the AAB. Caveat:
+            // today this embeds nothing, because the only .so in the app
+            // (libandroidx.graphics.path.so from androidx/Compose) ships
+            // pre-stripped upstream (no .symtab/.debug sections, only the
+            // JNI_OnLoad export), so the Play Console "native debug symbols"
+            // warning cannot be silenced for this library no matter what.
+            // Keep the flag anyway: zero cost, and it self-activates the day
+            // this app compiles its own NDK code, whose symbols DO get
+            // embedded and auto-consumed by Play.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             if (keystorePath.isNotEmpty()) {
                 signingConfig = signingConfigs.getByName("release")
             }
