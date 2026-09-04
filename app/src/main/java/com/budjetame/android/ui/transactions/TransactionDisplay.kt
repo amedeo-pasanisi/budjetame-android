@@ -58,6 +58,21 @@ fun hasLocation(transaction: TransactionDto): Boolean =
     transaction.latitude != null && transaction.longitude != null
 
 /**
+ * The ledger subtitle's location suffix (web issue #91): a Transaction
+ * with coordinates appends a pin after `date · wallet` — bare when the
+ * location has no Place (Leaflet taps, GPS and imports attach coordinates
+ * alone), reading ` · 📍 <place_name>` when it carries one (the name is
+ * the anchor, ADR-0005). A whitespace-only name counts as none
+ * (CONTEXT.md), and null means no location at all (the subtitle then
+ * ends at the wallet label).
+ */
+fun locationSuffix(transaction: TransactionDto): String? {
+    if (!hasLocation(transaction)) return null
+    val placeName = transaction.place_name?.trim().orEmpty()
+    return if (placeName.isEmpty()) " · 📍" else " · 📍 $placeName"
+}
+
+/**
  * True when the Transaction sits on a Frozen Wallet and is therefore
  * read-only. A Transfer is frozen when either leg is frozen — a Wallet can
  * freeze after the Transfer exists, so the check must cover both legs. An

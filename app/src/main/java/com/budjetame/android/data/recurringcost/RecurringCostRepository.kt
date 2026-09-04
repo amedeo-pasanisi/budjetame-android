@@ -5,6 +5,8 @@ import com.budjetame.android.data.api.RecurringCostApi
 import com.budjetame.android.data.api.RecurringCostCreateRequest
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringCostUpdateRequest
+import com.budjetame.android.data.api.RecurringOccurrenceDto
+import com.budjetame.android.data.api.RecurringOccurrenceUpdateRequest
 import com.budjetame.android.data.api.toApiException
 import retrofit2.HttpException
 
@@ -31,9 +33,14 @@ interface RecurringCostGateway {
     suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto
     suspend fun deleteRecurringCost(id: Int)
 
-    /** The Skip/Un-skip button (ADR-0016): flips the front of the queue and
-     * returns the refreshed definition with its derived state. */
-    suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto
+    /** The Occurrences section's read (web ADR-0026): every non-Paid
+     * Occurrence with its skipped state, newest first — the one order the
+     * edit modal renders. */
+    suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto>
+
+    /** The per-Occurrence skip write (web ADR-0026): state the row's
+     * skipped state — skip or un-skip — and answer the refreshed read. */
+    suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto>
 }
 
 /** The API-backed RecurringCostGateway (web issue #56). */
@@ -79,8 +86,15 @@ class ApiRecurringCostRepository(private val api: RecurringCostApi) : RecurringC
         call { api.delete(id) }
     }
 
-    override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto =
-        call { api.skipToggle(id) }
+    override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
+        call { api.occurrences(id) }
+
+    override suspend fun setOccurrenceSkipped(
+        id: Int,
+        occurrenceDate: String,
+        skipped: Boolean,
+    ): List<RecurringOccurrenceDto> =
+        call { api.setOccurrenceSkipped(id, occurrenceDate, RecurringOccurrenceUpdateRequest(skipped)) }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

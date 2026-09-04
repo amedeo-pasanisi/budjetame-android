@@ -85,8 +85,10 @@ class TransactionsViewModel(
      * dialog, and reports the answer back through
      * `onLocationPermissionResult`. */
     private val location: DeviceLocation,
-    /** The pending ledger jump this ViewModel was born with (ADR-0004): a
-     * Wallet or Category row asked for this ledger pre-filtered to it and
+    /** The pending ledger jump this ViewModel was born with (ADR-0004,
+     * extended to the Recurring cards by web ADR-0026 / ticket #46): a
+     * Wallet, Category, or Recurring definition row asked for this ledger
+     * pre-filtered to it and
      * the page had never been visited, so the ViewModel is created with the
      * jump already applied — its very first fetch carries the filter and
      * the ledger never flashes unfiltered. Null on a plain first visit. */
@@ -331,11 +333,12 @@ class TransactionsViewModel(
         val current = _uiState.value
         val walletId = (jump as? LedgerJump.Wallet)?.walletId
         val categoryId = (jump as? LedgerJump.Category)?.categoryId
+        val recurring = recurringFilterOf(jump)
         if (current.filterWalletId == walletId &&
             current.filterCategoryId == categoryId &&
+            current.filterRecurring == recurring &&
             current.filterFromDate == null &&
             current.filterToDate == null &&
-            current.filterRecurring == null &&
             current.search.isEmpty() &&
             current.searchNeedle.isEmpty() &&
             !current.filtersOpen
@@ -347,15 +350,25 @@ class TransactionsViewModel(
         reload()
     }
 
+    /** The recurring filter a Recurring-kind jump asks for: the jump's own
+     * definition as the ledger's single recurring pick — a Recurring Cost
+     * and a Recurring Income may share an id, so the kind comes from the
+     * jump's own type. A Wallet or Category jump never sets it. */
+    private fun recurringFilterOf(jump: LedgerJump): RecurringFilter? = when (jump) {
+        is LedgerJump.RecurringCost -> RecurringFilter(RecurringFilterKind.COST, jump.recurringCostId)
+        is LedgerJump.RecurringIncome -> RecurringFilter(RecurringFilterKind.INCOME, jump.recurringIncomeId)
+        else -> null
+    }
+
     /** The jump's reset of the whole filter state (ADR-0004): exactly the
-     * jump's own Wallet or Category filter, no dates, no recurring pick,
-     * no search, panel closed. */
+     * jump's own Wallet, Category, or Recurring-definition filter, no
+     * dates, no search, panel closed. */
     private fun ledgerJumpFilters(state: UiState, jump: LedgerJump): UiState = state.copy(
         filterWalletId = (jump as? LedgerJump.Wallet)?.walletId,
         filterCategoryId = (jump as? LedgerJump.Category)?.categoryId,
+        filterRecurring = recurringFilterOf(jump),
         filterFromDate = null,
         filterToDate = null,
-        filterRecurring = null,
         search = "",
         searchNeedle = "",
         filtersOpen = false,

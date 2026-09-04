@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.recurringcosts.RecurringCostsScreen
 import com.budjetame.android.ui.recurringincomes.RecurringIncomesScreen
 
@@ -40,11 +41,14 @@ private enum class RecurringSide { COSTS, INCOMES }
  * The two sides' ViewModels live in the shell's Activity-scoped store, so
  * a toggled-away side keeps its loaded data and its background refetches
  * (ADR-0002/0003) — a toggle back renders instantly, never stale.
+ * The ledger jump (web ADR-0026) rides through: a card's whole-surface
+ * tap opens the Transactions tab pre-filtered to that definition.
  */
 @Composable
 fun RecurringScreen(
     recurringCosts: RecurringCostGateway,
     recurringIncomes: RecurringIncomeGateway,
+    onLedgerJump: (LedgerJump) -> Unit = {},
 ) {
     var side by rememberSaveable { mutableStateOf(RecurringSide.COSTS) }
 
@@ -69,8 +73,8 @@ fun RecurringScreen(
             )
         }
         when (side) {
-            RecurringSide.COSTS -> RecurringCostsScreen(recurringCosts)
-            RecurringSide.INCOMES -> RecurringIncomesScreen(recurringIncomes)
+            RecurringSide.COSTS -> RecurringCostsScreen(recurringCosts, onLedgerJump)
+            RecurringSide.INCOMES -> RecurringIncomesScreen(recurringIncomes, onLedgerJump)
         }
     }
 }

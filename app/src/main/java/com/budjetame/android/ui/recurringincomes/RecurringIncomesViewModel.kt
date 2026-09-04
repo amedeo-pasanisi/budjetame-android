@@ -6,6 +6,7 @@ import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringIncomeDto
+import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
@@ -39,6 +40,21 @@ data class RecurringIncomeModalState(
     val submitting: Boolean = false,
     val confirmingDelete: Boolean = false,
     val deleting: Boolean = false,
+    /** The Occurrences section's rows (web ADR-0026): their own read, null
+     * while the read is still in flight. Edit mode only — a definition
+     * under creation has no id yet, so a create never fetches. The rows
+     * are the section's whole state in the server's order (the next
+     * incoming Unpaid row on top, then newest-first down to the oldest);
+     * a row toggle below replaces them with the write's refreshed read.
+     * A client never re-sorts the list. */
+    val occurrences: List<RecurringOccurrenceDto>? = null,
+    /** A failed occurrences read or row toggle's message — the web
+     * section's inline error line. Cleared by the next toggle press. */
+    val occurrencesError: String? = null,
+    /** The row whose Skip/Un-skip write is in flight — its button disables
+     * itself so a double tap cannot fire two writes (the write is
+     * idempotent anyway, like the web's `togglingDate`). */
+    val togglingDate: String? = null,
 ) {
     val editing: Boolean get() = income != null
 
@@ -61,14 +77,22 @@ data class RecurringIncomeModalState(
 
 /**
  * The Recurring Incomes screen's state machine (ticket #23, extended for
- * the Skip/Un-skip button by ticket #24), mirroring the Recurring Costs
+ * the ledger-jump card shape by ticket #46), mirroring the Recurring Costs
  * side (web issue #60, ADR-0011): the list of definitions sorted by next
  * due date — each row naming the amount, the interval, the next due date,
  * the next Unpaid Occurrence date, and the red "N unpaid" Backlog badge
  * (the one Backlog signal, web ADR-0025 / ticket #45)
  * — plus create/edit/delete in a modal, with the names unique
- * case-insensitively (409 → the web's exact message), and the per-row
- * Skip/Un-skip button (ADR-0016), mirroring the Costs side. Data is
+ * case-insensitively (409 → the web's exact message).
+ * The card Skip/Un-skip button is gone (web ADR-0026): the whole-row tap
+ * is the ledger jump to the definition's linked Transactions, the ✎
+ * button opens the edit modal, and the modal's own Occurrences section
+ * carries the per-Occurrence Skip/Un-skip controls — its read loads when
+ * an existing definition opens the modal, and each row toggle states the
+ * row's skipped state and swaps in the refreshed read. A toggle is a
+ * write, so its data-version bump also refetches the list in the
+ * background (ADR-0002): the badge and the dates on the cards behind
+ * re-derive from the stored skips. Data is
  * refetched in the background when the global data version bumps
  * (ADR-0002), so a link paid or severed elsewhere re-renders the derived
  * state.
@@ -81,13 +105,6 @@ class RecurringIncomesViewModel(
         val loading: Boolean = true,
         val loadError: String? = null,
         val incomes: List<RecurringIncomeDto> = emptyList(),
-        /** The definition whose Skip/Un-skip button is in flight — the
-         * button disables itself so a double tap cannot flip the state twice
-         * (skip then un-skip), like the web screen's `togglingId`. */
-        val togglingId: Int? = null,
-        /** A failed toggle's message, shown above the list — the held rows
-         * stay on screen (the web screen's inline load-error paragraph). */
-        val actionError: String? = null,
         val modal: RecurringIncomeModalState? = null,
     )
 
@@ -120,6 +137,10 @@ class RecurringIncomesViewModel(
                 ),
             )
         }
+        // The Occurrences section's own read (web ADR-0026), loaded when an
+        // existing definition opens the form — a definition under creation
+        // has no id yet, its first Occurrence is only decided at creation.
+        loadOccurrences(income.id)
     }
 
     fun closeModal() {
@@ -195,42 +216,61 @@ class RecurringIncomesViewModel(
     }
 
     /**
-     * The Skip/Un-skip button (ADR-0016), mirroring the Costs side: the
-     * backend flips the oldest Unpaid Occurrence — skipping it, or
-     * un-skipping the oldest Skipped one once the whole Backlog is excused
-     * — and returns the refreshed definition, which replaces the row in
-     * place and re-sorts, so the badge, the dates, and the
-     * button's own label all re-render from the response (the web screen
-     * swaps the card the same way). A double tap on the same row cannot
-     * flip the state twice (skip then un-skip): the button disables while
-     * its own toggle is in flight. The toggle is a write, so its
-     * data-version bump also refetches the list in the background; the
-     * refetch and the swap carry the same refreshed definition, so the row
-     * never flickers back (ADR-0002).
+     * One row's Skip/Un-skip (web ADR-0026), mirroring the Costs side:
+     * state the row's skipped state — the response is the refreshed read,
+     * so the section swaps its rows in without a second fetch. The write
+     * also refreshes the definition's derived state: the data-version bump
+     * refetches the list behind the modal (ADR-0002), so the badge and the
+     * dates re-derive from the stored skips. A double tap on the same row
+     * cannot fire two writes: the row disables while its own toggle is in
+     * flight (the write is idempotent anyway).
      */
-    fun toggleSkip(income: RecurringIncomeDto) {
-        if (_uiState.value.togglingId == income.id) return
+    fun toggleOccurrence(row: RecurringOccurrenceDto) {
+        val modal = _uiState.value.modal ?: return
+        val income = modal.income ?: return
+        if (modal.togglingDate == row.date) return
         viewModelScope.launch {
             // The per-row in-flight guard, checked again under the launch:
             // on a confined Main dispatcher two taps in the same frame could
             // both pass the check above before the state lands.
-            if (_uiState.value.togglingId == income.id) return@launch
-            _uiState.update { it.copy(togglingId = income.id, actionError = null) }
+            if (_uiState.value.modal?.togglingDate == row.date) return@launch
+            updateModal { it.copy(togglingDate = row.date, occurrencesError = null) }
             try {
-                val toggled = recurringIncomes.toggleSkipRecurringIncome(income.id)
+                val rows = recurringIncomes.setOccurrenceSkipped(income.id, row.date, skipped = !row.skipped)
+                updateModal { it.copy(occurrences = rows, togglingDate = null) }
+            } catch (_: Exception) {
+                // The web section's toggle-failure message: the rows stay on
+                // screen, only the action failed.
+                updateModal {
+                    it.copy(togglingDate = null, occurrencesError = "Could not update the occurrence.")
+                }
+            }
+        }
+    }
+
+    /**
+     * The Occurrences section's read (web ADR-0026), mirroring the Costs
+     * side: every non-Paid Occurrence with its skipped state, newest
+     * first. A failure shows the section's inline error and keeps the
+     * modal usable — closing and reopening the modal refetches, like the
+     * web. The response only lands if the modal still edits the same
+     * definition: a closed or re-opened modal (another income) never
+     * receives a stale read.
+     */
+    private fun loadOccurrences(id: Int) {
+        viewModelScope.launch {
+            try {
+                val rows = recurringIncomes.fetchOccurrences(id)
                 _uiState.update { state ->
-                    state.copy(
-                        incomes = sortByNextDue(
-                            state.incomes.map { if (it.id == toggled.id) toggled else it },
-                        ),
-                        togglingId = null,
-                    )
+                    val modal = state.modal
+                    if (modal == null || modal.income?.id != id) return@update state
+                    state.copy(modal = modal.copy(occurrences = rows))
                 }
             } catch (_: Exception) {
-                // The web screen's toggle-failure message: the rows stay on
-                // screen (the list still answers), only the action failed.
-                _uiState.update {
-                    it.copy(togglingId = null, actionError = "Could not update your recurring incomes.")
+                _uiState.update { state ->
+                    val modal = state.modal
+                    if (modal == null || modal.income?.id != id) return@update state
+                    state.copy(modal = modal.copy(occurrencesError = "Could not load the occurrences."))
                 }
             }
         }
@@ -321,7 +361,7 @@ class RecurringIncomesViewModel(
         try {
             val loaded = sortByNextDue(recurringIncomes.fetchRecurringIncomes())
             _uiState.update {
-                it.copy(incomes = loaded, loadError = null, actionError = null, loading = false)
+                it.copy(incomes = loaded, loadError = null, loading = false)
             }
         } catch (_: Exception) {
             _uiState.update { state ->

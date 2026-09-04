@@ -6,6 +6,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 /**
@@ -26,12 +27,10 @@ import retrofit2.http.Path
  * `start_date` is the stored start date — every definition always carries
  * one (ADR-0024): left empty at creation it is set to the creation day,
  * and an Occurrence's due date is its own date, so the optional due-date
- * override is gone. `next_skip_action` is what the Skip/Un-skip button
- * reads (ADR-0016): "skip" while an Unpaid, un-Skipped Occurrence is the
- * front of the queue, "unskip" once the press would restore the oldest
- * Skipped one — Skipped Occurrences never enter the Backlog count and
- * never show as the next due or the next Unpaid Occurrence (the backend
- * derives it all).
+ * override is gone. The card Skip/Un-skip button is gone (web ADR-0026):
+ * skip controls live per Occurrence on the Occurrences read, never on the
+ * definition, so `next_skip_action` left the DTO — a backend that still
+ * sends it parses cleanly the same way.
  */
 @Serializable
 data class RecurringIncomeDto(
@@ -44,7 +43,6 @@ data class RecurringIncomeDto(
     override val next_due_date: String,
     val next_unpaid_occurrence_date: String,
     val backlog_count: Int = 0,
-    val next_skip_action: SkipAction = SkipAction.SKIP,
     val created_at: String,
 ) : RecurringDefinition
 
@@ -87,9 +85,11 @@ data class RecurringIncomeUpdateRequest(
 /**
  * Recurring Incomes resource (web issue #60): the list, sorted by next due
  * date ascending (ties by name) — the one order the Recurring screen needs —
- * and the create/edit/delete writes and the Skip/Un-skip toggle. A delete
- * severs the links and drops its skips (CONTEXT.md, ADR-0016): linked
- * Incomes stay as ordinary Incomes.
+ * the create/edit/delete writes, and the Occurrences read and its
+ * per-Occurrence skip write (web ADR-0026) — the card Skip/Un-skip
+ * toggle is gone with the endpoint it pressed. A delete severs the links
+ * and drops its skips (CONTEXT.md, ADR-0016): linked Incomes stay as
+ * ordinary Incomes.
  */
 interface RecurringIncomeApi {
 
@@ -110,12 +110,25 @@ interface RecurringIncomeApi {
     @DELETE("recurring-incomes/{id}")
     suspend fun delete(@Path("id") id: Int)
 
-    /** The Skip/Un-skip button (ADR-0016), the mirror of the Costs side:
-     * the backend flips the front of the queue — it skips the oldest
-     * Unpaid, un-Skipped Occurrence or, once the whole Backlog is excused,
-     * un-skips the oldest Skipped one — and answers 200 with the refreshed
-     * definition, every derived field re-derived from the stored skips.
-     * Foreign ids answer 403. */
-    @POST("recurring-incomes/{id}/skip-toggle")
-    suspend fun skipToggle(@Path("id") id: Int): RecurringIncomeDto
+    /** The Occurrences section's read (web ADR-0026), the mirror of the
+     * Costs side: every non-Paid Occurrence with its skipped state —
+     * newest first, the one order the edit modal renders. The response is
+     * the section's whole state; the order is server-computed and
+     * authoritative — a client renders the list verbatim and never
+     * re-sorts it. Foreign ids answer 403. */
+    @GET("recurring-incomes/{id}/occurrences")
+    suspend fun occurrences(@Path("id") id: Int): List<RecurringOccurrenceDto>
+
+    /** The per-Occurrence skip write (web ADR-0026), the mirror of the
+     * Costs side: state the row's skipped state — skip or un-skip —
+     * idempotently (a double tap cannot double-flip). 422 on a Paid
+     * Occurrence or a date that is not one of the definition's
+     * Occurrences. The answer is the refreshed read, so the modal swaps
+     * its rows in without a second fetch. Foreign ids answer 403. */
+    @PUT("recurring-incomes/{id}/occurrences/{occurrenceDate}")
+    suspend fun setOccurrenceSkipped(
+        @Path("id") id: Int,
+        @Path("occurrenceDate") occurrenceDate: String,
+        @Body body: RecurringOccurrenceUpdateRequest,
+    ): List<RecurringOccurrenceDto>
 }

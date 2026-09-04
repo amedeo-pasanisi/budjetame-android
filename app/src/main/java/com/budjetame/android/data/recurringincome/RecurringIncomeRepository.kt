@@ -5,6 +5,8 @@ import com.budjetame.android.data.api.RecurringIncomeApi
 import com.budjetame.android.data.api.RecurringIncomeCreateRequest
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.RecurringIncomeUpdateRequest
+import com.budjetame.android.data.api.RecurringOccurrenceDto
+import com.budjetame.android.data.api.RecurringOccurrenceUpdateRequest
 import com.budjetame.android.data.api.toApiException
 import retrofit2.HttpException
 
@@ -31,9 +33,15 @@ interface RecurringIncomeGateway {
     suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto
     suspend fun deleteRecurringIncome(id: Int)
 
-    /** The Skip/Un-skip button (ADR-0016): flips the front of the queue and
-     * returns the refreshed definition with its derived state. */
-    suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto
+    /** The Occurrences section's read (web ADR-0026), the mirror of the
+     * Costs side: every non-Paid Occurrence with its skipped state,
+     * newest first — the one order the edit modal renders. */
+    suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto>
+
+    /** The per-Occurrence skip write (web ADR-0026), the mirror of the
+     * Costs side: state the row's skipped state — skip or un-skip — and
+     * answer the refreshed read. */
+    suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto>
 }
 
 /** The API-backed RecurringIncomeGateway (web issue #60), the mirror of
@@ -80,8 +88,15 @@ class ApiRecurringIncomeRepository(private val api: RecurringIncomeApi) : Recurr
         call { api.delete(id) }
     }
 
-    override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto =
-        call { api.skipToggle(id) }
+    override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
+        call { api.occurrences(id) }
+
+    override suspend fun setOccurrenceSkipped(
+        id: Int,
+        occurrenceDate: String,
+        skipped: Boolean,
+    ): List<RecurringOccurrenceDto> =
+        call { api.setOccurrenceSkipped(id, occurrenceDate, RecurringOccurrenceUpdateRequest(skipped)) }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

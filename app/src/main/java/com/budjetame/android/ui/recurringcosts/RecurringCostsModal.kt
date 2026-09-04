@@ -45,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.IntervalUnit
+import com.budjetame.android.data.api.RecurringOccurrenceDto
+import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.util.Dates
 import java.time.Instant
 
@@ -65,6 +67,12 @@ private val RED_600 = Color(0xFFDC2626)
  * to the last day of shorter months). The definition itself never carries
  * a Wallet or a Category: they are chosen when a linked Expense is
  * recorded. The due-date override is gone (ADR-0024).
+ *
+ * Edit mode adds the Occurrences section (web ADR-0026): every non-Paid
+ * Occurrence in the read's own order, each with its own Skip/Un-skip —
+ * the card Skip/Un-skip button is gone. The section only exists while
+ * editing: a definition under creation has no id yet, its first
+ * Occurrence is only decided at creation.
  */
 @Composable
 fun RecurringCostsModal(
@@ -74,6 +82,7 @@ fun RecurringCostsModal(
     onIntervalValueChange: (String) -> Unit,
     onIntervalUnitChange: (IntervalUnit) -> Unit,
     onStartDateChange: (String) -> Unit,
+    onToggleOccurrence: (RecurringOccurrenceDto) -> Unit,
     onSubmit: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
@@ -151,6 +160,15 @@ fun RecurringCostsModal(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+
+                if (editing) {
+                    OccurrencesSection(
+                        occurrences = modal.occurrences,
+                        error = modal.occurrencesError,
+                        togglingDate = modal.togglingDate,
+                        onToggle = onToggleOccurrence,
                     )
                 }
 

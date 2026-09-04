@@ -142,7 +142,9 @@ fun TransactionsScreen(
     /** The device GPS (ticket #29): backs the Transaction form's "Use my
      * location" pick, its prefill, and the first-save attach. */
     location: DeviceLocation,
-    /** The pending ledger jump (ADR-0004): a Wallet or Category row asked
+    /** The pending ledger jump (ADR-0004, extended to the Recurring cards
+     * by web ADR-0026 / ticket #46): a Wallet, Category, or Recurring
+     * definition row asked
      * the shell to open this ledger pre-filtered to that entity. Null while
      * no jump is pending. */
     pendingLedgerJump: LedgerJump? = null,
@@ -1124,7 +1126,7 @@ private fun TransactionRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val location = if (hasLocation(transaction)) " · 📍" else ""
+                val location = locationSuffix(transaction).orEmpty()
                 Text(
                     text = "${transaction.date} · ${walletLabel(transaction, state.wallets)}$location",
                     // The web subtitle type: text-xs text-slate-500 — 12 sp

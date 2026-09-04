@@ -15,6 +15,7 @@ import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeApi
 import com.budjetame.android.data.api.RecurringIncomeCreateRequest
 import com.budjetame.android.data.api.RecurringIncomeDto
+import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.TransactionApi
 import com.budjetame.android.data.api.TransactionCreateRequest
 import com.budjetame.android.data.api.TransactionDeleteResultDto
@@ -608,7 +609,8 @@ class TransactionsViewModelTest {
         recurringIncomeStore.addAll(incomes)
     }
 
-    // --- Ledger jump (ADR-0004, ticket #44) ---
+    // --- Ledger jump (ADR-0004, ticket #44; the Recurring kinds are web
+    // ADR-0026 / ticket #46) ---
 
     /** The ledger listing GETs so far — each reload is exactly one. */
     private fun ledgerFetchCount(): Int =
@@ -708,6 +710,93 @@ class TransactionsViewModelTest {
         assertNull(ledger.query["wallet_id"])
         assertNull(ledger.query["q"])
         assertEquals(listOf(2), state.transactions.map { it.id })
+    }
+
+    @Test
+    fun `a seed recurring-cost jump loads the first page already filtered in one fetch`() {
+        seedRecurringCosts(recurringCost(3, "Rent"))
+        transactionStore += transaction(1, TransactionType.EXPENSE, "1.00", "2026-08-01", walletId = 1, recurringCostId = 3)
+        transactionStore += transaction(2, TransactionType.EXPENSE, "2.00", "2026-08-02", walletId = 1)
+
+        createViewModel(seed = LedgerJump.RecurringCost(3))
+        awaitLedgerFetches(1)
+        runBlocking { withTimeout(5_000) { viewModel.uiState.first { !it.loading } } }
+
+        // One fetch, already filtered: the first-ever visit via a jump never
+        // flashes the unfiltered ledger and never fetches twice.
+        assertEquals(1, ledgerFetchCount())
+        val ledger = calls.filter { it.method == "GET" && it.path == "/api/transactions" }.single()
+        assertEquals("3", ledger.query["recurring_cost_id"])
+        assertNull(ledger.query["wallet_id"])
+        assertNull(ledger.query["recurring_income_id"])
+        assertEquals(listOf(1), viewModel.uiState.value.transactions.map { it.id })
+        assertEquals(
+            RecurringFilter(RecurringFilterKind.COST, 3),
+            viewModel.uiState.value.filterRecurring,
+        )
+        assertFalse(viewModel.uiState.value.filtersOpen)
+    }
+
+    @Test
+    fun `applying a recurring jump the state already carries never refetches`() {
+        seedRecurringIncomes(recurringIncome(5, "Salary"))
+        transactionStore += transaction(1, TransactionType.INCOME, "1.00", "2026-08-01", walletId = 1, recurringIncomeId = 5)
+
+        createViewModel(seed = LedgerJump.RecurringIncome(5))
+        awaitLedgerFetches(1)
+        runBlocking { withTimeout(5_000) { viewModel.uiState.first { !it.loading } } }
+        assertEquals(1, ledgerFetchCount())
+
+        // The screen still applies-and-consumes once on a seeded visit: the
+        // state already matches, so the call is a no-op — no second fetch.
+        viewModel.applyLedgerJump(LedgerJump.RecurringIncome(5))
+        assertEquals(1, ledgerFetchCount())
+        assertEquals(
+            RecurringFilter(RecurringFilterKind.INCOME, 5),
+            viewModel.uiState.value.filterRecurring,
+        )
+        assertTrue(viewModel.uiState.value.search.isEmpty())
+    }
+
+    @Test
+    fun `an applied recurring jump replaces every filter including a manual recurring pick in one refetch`() {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
+        seedRecurringCosts(recurringCost(3, "Rent"))
+        seedRecurringIncomes(recurringIncome(5, "Salary"))
+        transactionStore += transaction(1, TransactionType.EXPENSE, "1.00", "2026-08-01", walletId = 1, recurringCostId = 3)
+        transactionStore += transaction(2, TransactionType.INCOME, "2.00", "2026-08-02", walletId = 1, recurringIncomeId = 5)
+
+        createViewModel()
+        awaitLedgerFetches(1)
+        viewModel.onFilterWalletChange(1)
+        awaitLedgerFetches(2)
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.INCOME, 5))
+        awaitLedgerFetches(3)
+
+        viewModel.applyLedgerJump(LedgerJump.RecurringCost(3))
+        awaitLedgerFetches(4)
+        runBlocking {
+            withTimeout(5_000) {
+                viewModel.uiState.first { it.transactions.map { t -> t.id } == listOf(1) }
+            }
+        }
+
+        val state = viewModel.uiState.value
+        assertNull(state.filterWalletId)
+        assertNull(state.filterCategoryId)
+        assertNull(state.filterFromDate)
+        assertNull(state.filterToDate)
+        assertEquals(
+            RecurringFilter(RecurringFilterKind.COST, 3),
+            state.filterRecurring,
+        )
+        assertTrue(state.search.isEmpty())
+        assertFalse(state.filtersOpen)
+        val ledger = calls.filter { it.method == "GET" && it.path == "/api/transactions" }.last()
+        assertEquals("3", ledger.query["recurring_cost_id"])
+        assertNull(ledger.query["wallet_id"])
+        assertNull(ledger.query["recurring_income_id"])
+        assertEquals(listOf(1), state.transactions.map { it.id })
     }
 
 
@@ -2872,11 +2961,14 @@ class TransactionsViewModelTest {
 
         override suspend fun deleteRecurringIncome(id: Int) = error("unused in the debounce test")
 
-        override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto =
+        override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
             error("unused in the debounce test")
 
-        override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto =
-            error("unused in the debounce test")
+        override suspend fun setOccurrenceSkipped(
+            id: Int,
+            occurrenceDate: String,
+            skipped: Boolean,
+        ): List<RecurringOccurrenceDto> = error("unused in the debounce test")
 
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto =
             error("unused in the debounce test")

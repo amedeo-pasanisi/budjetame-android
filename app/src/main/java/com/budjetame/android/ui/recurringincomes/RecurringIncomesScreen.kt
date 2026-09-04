@@ -1,7 +1,6 @@
 package com.budjetame.android.ui.recurringincomes
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -31,10 +29,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.recurringcosts.intervalText
-import com.budjetame.android.ui.recurringcosts.skipToggleLabel
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.util.Money
 
@@ -54,17 +53,25 @@ private val RED_700 = Color(0xFFB91C1C)
  * would pay), plus the red "N unpaid"
  * Backlog badge — the one Backlog signal (web ADR-0025, ticket #45):
  * the Overdue mark and the summary line repeated the same fact in two
- * words, so they are gone. Beside each row sits the Skip/Un-skip button (ADR-0016, ticket #24), the
- * Costs side's mirror: its label comes from the definition's
- * `next_skip_action` — "Un-skip" once the whole Backlog is excused — and a
- * press swaps the row with the backend's refreshed definition, so the
- * badge, the dates, and the label re-render from the response. Create,
- * edit, and delete live here, in a modal. The badge and the dates are
- * derived state from the API: they refresh whenever the list reloads —
- * after every write anywhere, via the data-version bump (ADR-0002).
+ * words, so they are gone.
+ *
+ * Row structure (web ADR-0026, ticket #46), mirroring the Costs side: like
+ * the Wallets rows (ADR-0004 anatomy), a row is a tap surface with a
+ * sibling trailing ✎ inside one card. The tap surface (name, amount, next
+ * due, badge) sends the ledger jump: the shell opens the Transactions tab
+ * pre-filtered to this definition's linked Transactions — the card
+ * Skip/Un-skip button is gone with the backend endpoint it pressed. The ✎
+ * button opens the edit modal — whose Occurrences section carries the
+ * per-Occurrence Skip/Un-skip controls — and create, edit, and delete live
+ * there. The badge and the dates are derived state from the API: they
+ * refresh whenever the list reloads — after every write anywhere, via the
+ * data-version bump (ADR-0002).
  */
 @Composable
-fun RecurringIncomesScreen(recurringIncomes: RecurringIncomeGateway) {
+fun RecurringIncomesScreen(
+    recurringIncomes: RecurringIncomeGateway,
+    onLedgerJump: (LedgerJump) -> Unit = {},
+) {
     val viewModel: RecurringIncomesViewModel = viewModel {
         RecurringIncomesViewModel(recurringIncomes)
     }
@@ -88,7 +95,12 @@ fun RecurringIncomesScreen(recurringIncomes: RecurringIncomeGateway) {
                 text = "No recurring incomes yet. Add your first one to track what's due.",
                 modifier = Modifier.weight(1f),
             )
-            else -> RecurringIncomesList(state = state, viewModel = viewModel, modifier = Modifier.weight(1f))
+            else -> RecurringIncomesList(
+                state = state,
+                viewModel = viewModel,
+                onLedgerJump = onLedgerJump,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 
@@ -100,6 +112,7 @@ fun RecurringIncomesScreen(recurringIncomes: RecurringIncomeGateway) {
             onIntervalValueChange = viewModel::onIntervalValueChange,
             onIntervalUnitChange = viewModel::onIntervalUnitChange,
             onStartDateChange = viewModel::onStartDateChange,
+            onToggleOccurrence = viewModel::toggleOccurrence,
             onSubmit = viewModel::submit,
             onDelete = viewModel::onDeleteTap,
             onClose = viewModel::closeModal,
@@ -136,82 +149,64 @@ private fun RecurringIncomesHeader(onNewRecurringIncome: () -> Unit) {
 private fun RecurringIncomesList(
     state: RecurringIncomesViewModel.UiState,
     viewModel: RecurringIncomesViewModel,
+    onLedgerJump: (LedgerJump) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        state.actionError?.let { message ->
-            item(key = "action-error") {
-                ActionErrorText(message = message)
-            }
-        }
         items(state.incomes, key = { it.id }) { income ->
             RecurringIncomeRow(
                 income = income,
-                toggling = state.togglingId == income.id,
-                onClick = { viewModel.openEdit(income) },
-                onToggleSkip = { viewModel.toggleSkip(income) },
+                onLedgerJump = { onLedgerJump(LedgerJump.RecurringIncome(income.id)) },
+                onEdit = { viewModel.openEdit(income) },
             )
         }
     }
 }
 
-/** A failed toggle's message (the web screen's inline error paragraph):
- * shown above the list, the held rows still on screen — only the action
- * failed. Cleared by the next successful reload or the next press. */
-@Composable
-private fun ActionErrorText(message: String) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 8.dp),
-    )
-}
-
 /**
- * One Recurring Income row: the clickable card (name and interval · next
- * due date on the left, amount and the red "N unpaid" Backlog badge on the
- * right) with the Skip/Un-skip pill beside it, vertically centered like
- * the web screen's row button. The next Unpaid Occurrence date earns its
- * own line when it differs from the next due date — under a Backlog the
- * next thing a new linked Income would pay is not the schedule's next due
- * date — and is otherwise the very date the next-due line already names.
- * The badge is the one Backlog signal (web ADR-0025, ticket #45): it
- * shows while the Backlog is non-empty — the Overdue mark is gone with
- * the summary line. A press on the pill skips or un-skips (its own
- * in-flight toggle disables it, so a double tap cannot flip the state
- * twice); the card still opens the edit modal.
+ * One Recurring Income row (web ADR-0026 anatomy, ticket #46), mirroring
+ * the Costs side: the card's main tap surface — name, interval · next due
+ * date and the red "N unpaid" Backlog badge, plus the amount — sends the
+ * ledger jump: the Transactions tab opens pre-filtered to this definition's
+ * linked Transactions, the previous filters and search reset by the jump
+ * (ADR-0004). The trailing ✎ (RowEditButton) opens the edit modal, whose
+ * Occurrences section holds the per-Occurrence Skip/Un-skip controls — the
+ * card Skip/Un-skip pill is gone (web ADR-0026). The next Unpaid
+ * Occurrence date earns its own line when it differs from the next due
+ * date — under a Backlog the next thing a new linked Income would pay is
+ * not the schedule's next due date — and is otherwise the very date the
+ * next-due line already names. The badge is the one Backlog signal (web
+ * ADR-0025, ticket #45): it shows while the Backlog is non-empty.
  */
 @Composable
 private fun RecurringIncomeRow(
     income: RecurringIncomeDto,
-    toggling: Boolean,
-    onClick: () -> Unit,
-    onToggleSkip: () -> Unit,
+    onLedgerJump: () -> Unit,
+    onEdit: () -> Unit,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val shape = RoundedCornerShape(16.dp)
+    Surface(
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        // The web card look: no gray outline — the soft shadow alone
+        // separates the card from the page (ticket #44).
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
-        Surface(
-            onClick = onClick,
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            // The web card look: no gray outline — the soft shadow alone
-            // separates the card from the page (ticket #44).
-            shadowElevation = 2.dp,
-            modifier = Modifier.weight(1f),
-        ) {
+        Row(modifier = Modifier.clip(shape)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                // The whole tap surface is the ledger jump — the ✎ is its
+                // sibling, never nested (ADR-0004 anatomy).
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onLedgerJump)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -256,13 +251,8 @@ private fun RecurringIncomeRow(
                     }
                 }
             }
+            RowEditButton(name = income.name, onEdit = onEdit)
         }
-        SkipPill(
-            label = skipToggleLabel(income.next_skip_action),
-            enabled = !toggling,
-            onClick = onToggleSkip,
-            modifier = Modifier.padding(start = 8.dp),
-        )
     }
 }
 
@@ -284,39 +274,6 @@ private fun Badge(
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             color = content,
-        )
-    }
-}
-
-/**
- * The Skip/Un-skip button (ADR-0016), the web pill's port: a quiet,
- * bordered round button beside the card — the card itself still opens the
- * edit modal. The label comes from the definition's `next_skip_action`;
- * while the row's own toggle is in flight the pill disables itself and
- * dims, so a double tap cannot flip the state twice (skip then un-skip).
- */
-@Composable
-private fun SkipPill(
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(999.dp)
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .clickable(enabled = enabled, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.6f)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

@@ -15,6 +15,7 @@ import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.ImportRowRevalidationDto
 import com.budjetame.android.data.api.ImportRowValidationDto
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
@@ -168,7 +169,8 @@ class ImportDraftTabTest {
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun deleteRecurringCost(id: Int) = error("unused")
-        override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
+        override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
     private class FakeRecurringIncomeGateway : RecurringIncomeGateway {
@@ -178,7 +180,8 @@ class ImportDraftTabTest {
         override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
         override suspend fun deleteRecurringIncome(id: Int) = error("unused")
-        override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
+        override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
     private class FakeImportGateway : ImportGateway {

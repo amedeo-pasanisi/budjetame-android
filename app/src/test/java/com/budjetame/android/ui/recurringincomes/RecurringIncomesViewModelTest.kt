@@ -8,7 +8,8 @@ import com.budjetame.android.data.api.RecurringIncomeApi
 import com.budjetame.android.data.api.RecurringIncomeCreateRequest
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.RecurringIncomeUpdateRequest
-import com.budjetame.android.data.api.SkipAction
+import com.budjetame.android.data.api.RecurringOccurrenceDto
+import com.budjetame.android.data.api.RecurringOccurrenceUpdateRequest
 import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
@@ -42,9 +43,13 @@ private const val CREATION_DAY = "2026-08-01"
  * dispatcher is a small stateful fake of the /recurring-incomes resource —
  * the list with the derived dates, the create/PATCH/delete writes with the
  * backend's duplicate-name rule (names unique per Account,
- * case-insensitively) and the web's exact 409 message, and the Skip/Un-skip
- * toggle (ADR-0016): each press pops the next recorded fixture state for
- * that definition, emulating the backend's re-derivation. Request bodies
+ * case-insensitively) and the web's exact 409 message,
+ * and the Occurrences read with its per-Occurrence skip write (web
+ * ADR-0026): the read answers the section's rows from a per-definition
+ * store, and a PUT flips the row's skipped state in that store — the
+ * write's own data-version bump then refetches the list, so a test can
+ * re-derive the definition's state behind the modal exactly like the
+ * backend would. Request bodies
  * are captured for assertions.
  */
 class RecurringIncomesViewModelTest {
@@ -67,15 +72,23 @@ class RecurringIncomesViewModelTest {
 
     /** A raw list body served verbatim (when non-null): lets a test send a
      * definition JSON that the fixtures cannot produce — e.g. one still
-     * carrying the backend's derived `overdue` field (web ADR-0025). */
+     * carrying the backend's derived `overdue` field (web ADR-0025) or the
+     * gone `next_skip_action` (web ADR-0026). */
     private var rawListBody: String? = null
 
-    /** The Skip/Un-skip button's fixture responses (ADR-0016), one per
-     * definition: each press pops the next recorded state — the fake's
-     * emulation of the backend's derived re-derivation — and stores it, so
-     * the toggle's own data-version bump refetches a consistent list. */
-    private val skipScripts = mutableMapOf<Int, ArrayDeque<RecurringIncomeDto>>()
-    private var toggleStatus = 200
+    /** The Occurrences section's rows per definition (web ADR-0026): the
+     * read answers the store verbatim — the server's order is
+     * authoritative — and a skip write flips the row's own state in it,
+     * exactly the backend's idempotent per-date write. */
+    private val occurrenceStore = mutableMapOf<Int, MutableList<RecurringOccurrenceDto>>()
+    private var occurrencesStatus = 200
+    private var occurrencePutStatus = 200
+
+    /** A test hook run by the fake after a successful per-Occurrence skip
+     * write: lets a test re-derive the definition's state in the store
+     * (badge, next due) the way the real backend recomputes it from the
+     * stored skips — the write's data-version bump then refetches it. */
+    private var onOccurrencePut: ((id: Int, date: String, skipped: Boolean) -> Unit)? = null
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -91,8 +104,10 @@ class RecurringIncomesViewModelTest {
         updateStatus = 200
         deleteStatus = 204
         rawListBody = null
-        skipScripts.clear()
-        toggleStatus = 200
+        occurrenceStore.clear()
+        occurrencesStatus = 200
+        occurrencePutStatus = 200
+        onOccurrencePut = null
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
         }
@@ -192,24 +207,40 @@ class RecurringIncomesViewModelTest {
                 MockResponse().setResponseCode(deleteStatus)
             }
 
-            method == "POST" && path.matches(Regex("/api/recurring-incomes/\\d+/skip-toggle")) -> {
+            method == "GET" &&
+                path.matches(Regex("/api/recurring-incomes/\\d+/occurrences")) -> {
                 val id = path.removePrefix("/api/recurring-incomes/").substringBefore("/").toInt()
-                val index = store.indexOfFirst { it.id == id }
-                if (index < 0) return jsonResponse(403, """{"detail":"Recurring Income not found"}""")
                 when {
-                    toggleStatus != 200 -> jsonResponse(
-                        toggleStatus,
+                    occurrencesStatus != 200 -> jsonResponse(
+                        occurrencesStatus,
                         """{"detail":"boom"}""",
                     )
+                    else -> jsonResponse(
+                        200,
+                        json.encodeToString(occurrenceStore[id].orEmpty()),
+                    )
+                }
+            }
+
+            method == "PUT" &&
+                path.matches(Regex("/api/recurring-incomes/\\d+/occurrences/[^/]+")) -> {
+                val remainder = path.removePrefix("/api/recurring-incomes/")
+                val id = remainder.substringBefore("/").toInt()
+                val date = remainder.removePrefix("$id/occurrences/")
+                when {
+                    occurrencePutStatus != 200 -> jsonResponse(
+                        occurrencePutStatus,
+                        """{"detail":"Could not skip a paid occurrence"}""",
+                    )
                     else -> {
-                        val script = skipScripts[id]
-                        val toggled = if (script != null && script.isNotEmpty()) {
-                            script.removeFirst()
-                        } else {
-                            store[index]
+                        val update = json.decodeFromString<RecurringOccurrenceUpdateRequest>(body)
+                        val rows = occurrenceStore.getOrPut(id) { mutableListOf() }
+                        val index = rows.indexOfFirst { it.date == date }
+                        if (index >= 0) {
+                            rows[index] = rows[index].copy(skipped = update.skipped)
                         }
-                        store[index] = toggled
-                        jsonResponse(200, json.encodeToString(toggled))
+                        onOccurrencePut?.invoke(id, date, update.skipped)
+                        jsonResponse(200, json.encodeToString(rows))
                     }
                 }
             }
@@ -241,7 +272,6 @@ class RecurringIncomesViewModelTest {
         nextDue: String = "2026-09-05",
         nextUnpaid: String = "2026-09-05",
         backlog: Int = 0,
-        nextSkipAction: SkipAction = SkipAction.SKIP,
     ) = RecurringIncomeDto(
         id = id,
         name = name,
@@ -252,9 +282,19 @@ class RecurringIncomesViewModelTest {
         next_due_date = nextDue,
         next_unpaid_occurrence_date = nextUnpaid,
         backlog_count = backlog,
-        next_skip_action = nextSkipAction,
         created_at = "2026-08-01T10:00:00Z",
     )
+
+    /** One Occurrences section row (web ADR-0026): the Occurrence's own
+     * date and whether the user excused it. */
+    private fun occurrence(date: String, skipped: Boolean = false) =
+        RecurringOccurrenceDto(date = date, skipped = skipped)
+
+    /** Seed a definition's Occurrences read; the section renders the rows
+     * verbatim in this order (the server's order is authoritative). */
+    private fun seedOccurrences(id: Int, vararg rows: RecurringOccurrenceDto) {
+        occurrenceStore[id] = rows.toMutableList()
+    }
 
     private suspend fun awaitLoaded() {
         withTimeout(5_000) { viewModel.uiState.first { !it.loading } }
@@ -266,6 +306,9 @@ class RecurringIncomesViewModelTest {
 
     private fun call(method: String, path: String): RecordedCall =
         calls.toList().first { it.method == method && it.path == path }
+
+    private fun occurrenceCalls(): List<RecordedCall> =
+        calls.toList().filter { it.path.contains("/occurrences") }
 
     // --- Load: the next-due order with the derived state intact ---
 
@@ -290,12 +333,12 @@ class RecurringIncomesViewModelTest {
     }
 
     @Test
-    fun `a definition JSON still carrying the backend's derived overdue field parses like one without it`() = runBlocking {
-        // Web ADR-0025 / ticket #45: the backend no longer sends the
-        // derived `overdue` field and the DTO dropped it; a backend that
-        // still sends it (either deploy order) must parse cleanly — the
-        // JSON config ignores unknown keys — and the badge state reads
-        // from backlog_count alone.
+    fun `a definition JSON still carrying the backend's dropped derived fields parses like one without them`() = runBlocking {
+        // The DTO dropped the derived `overdue` field (web ADR-0025 /
+        // ticket #45) and the card's `next_skip_action` (web ADR-0026 /
+        // ticket #46); a backend that still sends them (either deploy
+        // order) must parse cleanly — the JSON config ignores unknown
+        // keys — and the badge state reads from backlog_count alone.
         rawListBody = """
             [
               {
@@ -620,105 +663,136 @@ class RecurringIncomesViewModelTest {
         assertEquals("Salary", viewModel.uiState.value.incomes.first().name)
     }
 
-    // --- Skip / Un-skip (ADR-0016), mirroring the Costs side ---
-
-    /** The recorded Skip/Un-skip presses. */
-    private fun skipToggleCalls(): List<RecordedCall> =
-        calls.toList().filter { it.method == "POST" && it.path.endsWith("/skip-toggle") }
+    // --- The Occurrences section (web ADR-0026), mirroring the Costs side ---
 
     @Test
-    fun `a skip press calls the incomes skip-toggle and swaps in the refreshed row`() = runBlocking {
-        // Salary has one Unpaid, un-Skipped Occurrence due (badge 1); Rent
-        // is clean. One press excuses it: the response's refreshed state
-        // re-renders the row — badge gone, the button reads Un-skip.
-        seed(
-            incomeDto(1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-08-25", backlog = 1),
-            incomeDto(2, "Rent", nextDue = "2026-09-05", nextUnpaid = "2026-09-05"),
-        )
-        skipScripts[1] = ArrayDeque(
-            listOf(
-                incomeDto(
-                    1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-09-01",
-                    backlog = 0, nextSkipAction = SkipAction.UNSKIP,
-                ),
-            ),
+    fun `an edit open fetches the occurrences read and renders its rows verbatim`() = runBlocking {
+        seed(incomeDto(1, "Salary", backlog = 2))
+        // The server's order is authoritative: the next incoming Unpaid row
+        // on top, then newest-first down to the oldest. The section must
+        // render it verbatim — a client never re-sorts.
+        seedOccurrences(
+            1,
+            occurrence("2026-09-05"),
+            occurrence("2026-09-01"),
+            occurrence("2026-08-25", skipped = true),
+            occurrence("2026-08-01"),
         )
         createViewModel()
         awaitLoaded()
 
-        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
-        awaitState {
-            it.togglingId == null &&
-                it.incomes.first { i -> i.id == 1 }.next_skip_action == SkipAction.UNSKIP
-        }
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.modal?.occurrences != null }
 
-        assertEquals(1, skipToggleCalls().size)
-        assertEquals("/api/recurring-incomes/1/skip-toggle", skipToggleCalls().first().path)
-        val salary = viewModel.uiState.value.incomes.first { it.id == 1 }
-        assertEquals(0, salary.backlog_count)
-        assertEquals(SkipAction.UNSKIP, salary.next_skip_action)
-        // The list order is unchanged when the dates do not move.
-        assertEquals(listOf(1, 2), viewModel.uiState.value.incomes.map { it.id })
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals(
+            listOf("2026-09-05", "2026-09-01", "2026-08-25", "2026-08-01"),
+            modal.occurrences!!.map { it.date },
+        )
+        assertEquals(listOf(false, false, true, false), modal.occurrences!!.map { it.skipped })
+        assertNull(modal.occurrencesError)
+        assertNull(modal.togglingDate)
+        // The read happened exactly once, on the definition's own id.
+        assertEquals(1, occurrenceCalls().count { it.method == "GET" })
+        assertEquals("/api/recurring-incomes/1/occurrences", occurrenceCalls().single { it.method == "GET" }.path)
     }
 
     @Test
-    fun `repeated presses clear the backlog oldest-first then an un-skip restores one`() = runBlocking {
-        // A daily income missed for ten days (badge 10): each press skips
-        // the oldest Unpaid Occurrence, so the badge ticks 10, 9, ..., 0;
-        // once nothing is left to skip the button reads Un-skip, and the
-        // next press restores the oldest Skipped Occurrence (badge 1 back,
-        // the button reads Skip again).
-        val salary = incomeDto(1, "Salary", nextDue = "2026-09-05", nextUnpaid = "2026-08-27", backlog = 10)
-        seed(salary)
-        skipScripts[1] = ArrayDeque(
-            (1..10).map { press ->
-                salary.copy(
-                    backlog_count = 10 - press,
-                    next_skip_action = if (press == 10) SkipAction.UNSKIP else SkipAction.SKIP,
-                )
-            } + salary.copy(backlog_count = 1, next_skip_action = SkipAction.SKIP),
-        )
+    fun `a create never fetches the occurrences read`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
-        for (press in 1..10) {
-            viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
-            awaitState {
-                it.togglingId == null &&
-                    it.incomes.first { i -> i.id == 1 }.backlog_count == 10 - press
-            }
-            val row = viewModel.uiState.value.incomes.first { it.id == 1 }
-            assertEquals(
-                if (press == 10) SkipAction.UNSKIP else SkipAction.SKIP,
-                row.next_skip_action,
-            )
-        }
-
-        // The Un-skip press restores the oldest Skipped Occurrence.
-        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
-        awaitState {
-            it.togglingId == null &&
-                it.incomes.first { i -> i.id == 1 }.backlog_count == 1
-        }
-        assertEquals(SkipAction.SKIP, viewModel.uiState.value.incomes.first { it.id == 1 }.next_skip_action)
-        assertEquals(11, skipToggleCalls().size)
+        viewModel.openCreate()
+        val modal = viewModel.uiState.value.modal!!
+        // A definition under creation has no id yet — its first Occurrence
+        // is only decided at creation, so the section stays absent.
+        assertNull(modal.occurrences)
+        assertNull(modal.occurrencesError)
+        assertTrue(occurrenceCalls().none { it.method == "GET" })
     }
 
     @Test
-    fun `a double tap on the same row fires one toggle`() = runBlocking {
+    fun `a failed occurrences read shows the section error and keeps the modal usable`() = runBlocking {
+        seed(incomeDto(1, "Salary"))
+        createViewModel()
+        awaitLoaded()
+
+        occurrencesStatus = 500
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.modal?.occurrencesError != null }
+
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals("Could not load the occurrences.", modal.occurrencesError)
+        assertNull(modal.occurrences)
+        // The modal itself stays usable: the fields are still editable.
+        assertTrue(modal.canSubmit)
+        viewModel.onNameChange("Salary (net)")
+        assertTrue(viewModel.uiState.value.modal!!.canSubmit)
+    }
+
+    @Test
+    fun `a skip press PUTs skipped true and swaps in the refreshed read`() = runBlocking {
         seed(incomeDto(1, "Salary", backlog = 1))
-        skipScripts[1] = ArrayDeque(
-            listOf(
-                incomeDto(1, "Salary", backlog = 0, nextSkipAction = SkipAction.UNSKIP),
-            ),
-        )
+        seedOccurrences(1, occurrence("2026-09-05"), occurrence("2026-09-01"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.modal?.occurrences != null }
+
+        // Skip the live top row: the fake flips its state in the store and
+        // answers the refreshed read, which replaces the section's rows.
+        viewModel.toggleOccurrence(viewModel.uiState.value.modal!!.occurrences!!.first())
+        awaitState {
+            it.modal?.occurrences?.first { row -> row.date == "2026-09-05" }?.skipped == true
+        }
+
+        val put = occurrenceCalls().single { it.method == "PUT" }
+        assertEquals("/api/recurring-incomes/1/occurrences/2026-09-05", put.path)
+        val update = json.decodeFromString<RecurringOccurrenceUpdateRequest>(put.body)
+        assertTrue(update.skipped)
+        val modal = viewModel.uiState.value.modal!!
+        assertNull(modal.occurrencesError)
+        assertNull(modal.togglingDate)
+        // The refreshed read keeps the server's order: the row the press
+        // excused greys in place, the following row stays live under it.
+        assertEquals(listOf(true, false), modal.occurrences!!.map { it.skipped })
+    }
+
+    @Test
+    fun `an un-skip press PUTs skipped false and restores the row`() = runBlocking {
+        seed(incomeDto(1, "Salary"))
+        seedOccurrences(1, occurrence("2026-09-05"), occurrence("2026-08-25", skipped = true))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.modal?.occurrences != null }
+
+        val excused = viewModel.uiState.value.modal!!.occurrences!!.first { it.skipped }
+        viewModel.toggleOccurrence(excused)
+        awaitState {
+            it.modal?.occurrences?.first { row -> row.date == "2026-08-25" }?.skipped == false
+        }
+
+        val put = occurrenceCalls().single { it.method == "PUT" }
+        assertEquals("/api/recurring-incomes/1/occurrences/2026-08-25", put.path)
+        val update = json.decodeFromString<RecurringOccurrenceUpdateRequest>(put.body)
+        assertFalse(update.skipped)
+        assertNull(viewModel.uiState.value.modal!!.occurrencesError)
+    }
+
+    @Test
+    fun `a double tap on the same row fires one write`() = runBlocking {
+        seed(incomeDto(1, "Salary", backlog = 1))
+        seedOccurrences(1, occurrence("2026-09-05"), occurrence("2026-09-01"))
         // The first press's response is held until both taps have been
         // delivered, so the second tap deterministically lands while the
-        // first toggle is still in flight.
+        // first write is still in flight.
         val release = CountDownLatch(1)
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
-                if (request.method == "POST" && request.path?.endsWith("/skip-toggle") == true) {
+                if (request.method == "PUT" && request.path?.contains("/occurrences/") == true) {
                     release.await(5, TimeUnit.SECONDS)
                 }
                 return route(request)
@@ -727,52 +801,92 @@ class RecurringIncomesViewModelTest {
         createViewModel()
         awaitLoaded()
 
-        val salary = viewModel.uiState.value.incomes.first { it.id == 1 }
-        viewModel.toggleSkip(salary)
-        viewModel.toggleSkip(salary)
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.modal?.occurrences != null }
+
+        val live = viewModel.uiState.value.modal!!.occurrences!!.first { !it.skipped }
+        viewModel.toggleOccurrence(live)
+        viewModel.toggleOccurrence(live)
         release.countDown()
         awaitState {
-            it.togglingId == null &&
-                it.incomes.first { i -> i.id == 1 }.next_skip_action == SkipAction.UNSKIP
+            it.modal?.occurrences?.first { row -> row.date == "2026-09-05" }?.skipped == true
         }
 
-        // One press, one toggle: the second tap could not flip the state
+        // One press, one write: the second tap could not flip the state
         // twice (skip then un-skip).
-        assertEquals(1, skipToggleCalls().size)
+        assertEquals(1, occurrenceCalls().count { it.method == "PUT" })
+        assertNull(viewModel.uiState.value.modal!!.togglingDate)
     }
 
     @Test
     fun `a failed toggle keeps the rows and shows the web message`() = runBlocking {
-        seed(
-            incomeDto(1, "Salary", nextDue = "2026-09-01", backlog = 1),
-            incomeDto(2, "Rent", nextDue = "2026-09-05"),
-        )
+        seed(incomeDto(1, "Salary", backlog = 1))
+        seedOccurrences(1, occurrence("2026-09-05"), occurrence("2026-09-01"))
         createViewModel()
         awaitLoaded()
 
-        toggleStatus = 500
-        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
-        awaitState { it.actionError != null }
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.modal?.occurrences != null }
 
-        assertEquals("Could not update your recurring incomes.", viewModel.uiState.value.actionError)
-        assertNull(viewModel.uiState.value.togglingId)
+        occurrencePutStatus = 500
+        viewModel.toggleOccurrence(viewModel.uiState.value.modal!!.occurrences!!.first())
+        awaitState { it.modal?.occurrencesError != null }
+
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals("Could not update the occurrence.", modal.occurrencesError)
+        assertNull(modal.togglingDate)
         // The held rows stay on screen — only the action failed.
-        assertEquals(listOf(1, 2), viewModel.uiState.value.incomes.map { it.id })
-        assertEquals(1, viewModel.uiState.value.incomes.first { it.id == 1 }.backlog_count)
+        assertEquals(2, modal.occurrences!!.size)
 
-        // The next press clears the message and works.
-        toggleStatus = 200
-        skipScripts[1] = ArrayDeque(
-            listOf(
-                incomeDto(1, "Salary", backlog = 0, nextSkipAction = SkipAction.UNSKIP),
-            ),
-        )
-        viewModel.toggleSkip(viewModel.uiState.value.incomes.first { it.id == 1 })
+        // The next press clears the error and works.
+        occurrencePutStatus = 200
+        viewModel.toggleOccurrence(modal.occurrences!!.first())
         awaitState {
-            it.actionError == null &&
-                it.incomes.first { i -> i.id == 1 }.next_skip_action == SkipAction.UNSKIP
+            it.modal?.occurrences?.first { row -> row.date == "2026-09-05" }?.skipped == true
         }
+        assertNull(viewModel.uiState.value.modal!!.occurrencesError)
         // Both presses hit the wire: the failed one and the successful one.
-        assertEquals(2, skipToggleCalls().size)
+        assertEquals(2, occurrenceCalls().count { it.method == "PUT" })
+    }
+
+    @Test
+    fun `a skip write's data-version bump refetches the list and re-derives the badge`() = runBlocking {
+        // The write refreshes the definition's derived state on the cards
+        // behind the modal (ADR-0002): the badge and the next-due walk
+        // over the excused Occurrence, exactly as the backend re-derives
+        // them from the stored skips.
+        seed(incomeDto(1, "Salary", nextDue = "2026-09-01", nextUnpaid = "2026-08-25", backlog = 1))
+        seedOccurrences(1, occurrence("2026-09-05"), occurrence("2026-09-01"))
+        onOccurrencePut = { id, _, _ ->
+            val index = store.indexOfFirst { it.id == id }
+            if (index >= 0) {
+                store[index] = store[index].copy(
+                    backlog_count = 0,
+                    next_unpaid_occurrence_date = "2026-09-01",
+                )
+            }
+        }
+        createViewModel()
+        awaitLoaded()
+        assertEquals(1, calls.toList().count { it.method == "GET" && it.path == "/api/recurring-incomes" })
+
+        viewModel.openEdit(viewModel.uiState.value.incomes.first { it.id == 1 })
+        awaitState { it.modal?.occurrences != null }
+        viewModel.toggleOccurrence(viewModel.uiState.value.modal!!.occurrences!!.first())
+        awaitState {
+            it.incomes.first { i -> i.id == 1 }.backlog_count == 0 &&
+                it.incomes.first { i -> i.id == 1 }.next_unpaid_occurrence_date == "2026-09-01"
+        }
+
+        // The list refetched exactly once more — the write's own bump.
+        assertEquals(
+            2,
+            calls.toList().count { it.method == "GET" && it.path == "/api/recurring-incomes" },
+        )
+        val income = viewModel.uiState.value.incomes.first { it.id == 1 }
+        assertEquals(0, income.backlog_count)
+        assertEquals("2026-09-01", income.next_unpaid_occurrence_date)
+        // The modal is untouched by the refetch.
+        assertEquals("Salary", viewModel.uiState.value.modal!!.name)
     }
 }

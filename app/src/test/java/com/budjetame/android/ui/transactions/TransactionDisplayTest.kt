@@ -37,6 +37,7 @@ class TransactionDisplayTest {
         description: String? = null,
         latitude: String? = null,
         longitude: String? = null,
+        placeName: String? = null,
     ) = TransactionDto(
         id = id,
         type = type,
@@ -49,6 +50,7 @@ class TransactionDisplayTest {
         description = description,
         latitude = latitude,
         longitude = longitude,
+        place_name = placeName,
         created_at = "2026-08-01T10:00:00Z",
     )
 
@@ -259,6 +261,48 @@ class TransactionDisplayTest {
     fun `a location exists exactly when both coordinates are present`() {
         assertFalse(hasLocation(transaction(1, TransactionType.EXPENSE, latitude = "1.0")))
         assertTrue(hasLocation(transaction(1, TransactionType.EXPENSE, latitude = "1.0", longitude = "2.0")))
+    }
+
+    @Test
+    fun `the location suffix names the place or stays a bare pin`() {
+        // Web issue #91: a located Transaction's subtitle appends a pin
+        // after date · wallet — reading "· 📍 <place name>" when it
+        // carries a Place, bare when it only has coordinates (Leaflet taps,
+        // GPS and imports attach coordinates alone). A whitespace-only
+        // name counts as none (CONTEXT.md), and no coordinates means no
+        // suffix at all — the subtitle ends at the wallet label.
+        assertNull(locationSuffix(transaction(1, TransactionType.EXPENSE)))
+        assertEquals(
+            " · 📍",
+            locationSuffix(transaction(1, TransactionType.EXPENSE, latitude = "41.9", longitude = "12.5")),
+        )
+        assertEquals(
+            " · 📍 Esselunga",
+            locationSuffix(
+                transaction(
+                    1,
+                    TransactionType.EXPENSE,
+                    latitude = "41.9",
+                    longitude = "12.5",
+                    placeName = " Esselunga ",
+                ),
+            ),
+        )
+        // Coordinates with a whitespace-only name read as no Place.
+        assertEquals(
+            " · 📍",
+            locationSuffix(
+                transaction(
+                    1,
+                    TransactionType.EXPENSE,
+                    latitude = "41.9",
+                    longitude = "12.5",
+                    placeName = "   ",
+                ),
+            ),
+        )
+        // A Place without coordinates is not a location: no pin at all.
+        assertNull(locationSuffix(transaction(1, TransactionType.EXPENSE, placeName = "Esselunga")))
     }
 
     // --- Filtered chips line (web issue #92, ticket #35) ---

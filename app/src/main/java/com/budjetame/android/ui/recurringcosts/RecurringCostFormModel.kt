@@ -3,13 +3,12 @@ package com.budjetame.android.ui.recurringcosts
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringDefinition
-import com.budjetame.android.data.api.SkipAction
 
 /**
  * Presentation-only logic for the Recurring Costs screen and form (ticket
  * #22), ported from the web app's recurringCosts.ts + RecurringCostForm.tsx:
- * the interval display text, the interval-unit select labels, the next-due
- * ordering, and the Skip/Un-skip button's label (ADR-0016). These are the
+ * the interval display text, the interval-unit select labels, and the
+ * next-due ordering. These are the
  * cheap spots where porting bugs hide, so they get direct JVM tests. The
  * reads are type-agnostic and
  * shared with the Recurring Incomes side (web issue #60, ADR-0011), exactly
@@ -39,16 +38,6 @@ fun intervalUnitLabel(intervalValue: Int?, unit: IntervalUnit): String = when (u
     IntervalUnit.MONTHS -> if (intervalValue == 1) "Month" else "Months"
     IntervalUnit.YEARS -> if (intervalValue == 1) "Year" else "Years"
 }
-
-/**
- * The Skip/Un-skip button's label (ADR-0016), from the definition's
- * `next_skip_action`: "Un-skip" exactly when the press would restore a
- * Skipped Occurrence, "Skip" otherwise. Shared with the Recurring Incomes
- * side (web issue #60) like the interval reads (ADR-0011): the web's
- * RecurringIncomesScreen.tsx reads the same field with the same ternary.
- */
-fun skipToggleLabel(action: SkipAction): String =
-    if (action == SkipAction.UNSKIP) "Un-skip" else "Skip"
 
 /**
  * The interval as display text — "Every month", "Every 2 weeks", "Every 5

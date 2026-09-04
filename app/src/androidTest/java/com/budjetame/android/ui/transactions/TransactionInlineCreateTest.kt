@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
@@ -276,7 +277,8 @@ class TransactionInlineCreateTest {
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun deleteRecurringCost(id: Int) = error("unused")
-        override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
+        override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
     /** The Income form's Recurring Income picker: the mirror — no
@@ -288,7 +290,8 @@ class TransactionInlineCreateTest {
         override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
         override suspend fun deleteRecurringIncome(id: Int) = error("unused")
-        override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
+        override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 }
 

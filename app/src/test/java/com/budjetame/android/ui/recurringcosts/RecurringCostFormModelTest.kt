@@ -2,15 +2,15 @@ package com.budjetame.android.ui.recurringcosts
 
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
-import com.budjetame.android.data.api.SkipAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Pure JVM tests for the Recurring Costs form/screen logic (ticket #22):
  * the interval text, the interval-unit select labels (singular when N is 1),
- * the ordering, the skip-button label (ADR-0016), and the form gates —
+ * the ordering, and the form gates —
  * ported from the web app's recurringCosts.ts and RecurringCostForm.tsx.
+ * The skip-button label is gone with the card button (web ADR-0026).
  * The due-date override is gone (ADR-0024): no helper shapes one anymore. */
 class RecurringCostFormModelTest {
 
@@ -67,15 +67,6 @@ class RecurringCostFormModelTest {
         )
         val sorted = sortByNextDue(seeded)
         assertEquals(listOf(3, 4, 2, 1), sorted.map { it.id })
-    }
-
-    @Test
-    fun `the skip button label follows the definition's skip action`() {
-        // The web's ternary: next_skip_action === 'unskip' ? 'Un-skip' :
-        // 'Skip' (ADR-0016) — "Un-skip" exactly when the press would
-        // restore a Skipped Occurrence.
-        assertEquals("Skip", skipToggleLabel(SkipAction.SKIP))
-        assertEquals("Un-skip", skipToggleLabel(SkipAction.UNSKIP))
     }
 
     private fun cost(id: Int, name: String, nextDue: String) = RecurringCostDto(

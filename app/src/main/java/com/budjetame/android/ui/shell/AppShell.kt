@@ -100,7 +100,9 @@ fun AppShell(
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
-    // The pending ledger jump (ADR-0004, ticket #44): a Wallet or Category
+    // The pending ledger jump (ADR-0004, ticket #44, extended to the
+    // Recurring cards by web ADR-0026 / ticket #46): a Wallet, Category,
+    // or Recurring definition
     // row asked for the Transactions ledger pre-filtered to it, and the
     // request waits here until the Transactions screen applies it and calls
     // back. Shell state, not screen state: the request can arrive while the
@@ -125,7 +127,8 @@ fun AppShell(
     val pagerState = rememberPagerState(pageCount = { TABS.size })
     val tabState = rememberSaveableStateHolder()
 
-    // Send a ledger jump (ADR-0004): hold the request pending and glide to
+    // Send a ledger jump (ADR-0004, web ADR-0026): hold the request
+    // pending and glide to
     // the Transactions page — the screen applies it on first mount (as
     // initial state) or, when already alive, through the apply-and-consume
     // effect. The glide is the bottom-tab tap's own 250 ms tween
@@ -184,7 +187,11 @@ fun AppShell(
                         categoryRepository,
                         onLedgerJump = requestLedgerJump,
                     )
-                    Tab.Recurring -> RecurringScreen(recurringCostRepository, recurringIncomeRepository)
+                    Tab.Recurring -> RecurringScreen(
+                        recurringCostRepository,
+                        recurringIncomeRepository,
+                        onLedgerJump = requestLedgerJump,
+                    )
                 }
             }
         }

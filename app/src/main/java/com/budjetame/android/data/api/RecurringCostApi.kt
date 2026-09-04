@@ -7,6 +7,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 /**
@@ -34,18 +35,29 @@ interface RecurringDefinition {
 }
 
 /**
- * What the Skip/Un-skip button reads (ADR-0016 in the web repo): "skip"
- * while the press would excuse the oldest Unpaid, un-Skipped Occurrence —
- * the front of the queue, the very one a new link would pay — and "unskip"
- * once the whole Backlog is excused, when the press restores the oldest
- * Skipped one. One enum serves both definition DTOs (ADR-0011); the wire
+ * One row of the Occurrences section (web ADR-0026): a non-Paid
+ * Occurrence — its own date (ADR-0024) and whether the user excused it
+ * (Skipped, ADR-0016). Paid history lives in the ledger and never appears.
+ * One DTO serves both the Recurring Cost and the Recurring Income reads
+ * (ADR-0011): the two sides' occurrences are the same shape. The wire
  * values match the backend's.
  */
 @Serializable
-enum class SkipAction {
-    @SerialName("skip") SKIP,
-    @SerialName("unskip") UNSKIP,
-}
+data class RecurringOccurrenceDto(
+    val date: String,
+    val skipped: Boolean,
+)
+
+/**
+ * The per-Occurrence skip write's body (web ADR-0026): PUT the
+ * Occurrence's date with `{"skipped": true}` to excuse it, `false` to
+ * restore it. The write is idempotent — stating the current state changes
+ * nothing — and the response is the refreshed read.
+ */
+@Serializable
+data class RecurringOccurrenceUpdateRequest(
+    val skipped: Boolean,
+)
 
 /**
  * A Recurring Cost as seen through the API (web issue #56): the editable
@@ -60,16 +72,15 @@ enum class SkipAction {
  * unpaid" badge (web ADR-0025 / ticket #45). The backend's derived
  * `overdue` field is no longer sent — the badge is the one Backlog
  * signal — so the DTO dropped it; a backend that still sends the field
- * parses cleanly (the JSON config ignores unknown keys).
+ * parses cleanly (the JSON config ignores unknown keys). The card
+ * Skip/Un-skip button is gone (web ADR-0026): skip controls live per
+ * Occurrence on the Occurrences read, never on the definition, so
+ * `next_skip_action` left the DTO — a backend that still sends it parses
+ * cleanly the same way.
  * `start_date` is the stored start date — every definition always carries
  * one (ADR-0024): left empty at creation it is set to the creation day,
  * and an Occurrence's due date is its own date, so the optional due-date
- * override is gone. `next_skip_action` is what the Skip/Un-skip button
- * reads (ADR-0016): "skip" while an Unpaid, un-Skipped Occurrence is the
- * front of the queue, "unskip" once the press would restore the oldest
- * Skipped one — Skipped Occurrences never enter the Backlog count and
- * never show as the next due or the next Unpaid Occurrence (the backend
- * derives it all).
+ * override is gone.
  */
 @Serializable
 data class RecurringCostDto(
@@ -82,7 +93,6 @@ data class RecurringCostDto(
     override val next_due_date: String,
     val next_unpaid_occurrence_date: String,
     val backlog_count: Int = 0,
-    val next_skip_action: SkipAction = SkipAction.SKIP,
     val created_at: String,
 ) : RecurringDefinition
 
@@ -125,9 +135,11 @@ data class RecurringCostUpdateRequest(
 /**
  * Recurring Costs resource (web issue #56): the list, sorted by next due
  * date ascending (ties by name) — the one order the Recurring screen needs —
- * and the create/edit/delete writes and the Skip/Un-skip toggle. A delete
- * severs the links and drops its skips (CONTEXT.md, ADR-0016): linked
- * Expenses stay as ordinary Expenses.
+ * the create/edit/delete writes, and the Occurrences read and its
+ * per-Occurrence skip write (web ADR-0026) — the card Skip/Un-skip
+ * toggle is gone with the endpoint it pressed. A delete severs the links
+ * and drops its skips (CONTEXT.md, ADR-0016): linked Expenses stay as
+ * ordinary Expenses.
  */
 interface RecurringCostApi {
 
@@ -148,11 +160,27 @@ interface RecurringCostApi {
     @DELETE("recurring-costs/{id}")
     suspend fun delete(@Path("id") id: Int)
 
-    /** The Skip/Un-skip button (ADR-0016): the backend flips the front of
-     * the queue — it skips the oldest Unpaid, un-Skipped Occurrence or,
-     * once the whole Backlog is excused, un-skips the oldest Skipped one —
-     * and answers 200 with the refreshed definition, every derived field
-     * re-derived from the stored skips. Foreign ids answer 403. */
-    @POST("recurring-costs/{id}/skip-toggle")
-    suspend fun skipToggle(@Path("id") id: Int): RecurringCostDto
+    /** The Occurrences section's read (web ADR-0026): every non-Paid
+     * Occurrence with its skipped state — newest first, the one order the
+     * edit modal renders: the next incoming Unpaid row on top, then every
+     * excused future row, then the past rows (today first) down to the
+     * oldest. The response is the section's whole state: each row carries
+     * exactly what its Skip/Un-skip button needs. Foreign ids answer 403.
+     * The order is server-computed and authoritative — a client renders
+     * the list verbatim and never re-sorts it. */
+    @GET("recurring-costs/{id}/occurrences")
+    suspend fun occurrences(@Path("id") id: Int): List<RecurringOccurrenceDto>
+
+    /** The per-Occurrence skip write (web ADR-0026): state the row's
+     * skipped state — skip or un-skip — idempotently (a double tap cannot
+     * double-flip). 422 on a Paid Occurrence or a date that is not one of
+     * the definition's Occurrences. The answer is the refreshed read, so
+     * the modal swaps its rows in without a second fetch. Foreign ids
+     * answer 403. */
+    @PUT("recurring-costs/{id}/occurrences/{occurrenceDate}")
+    suspend fun setOccurrenceSkipped(
+        @Path("id") id: Int,
+        @Path("occurrenceDate") occurrenceDate: String,
+        @Body body: RecurringOccurrenceUpdateRequest,
+    ): List<RecurringOccurrenceDto>
 }

@@ -34,6 +34,7 @@ import com.budjetame.android.data.api.ImportRowRevalidationDto
 import com.budjetame.android.data.api.ImportRowValidationDto
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
@@ -186,6 +187,57 @@ class TransactionsChromeTest {
         // The header row stays: New transaction and Import remain reachable.
         composeRule.onNodeWithText("New transaction").assertIsDisplayed()
         composeRule.onNodeWithText("Import").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a located transaction reads its place name after the wallet label`() {
+        // Web issue #91 / ticket #46: the ledger card's subtitle appends
+        // " · 📍 <place_name>" when the Transaction carries a Place — the
+        // bare pin when it only has coordinates, nothing when it has
+        // neither.
+        transactions.rows = listOf(
+            TransactionDto(
+                id = 1,
+                type = TransactionType.EXPENSE,
+                amount = "5.00",
+                date = "2026-08-01",
+                wallet_id = 1,
+                description = "Coffee",
+                latitude = "45.4642",
+                longitude = "9.19",
+                place_name = "Esselunga",
+                created_at = "2026-08-01T10:00:00Z",
+            ),
+            TransactionDto(
+                id = 2,
+                type = TransactionType.EXPENSE,
+                amount = "6.00",
+                date = "2026-08-02",
+                wallet_id = 1,
+                description = "Lunch",
+                latitude = "45.4642",
+                longitude = "9.19",
+                created_at = "2026-08-02T10:00:00Z",
+            ),
+            TransactionDto(
+                id = 3,
+                type = TransactionType.EXPENSE,
+                amount = "7.00",
+                date = "2026-08-03",
+                wallet_id = 1,
+                description = "Dinner",
+                created_at = "2026-08-03T10:00:00Z",
+            ),
+        )
+        launchScreen()
+        waitForLedger()
+
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("2026-08-01 · Cash · 📍 Esselunga")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("2026-08-02 · Cash · 📍").assertIsDisplayed()
+        composeRule.onNodeWithText("2026-08-03 · Cash").assertIsDisplayed()
     }
 
     @Test
@@ -594,7 +646,8 @@ class TransactionsChromeTest {
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun deleteRecurringCost(id: Int) = error("unused")
-        override suspend fun toggleSkipRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
+        override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
     private class FakeRecurringIncomeGateway : RecurringIncomeGateway {
@@ -604,7 +657,8 @@ class TransactionsChromeTest {
         override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
         override suspend fun deleteRecurringIncome(id: Int) = error("unused")
-        override suspend fun toggleSkipRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
+        override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
     private class FakeImportGateway : ImportGateway {
