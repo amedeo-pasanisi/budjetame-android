@@ -174,10 +174,13 @@ class TransactionsViewModel(
      * The create/edit/delete Transaction form's draft (null = modal closed).
      * Create and edit share one modal: the Type selector appears only while
      * creating (type is immutable once recorded), and the tap-again delete
-     * confirmation only while editing. `recurringCostId` is the Expense
-     * form's Recurring Cost link pick — null = none (web issue #57);
-     * `recurringIncomeId` is the Income form's Recurring Income link pick,
-     * the mirror (web issue #61).
+     * confirmation only while editing. `recurringCostId` is the Recurring
+     * Cost link pick — an Expense's, or a Transfer-to-a-Contact-Wallet's
+     * (web issue #99 / ADR-0027); null = none (web issue #57).
+     * `recurringIncomeId` is the Recurring Income link pick, the mirror —
+     * an Income's, or a Transfer-from-a-Contact-Wallet's (web issue #61/
+     * #99). The wallet pair is frozen while editing, so a link can never be
+     * re-pointed out of qualification: the backend rejects such a write.
      */
     data class ModalState(
         val editing: TransactionDto? = null,
@@ -1094,7 +1097,7 @@ class TransactionsViewModel(
                 modal = _uiState.value.modal ?: return@launch
             }
             try {
-                val saved = transactions.createTransaction(draftOf(modal))
+                val saved = transactions.createTransaction(draftOf(modal, _uiState.value.wallets))
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
@@ -1127,7 +1130,7 @@ class TransactionsViewModel(
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
             try {
-                val saved = transactions.updateTransaction(transaction.id, draftOf(modal))
+                val saved = transactions.updateTransaction(transaction.id, draftOf(modal, _uiState.value.wallets))
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
@@ -1155,32 +1158,51 @@ class TransactionsViewModel(
         }
     }
 
-    private fun draftOf(modal: ModalState): TransactionDraft = TransactionDraft(
-        type = modal.type,
-        amount = modal.amount.trim(),
-        date = modal.date,
-        walletId = if (modal.isTransfer) null else modal.walletId,
-        sourceWalletId = if (modal.isTransfer) modal.sourceWalletId else null,
-        destinationWalletId = if (modal.isTransfer) modal.destinationWalletId else null,
-        categoryId = if (modal.isTransfer) null else modal.categoryId,
-        // A picked link rides only on its own type — an Expense on a
-        // Recurring Cost, an Income on a Recurring Income (the type reset
-        // drops a pick, and this guard keeps a stray pick off the wire); a
-        // link change is a PATCH key the form sends only when the pick
-        // actually changed (the stored pin must survive a mere
-        // amount/date edit).
-        recurringCostId = if (modal.type == TransactionType.EXPENSE) modal.recurringCostId else null,
-        recurringCostTouched = modal.recurringCostId != modal.editing?.recurring_cost_id,
-        recurringIncomeId = if (modal.type == TransactionType.INCOME) modal.recurringIncomeId else null,
-        recurringIncomeTouched = modal.recurringIncomeId != modal.editing?.recurring_income_id,
-        description = modal.description.trim().ifEmpty { null },
-        // The form's location rides as-is; the Place only ever travels with
-        // coordinates — a locationless form clears the place keys on the
-        // wire (ADR-0005: a Place without coordinates is outside the
-        // model).
-        location = modal.location,
-        place = modal.place.takeIf { modal.location != null },
-    )
+    private fun draftOf(modal: ModalState, wallets: List<WalletDto>): TransactionDraft {
+        val source = modal.sourceWalletId?.let { id -> wallets.find { it.id == id } }
+        val destination = modal.destinationWalletId?.let { id -> wallets.find { it.id == id } }
+        return TransactionDraft(
+            type = modal.type,
+            amount = modal.amount.trim(),
+            date = modal.date,
+            walletId = if (modal.isTransfer) null else modal.walletId,
+            sourceWalletId = if (modal.isTransfer) modal.sourceWalletId else null,
+            destinationWalletId = if (modal.isTransfer) modal.destinationWalletId else null,
+            categoryId = if (modal.isTransfer) null else modal.categoryId,
+            // A picked link rides only where the form may carry it — an
+            // Expense on a Recurring Cost, an Income on a Recurring Income,
+            // and a Transfer only on the qualifying pair and direction (web
+            // issue #99 / ADR-0027: source = Contact Wallet receives a
+            // Recurring Income, destination = Contact Wallet pays a
+            // Recurring Cost) — so a stale pick (a pair changed after the
+            // pick) can never ride along to the API. The type reset drops a
+            // pick, and this guard keeps a stray one off the wire; a link
+            // change is a PATCH key the form sends only when the pick
+            // actually changed (the stored pin must survive a mere
+            // amount/date edit).
+            recurringCostId = when {
+                modal.type == TransactionType.EXPENSE -> modal.recurringCostId
+                modal.type == TransactionType.TRANSFER &&
+                    transferCostLinkQualifies(source, destination) -> modal.recurringCostId
+                else -> null
+            },
+            recurringCostTouched = modal.recurringCostId != modal.editing?.recurring_cost_id,
+            recurringIncomeId = when {
+                modal.type == TransactionType.INCOME -> modal.recurringIncomeId
+                modal.type == TransactionType.TRANSFER &&
+                    transferIncomeLinkQualifies(source, destination) -> modal.recurringIncomeId
+                else -> null
+            },
+            recurringIncomeTouched = modal.recurringIncomeId != modal.editing?.recurring_income_id,
+            description = modal.description.trim().ifEmpty { null },
+            // The form's location rides as-is; the Place only ever travels with
+            // coordinates — a locationless form clears the place keys on the
+            // wire (ADR-0005: a Place without coordinates is outside the
+            // model).
+            location = modal.location,
+            place = modal.place.takeIf { modal.location != null },
+        )
+    }
 
     /** The five panel filters reset to "all" (web issue #92's taxonomy) —
      * wallet, category, from-date, to-date, recurring. The search is

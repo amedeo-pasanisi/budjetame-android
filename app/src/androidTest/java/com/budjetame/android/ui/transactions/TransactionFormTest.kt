@@ -382,7 +382,7 @@ class TransactionFormTest {
     }
 
     @Test
-    fun income_and_transfer_forms_never_carry_the_recurring_cost_field() {
+    fun income_and_own_to_own_transfer_forms_never_carry_the_recurring_cost_field() {
         setForm(
             TransactionsViewModel.ModalState(
                 type = TransactionType.INCOME,
@@ -391,6 +391,23 @@ class TransactionFormTest {
                 walletId = 1,
             ),
             wallets = listOf(cash),
+            categories = emptyList(),
+            recurringCosts = listOf(rent),
+        )
+        composeRule.onNodeWithTag("tx-recurring-cost").assertDoesNotExist()
+
+        // The same draft as an own↔own Transfer carries no cost field
+        // either: only a Transfer *to* a Contact Wallet pays a Recurring
+        // Cost (web issue #99 / ADR-0027).
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.TRANSFER,
+                amount = "50.00",
+                date = "2026-08-01",
+                sourceWalletId = cash.id,
+                destinationWalletId = card.id,
+            ),
+            wallets = listOf(cash, card),
             categories = emptyList(),
             recurringCosts = listOf(rent),
         )
@@ -430,7 +447,7 @@ class TransactionFormTest {
     }
 
     @Test
-    fun expense_and_transfer_forms_never_carry_the_recurring_income_field() {
+    fun expense_and_own_to_own_transfer_forms_never_carry_the_recurring_income_field() {
         setForm(
             TransactionsViewModel.ModalState(
                 type = TransactionType.EXPENSE,
@@ -444,8 +461,112 @@ class TransactionFormTest {
         )
         composeRule.onNodeWithTag("tx-recurring-income").assertDoesNotExist()
 
-        // The same draft as a Transfer carries no income link either.
-        composeRule.onNodeWithText("Transfer").performClick()
+        // The same draft as an own↔own Transfer carries no income link
+        // either: only a Transfer *from* a Contact Wallet receives a
+        // Recurring Income (web issue #99 / ADR-0027).
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.TRANSFER,
+                amount = "50.00",
+                date = "2026-08-01",
+                sourceWalletId = cash.id,
+                destinationWalletId = card.id,
+            ),
+            wallets = listOf(cash, card),
+            categories = emptyList(),
+            recurringIncomes = listOf(salary),
+        )
+        composeRule.onNodeWithTag("tx-recurring-income").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_transfer_from_a_contact_wallet_offers_recurring_incomes_and_names_the_occurrence() {
+        val picked = mutableListOf<Int?>()
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.TRANSFER,
+                amount = "300.00",
+                date = "2026-08-01",
+                sourceWalletId = marco.id,
+                destinationWalletId = cash.id,
+            ),
+            wallets = listOf(cash, card, marco),
+            categories = emptyList(),
+            recurringCosts = listOf(rent),
+            recurringIncomes = listOf(salary),
+            onRecurringIncomeChange = { picked.add(it) },
+        )
+
+        // Money in from a Contact Wallet receives a Recurring Income
+        // (ADR-0027); the cost field never rides a Transfer.
+        composeRule.onNodeWithTag("tx-recurring-cost").assertDoesNotExist()
+        composeRule.onNodeWithTag("tx-recurring-income").performClick()
+        composeRule.onNodeWithText("None").assertIsDisplayed()
+        composeRule.onNodeWithText("Salary").performClick()
+
+        assertEquals(listOf(1), picked)
+        composeRule.onNodeWithText("Pays the occurrence of 2026-08-01.").assertIsDisplayed()
+
+        // Picking None unlinks again (freeing the Occurrence on save).
+        composeRule.onNodeWithTag("tx-recurring-income").performClick()
+        composeRule.onNodeWithText("None").performClick()
+        assertEquals(listOf(1, null), picked)
+    }
+
+    @Test
+    fun a_transfer_to_a_contact_wallet_offers_recurring_costs_and_names_the_occurrence() {
+        val picked = mutableListOf<Int?>()
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.TRANSFER,
+                amount = "300.00",
+                date = "2026-08-01",
+                sourceWalletId = cash.id,
+                destinationWalletId = marco.id,
+            ),
+            wallets = listOf(cash, card, marco),
+            categories = emptyList(),
+            recurringCosts = listOf(rent),
+            recurringIncomes = listOf(salary),
+            onRecurringCostChange = { picked.add(it) },
+        )
+
+        // Money out to a Contact Wallet pays a Recurring Cost (ADR-0027);
+        // the income field never rides a Transfer.
+        composeRule.onNodeWithTag("tx-recurring-income").assertDoesNotExist()
+        composeRule.onNodeWithTag("tx-recurring-cost").performClick()
+        composeRule.onNodeWithText("None").assertIsDisplayed()
+        composeRule.onNodeWithText("Rent").performClick()
+
+        assertEquals(listOf(1), picked)
+        composeRule.onNodeWithText("Pays the occurrence of 2026-08-01.").assertIsDisplayed()
+
+        // Picking None unlinks again (freeing the Occurrence on save).
+        composeRule.onNodeWithTag("tx-recurring-cost").performClick()
+        composeRule.onNodeWithText("None").performClick()
+        assertEquals(listOf(1, null), picked)
+    }
+
+    @Test
+    fun contact_to_contact_transfers_never_carry_a_recurring_field() {
+        val chiara = WalletDto(4, "Chiara", WalletType.CONTACT, "0.00", false, "2026-08-01T10:00:00Z")
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.TRANSFER,
+                amount = "50.00",
+                date = "2026-08-01",
+                sourceWalletId = marco.id,
+                destinationWalletId = chiara.id,
+            ),
+            wallets = listOf(cash, card, marco, chiara),
+            categories = emptyList(),
+            recurringCosts = listOf(rent),
+            recurringIncomes = listOf(salary),
+        )
+
+        // Contact↔Contact is neither money in nor money out to the user:
+        // neither picker renders (web issue #99 / ADR-0027).
+        composeRule.onNodeWithTag("tx-recurring-cost").assertDoesNotExist()
         composeRule.onNodeWithTag("tx-recurring-income").assertDoesNotExist()
     }
 }

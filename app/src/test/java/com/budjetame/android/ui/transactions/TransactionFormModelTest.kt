@@ -114,6 +114,60 @@ class TransactionFormModelTest {
         assertTrue(matchingCategories(categories, TransactionType.TRANSFER).isEmpty())
     }
 
+    // --- The Transfer's matching-direction link (web issue #99 / ADR-0027) ---
+
+    @Test
+    fun `a transfer to a contact wallet qualifies for a recurring cost link`() {
+        val own = wallet(1, WalletType.CASH)
+        val contact = wallet(2, WalletType.CONTACT)
+
+        // Money out to a tracked person (destination = Contact) pays a
+        // Recurring Cost, like an Expense does.
+        assertTrue(transferCostLinkQualifies(own, contact))
+        assertFalse(transferIncomeLinkQualifies(own, contact))
+    }
+
+    @Test
+    fun `a transfer from a contact wallet qualifies for a recurring income link`() {
+        val own = wallet(1, WalletType.CASH)
+        val contact = wallet(2, WalletType.CONTACT)
+
+        // Money in from a tracked person (source = Contact) receives a
+        // Recurring Income, like an Income does.
+        assertTrue(transferIncomeLinkQualifies(contact, own))
+        assertFalse(transferCostLinkQualifies(contact, own))
+    }
+
+    @Test
+    fun `own to own transfers never qualify for a recurring link`() {
+        val checking = wallet(1, WalletType.CHECKING)
+        val cash = wallet(2, WalletType.CASH)
+
+        assertFalse(transferCostLinkQualifies(checking, cash))
+        assertFalse(transferIncomeLinkQualifies(checking, cash))
+        assertFalse(transferCostLinkQualifies(cash, checking))
+        assertFalse(transferIncomeLinkQualifies(cash, checking))
+    }
+
+    @Test
+    fun `contact to contact transfers never qualify for a recurring link`() {
+        val chiara = wallet(1, WalletType.CONTACT)
+        val marco = wallet(2, WalletType.CONTACT)
+
+        assertFalse(transferCostLinkQualifies(chiara, marco))
+        assertFalse(transferIncomeLinkQualifies(chiara, marco))
+    }
+
+    @Test
+    fun `a missing leg never qualifies for a recurring link`() {
+        val contact = wallet(1, WalletType.CONTACT)
+
+        // Mirroring the web form's booleans: an undefined leg is not a
+        // Contact, so a lone Contact leg must not qualify either side.
+        assertFalse(transferCostLinkQualifies(null, contact))
+        assertFalse(transferIncomeLinkQualifies(contact, null))
+    }
+
     // --- Amount gate ---
 
     @Test

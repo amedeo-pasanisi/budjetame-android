@@ -86,6 +86,10 @@ private val RED_600 = Color(0xFFDC2626)
  * pick pays the definition's oldest Unpaid Occurrence on save, None unlinks.
  * An Income carries the mirror picker (web issue #61): `recurringIncomes`
  * and `onRecurringIncomeChange`, the same contract on the income side.
+ * A Transfer carries one of the two pickers only while its chosen pair
+ * qualifies (web issue #99 / ADR-0027): money in from a Contact Wallet
+ * offers Recurring Incomes, money out to a Contact Wallet offers Recurring
+ * Costs — own↔own and Contact↔Contact transfers never carry either.
  */
 @Composable
 fun TransactionModal(
@@ -212,6 +216,21 @@ internal fun TransactionForm(
 ) {
     val editing = modal.isEditing
 
+    // The recurring-link pickers' qualification (web issue #99 / ADR-0027):
+    // a Transfer shows the Recurring Cost select only while the chosen pair
+    // is exactly one own Wallet and one Contact Wallet with the Contact as
+    // destination — money out to a tracked person, the mirror of a linked
+    // Expense — and the Recurring Income select only while the Contact
+    // Wallet is the source — money in from a tracked person, the mirror of
+    // a linked Income. Own↔own, Contact↔Contact, and a missing leg never
+    // qualify.
+    val sourceWallet = modal.sourceWalletId?.let { id -> wallets.find { it.id == id } }
+    val destinationWallet = modal.destinationWalletId?.let { id -> wallets.find { it.id == id } }
+    val transferQualifiesForCost =
+        modal.isTransfer && transferCostLinkQualifies(sourceWallet, destinationWallet)
+    val transferQualifiesForIncome =
+        modal.isTransfer && transferIncomeLinkQualifies(sourceWallet, destinationWallet)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -291,7 +310,7 @@ internal fun TransactionForm(
             )
         }
 
-        if (modal.type == TransactionType.EXPENSE) {
+        if (modal.type == TransactionType.EXPENSE || transferQualifiesForCost) {
             RecurringCostField(
                 costs = recurringCosts,
                 value = modal.recurringCostId,
@@ -304,7 +323,7 @@ internal fun TransactionForm(
                 onChange = onRecurringCostChange,
                 modifier = Modifier.padding(top = 12.dp),
             )
-        } else if (modal.type == TransactionType.INCOME) {
+        } else if (modal.type == TransactionType.INCOME || transferQualifiesForIncome) {
             RecurringIncomeField(
                 incomes = recurringIncomes,
                 value = modal.recurringIncomeId,
@@ -646,9 +665,11 @@ private fun CategoryField(
 }
 
 /**
- * The Recurring Cost select an Expense carries (web issue #57): Expenses
- * only — Income and Transfer never render it (the type reset clears a pick,
- * and the backend rejects the key on anything but an Expense). Picking a
+ * The Recurring Cost select an Expense carries (web issue #57) — and a
+ * Transfer whose destination is a Contact Wallet (web issue #99 /
+ * ADR-0027): money out to a tracked person pays a Recurring Cost like an
+ * Expense does. Income never renders it, and a Transfer shows it only
+ * while the chosen pair qualifies. Picking a
  * cost signs the Occurrence the helper names as paid on save: the stored
  * pin when the form is editing the very link already on the row (which must
  * never be reassigned by a mere date edit), else the selected definition's
@@ -720,9 +741,11 @@ private fun RecurringCostField(
 
 /**
  * The Recurring Income select an Income carries (web issue #61), the mirror
- * of the Recurring Cost select: Incomes only — Expense and Transfer never
- * render it (the type reset clears a pick, and the backend rejects the key
- * on anything but an Income). Picking an income signs the Occurrence the
+ * of the Recurring Cost select — and a Transfer whose source is a Contact
+ * Wallet (web issue #99 / ADR-0027): money in from a tracked person
+ * receives a Recurring Income like an Income does. Expense never renders
+ * it, and a Transfer shows it only while the chosen pair qualifies.
+ * Picking an income signs the Occurrence the
  * helper names as paid on save: the stored pin when the form is editing the
  * very link already on the row (which must never be reassigned by a mere
  * date edit), else the selected definition's oldest Unpaid Occurrence — the

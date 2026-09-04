@@ -130,6 +130,28 @@ fun walletCreateAllowedTypes(
     }
 
 /**
+ * ADR-0027 (web issue #99): may a Transfer carry a Recurring Cost link?
+ * Only when its legs are exactly one own (non-Contact) Wallet and one
+ * Contact Wallet, and the destination is the Contact Wallet — money
+ * leaving the user's own Wallet for a tracked person, the mirror of a
+ * linked Expense. A missing leg never qualifies: both legs must be chosen
+ * (the web form's own comment says the same — its booleans only differ in
+ * a state the form cannot reach, since both legs are always seeded).
+ */
+fun transferCostLinkQualifies(source: WalletDto?, destination: WalletDto?): Boolean =
+    source != null && source.type != WalletType.CONTACT &&
+        destination != null && destination.type == WalletType.CONTACT
+
+/** ADR-0027 mirror: a Transfer may carry a Recurring Income link only when
+ * its legs are exactly one own Wallet and one Contact Wallet, and the
+ * source is the Contact Wallet — money arriving from a tracked person, the
+ * mirror of a linked Income. Own↔own, Contact↔Contact, and a missing leg
+ * never qualify. */
+fun transferIncomeLinkQualifies(source: WalletDto?, destination: WalletDto?): Boolean =
+    source != null && source.type == WalletType.CONTACT &&
+        destination != null && destination.type != WalletType.CONTACT
+
+/**
  * The draft's amount as a positive BigDecimal, or null when blank, not a
  * number, or not strictly positive — the mandatory-amount gate.
  */

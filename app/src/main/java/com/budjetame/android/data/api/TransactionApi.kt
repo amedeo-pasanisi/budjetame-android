@@ -70,17 +70,19 @@ const val TRANSACTION_PAGE_LIMIT = 50
  * (plus an optional matching `category_id`); a Transfer fills
  * `source_wallet_id` and `destination_wallet_id` and never carries a
  * Category. `recurring_cost_id` is the optional Recurring Cost link (web
- * issue #57): Expenses only — the form never offers it to an Income or a
- * Transfer — and the link pays the cost's oldest Unpaid Occurrence at link
- * time. `recurring_income_id` is the optional Recurring Income link (web
- * issue #61), the mirror: Incomes only, paying the income's oldest Unpaid
- * Occurrence at link time. A Transaction is one type, so at most one of the
- * two keys is ever set. Amounts travel as strings; `date` is the calendar
- * day in Europe/Rome (CONTEXT.md). Null fields are omitted from the wire
- * body (the converter skips default-valued fields), so a Transfer never
- * sends `wallet_id`/`category_id`/the link keys, an unlinked Expense never
- * sends `recurring_cost_id`, an unlinked Income never sends
- * `recurring_income_id`, and an Expense never sends the Transfer legs.
+ * issue #57, ADR-0027): an Expense — or a Transfer whose destination is a
+ * Contact Wallet — may carry it, paying the cost's oldest Unpaid
+ * Occurrence at link time. `recurring_income_id` is the optional
+ * Recurring Income link (web issue #61, ADR-0027), the mirror: an Income
+ * — or a Transfer whose source is a Contact Wallet — may carry it. A
+ * Transaction is one type, so at most one of the two keys is ever set.
+ * Amounts travel as strings; `date` is the calendar day in Europe/Rome
+ * (CONTEXT.md). Null fields are omitted from the wire body (the converter
+ * skips default-valued fields), so a Transfer never sends
+ * `wallet_id`/`category_id`, an unlinked Transaction never sends the link
+ * keys, an unlinked Expense never sends `recurring_cost_id`, an unlinked
+ * Income never sends `recurring_income_id`, and an Expense never sends
+ * the Transfer legs.
  */
 @Serializable
 data class TransactionCreateRequest(
@@ -185,6 +187,10 @@ data class TransactionIncomeLinkUpdateRequest(
  * Edit a Transfer: amount, date, and description are always sent;
  * `category_id` is absent — the backend rejects a `category_id` key on a
  * Transfer even when it is null, so the field must not exist on the wire.
+ * The recurring link keys are absent too: a Transfer whose link is
+ * untouched travels in this shape, and the stored pin survives a mere
+ * amount/date edit (web issue #99 / ADR-0027: the backend applies a
+ * present key even when null, so an untouched link must not be present).
  * The location's four keys are always on the wire, like the other edit
  * shapes (see TransactionExpenseIncomeUpdateRequest).
  */
@@ -193,6 +199,57 @@ data class TransactionTransferUpdateRequest(
     val amount: String,
     val date: String,
     val description: String?,
+    val latitude: String?,
+    val longitude: String?,
+    val place_name: String?,
+    val place_id: String?,
+)
+
+/**
+ * Edit a Transfer whose Recurring Cost link the form changed (web issue
+ * #99 / ADR-0027), the mirror of the Expense-link shape: a Transfer may
+ * carry the Recurring Cost link only when its destination is a Contact
+ * Wallet and its source is not — money out to a tracked person. The
+ * pair is immutable on edit, so the stored legs are the pair the write
+ * leaves in place; the backend rejects a link-set on a pair that does not
+ * qualify (never silently severed), while unlinking always succeeds.
+ * `recurring_cost_id` present with a value links (or relinks), paying the
+ * cost's oldest Unpaid Occurrence at that moment; present as null it
+ * unlinks, freeing the Occurrence. The key is always on the wire here,
+ * null included (the converter's `explicitNulls`) — that is what tells
+ * the backend to apply the change instead of leaving the stored pin
+ * untouched. `recurring_income_id` never exists on this shape; a
+ * Transfer's untouched income link stays absent, exactly like the plain
+ * shape's. No `category_id` key on the wire.
+ */
+@Serializable
+data class TransactionTransferCostLinkUpdateRequest(
+    val amount: String,
+    val date: String,
+    val description: String?,
+    val recurring_cost_id: Int?,
+    val latitude: String?,
+    val longitude: String?,
+    val place_name: String?,
+    val place_id: String?,
+)
+
+/**
+ * Edit a Transfer whose Recurring Income link the form changed (web issue
+ * #99 / ADR-0027), the mirror of the Income-link shape: a Transfer may
+ * carry the Recurring Income link only when its source is a Contact
+ * Wallet and its destination is not — money in from a tracked person.
+ * Same edit contract as the cost side: `recurring_income_id` present with
+ * a value links (or relinks) on a qualifying pair, present as null
+ * unlinks, always on the wire here. `recurring_cost_id` never exists on
+ * this shape; no `category_id` key on the wire.
+ */
+@Serializable
+data class TransactionTransferIncomeLinkUpdateRequest(
+    val amount: String,
+    val date: String,
+    val description: String?,
+    val recurring_income_id: Int?,
     val latitude: String?,
     val longitude: String?,
     val place_name: String?,
@@ -281,11 +338,30 @@ interface TransactionApi {
         @Body body: TransactionIncomeLinkUpdateRequest,
     ): TransactionDto
 
-    /** PATCH for a Transfer: no `category_id` key on the wire. */
+    /** PATCH for a Transfer: no `category_id` key on the wire, and the link
+     * keys absent too — an untouched link stays pinned. */
     @PATCH("transactions/{id}")
     suspend fun updateTransfer(
         @Path("id") id: Int,
         @Body body: TransactionTransferUpdateRequest,
+    ): TransactionDto
+
+    /** PATCH for a Transfer whose Recurring Cost link the form changed:
+     * `recurring_cost_id` is always present — a value links on a
+     * qualifying pair, null unlinks. */
+    @PATCH("transactions/{id}")
+    suspend fun updateTransferCostLink(
+        @Path("id") id: Int,
+        @Body body: TransactionTransferCostLinkUpdateRequest,
+    ): TransactionDto
+
+    /** PATCH for a Transfer whose Recurring Income link the form changed:
+     * `recurring_income_id` is always present — a value links on a
+     * qualifying pair, null unlinks. */
+    @PATCH("transactions/{id}")
+    suspend fun updateTransferIncomeLink(
+        @Path("id") id: Int,
+        @Body body: TransactionTransferIncomeLinkUpdateRequest,
     ): TransactionDto
 
     /** 200 with the Cash negative-balance indicator; 422 on a frozen Wallet

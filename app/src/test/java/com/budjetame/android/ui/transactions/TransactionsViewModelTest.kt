@@ -24,6 +24,8 @@ import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
 import com.budjetame.android.data.api.TransactionExpenseLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionPageDto
+import com.budjetame.android.data.api.TransactionTransferCostLinkUpdateRequest
+import com.budjetame.android.data.api.TransactionTransferIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletApi
@@ -353,10 +355,10 @@ class TransactionsViewModelTest {
         createRuleError(create)?.let { error ->
             return jsonResponse(422, """{"detail":"$error"}""")
         }
-        if (create.recurring_cost_id != null && create.type != TransactionType.EXPENSE) {
+        if (create.recurring_cost_id != null && create.type == TransactionType.INCOME) {
             return jsonResponse(422, """{"detail":"Only Expenses can be linked to a Recurring Cost"}""")
         }
-        if (create.recurring_income_id != null && create.type != TransactionType.INCOME) {
+        if (create.recurring_income_id != null && create.type == TransactionType.EXPENSE) {
             return jsonResponse(422, """{"detail":"Only Incomes can be linked to a Recurring Income"}""")
         }
         val id = (transactionStore.maxOfOrNull { it.id } ?: 0) + 1
@@ -410,6 +412,30 @@ class TransactionsViewModelTest {
             ) {
                 return "Frozen Wallets are read-only"
             }
+            // ADR-0027 (web issue #99): a Transfer may carry a recurring
+            // link only when its legs are exactly one own Wallet and one
+            // Contact Wallet — destination Contact for a Recurring Cost,
+            // source Contact for a Recurring Income — mirroring the
+            // backend's pair-and-direction rule (the two checks are
+            // mutually exclusive, so both keys set always trip one).
+            val sourceWallet = walletStore.find { it.id == source }
+            val destinationWallet = walletStore.find { it.id == destination }
+            if (create.recurring_cost_id != null) {
+                if (destinationWallet?.type != WalletType.CONTACT) {
+                    return "A Transfer may carry a Recurring Cost link only when its destination is a Contact Wallet"
+                }
+                if (sourceWallet?.type == WalletType.CONTACT) {
+                    return "Transfers between two Contact Wallets never carry a recurring link"
+                }
+            }
+            if (create.recurring_income_id != null) {
+                if (sourceWallet?.type != WalletType.CONTACT) {
+                    return "A Transfer may carry a Recurring Income link only when its source is a Contact Wallet"
+                }
+                if (destinationWallet?.type == WalletType.CONTACT) {
+                    return "Transfers between two Contact Wallets never carry a recurring link"
+                }
+            }
             return null
         }
         val walletId = create.wallet_id ?: return "wallet_id is required for Expense and Income"
@@ -449,17 +475,81 @@ class TransactionsViewModelTest {
         if (isFrozen(current)) return jsonResponse(422, """{"detail":"Frozen Wallets are read-only"}""")
 
         val updated = if (current.type == TransactionType.TRANSFER) {
-            val update = json.decodeFromString<TransactionTransferUpdateRequest>(body)
-            current.copy(
-                amount = update.amount,
-                date = update.date,
-                description = update.description,
-                latitude = update.latitude,
-                longitude = update.longitude,
-                place_name = update.place_name,
-                place_id = update.place_id,
-                warning = updateWarning,
-            )
+            val bodyObject = json.parseToJsonElement(body).jsonObject
+            val sourceWallet = walletStore.find { it.id == current.source_wallet_id }
+            val destinationWallet = walletStore.find { it.id == current.destination_wallet_id }
+            if (bodyObject.containsKey("recurring_cost_id")) {
+                // ADR-0027 transfer link PATCH (web issue #99): a value
+                // links only while the pair qualifies — destination a
+                // Contact Wallet, source not; like the backend, a link-set
+                // on a pair that does not qualify is rejected, never
+                // silently severed. Null unlinks (freeing the pin).
+                val update = json.decodeFromString<TransactionTransferCostLinkUpdateRequest>(body)
+                if (update.recurring_cost_id != null &&
+                    (destinationWallet?.type != WalletType.CONTACT ||
+                        sourceWallet?.type == WalletType.CONTACT)
+                ) {
+                    return jsonResponse(
+                        422,
+                        """{"detail":"A Transfer may carry a Recurring Cost link only when its destination is a Contact Wallet"}""",
+                    )
+                }
+                val pin = update.recurring_cost_id?.let { costId ->
+                    recurringCostStore.find { it.id == costId }?.next_unpaid_occurrence_date
+                }
+                current.copy(
+                    amount = update.amount,
+                    date = update.date,
+                    recurring_cost_id = update.recurring_cost_id,
+                    occurrence_date = pin,
+                    description = update.description,
+                    latitude = update.latitude,
+                    longitude = update.longitude,
+                    place_name = update.place_name,
+                    place_id = update.place_id,
+                    warning = updateWarning,
+                )
+            } else if (bodyObject.containsKey("recurring_income_id")) {
+                // ADR-0027 mirror: a value links only while the pair
+                // qualifies — source a Contact Wallet, destination not.
+                val update = json.decodeFromString<TransactionTransferIncomeLinkUpdateRequest>(body)
+                if (update.recurring_income_id != null &&
+                    (sourceWallet?.type != WalletType.CONTACT ||
+                        destinationWallet?.type == WalletType.CONTACT)
+                ) {
+                    return jsonResponse(
+                        422,
+                        """{"detail":"A Transfer may carry a Recurring Income link only when its source is a Contact Wallet"}""",
+                    )
+                }
+                val pin = update.recurring_income_id?.let { incomeId ->
+                    recurringIncomeStore.find { it.id == incomeId }?.next_unpaid_occurrence_date
+                }
+                current.copy(
+                    amount = update.amount,
+                    date = update.date,
+                    recurring_income_id = update.recurring_income_id,
+                    occurrence_date = pin,
+                    description = update.description,
+                    latitude = update.latitude,
+                    longitude = update.longitude,
+                    place_name = update.place_name,
+                    place_id = update.place_id,
+                    warning = updateWarning,
+                )
+            } else {
+                val update = json.decodeFromString<TransactionTransferUpdateRequest>(body)
+                current.copy(
+                    amount = update.amount,
+                    date = update.date,
+                    description = update.description,
+                    latitude = update.latitude,
+                    longitude = update.longitude,
+                    place_name = update.place_name,
+                    place_id = update.place_id,
+                    warning = updateWarning,
+                )
+            }
         } else {
             // The Expense link PATCH carries the recurring_cost_id key — a
             // value links (paying the cost's oldest Unpaid Occurrence, the
@@ -2254,6 +2344,308 @@ class TransactionsViewModelTest {
         seedRecurringIncomes(recurringIncome(1, "Salary"))
         DataVersion.bump()
         awaitState { it.recurringIncomes.any { income -> income.name == "Salary" } }
+    }
+
+    // --- The Transfer's matching-direction recurring link (web issue #99 /
+    // ADR-0027, ticket #47) ---
+
+    @Test
+    fun `creating a transfer from a contact wallet sends the recurring income link and lands the pin`() = runBlocking {
+        seedWallets(
+            wallet(1, "Chiara", WalletType.CONTACT, "300.00"),
+            wallet(2, "Checking", WalletType.CHECKING, "100.00"),
+        )
+        seedRecurringIncomes(recurringIncome(1, "Chiara 300", nextUnpaid = "2026-08-01"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        // The picker's definitions ride on the form: opening it fetched them.
+        awaitState { it.recurringIncomes.isNotEmpty() }
+        viewModel.onSourceWalletChange(1)
+        viewModel.onDestinationWalletChange(2)
+        viewModel.onRecurringIncomeChange(1)
+        viewModel.onAmountChange("300.00")
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.type == TransactionType.TRANSFER } }
+
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(TransactionType.TRANSFER, create.type)
+        assertEquals(1, create.source_wallet_id)
+        assertEquals(2, create.destination_wallet_id)
+        // Money in from a Contact Wallet receives a Recurring Income: the
+        // income key rides, the cost key and category never do (ADR-0027).
+        assertEquals(1, create.recurring_income_id)
+        assertNull(create.recurring_cost_id)
+        assertNull(create.category_id)
+        assertFalse(call("POST", "/api/transactions").body.contains("recurring_cost_id"))
+        // The fake pays the income's oldest Unpaid Occurrence at link time
+        // and stores the pin on the row (web issue #99).
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(1, saved.recurring_income_id)
+        assertEquals("2026-08-01", saved.occurrence_date)
+    }
+
+    @Test
+    fun `creating a transfer to a contact wallet sends the recurring cost link and lands the pin`() = runBlocking {
+        seedWallets(
+            wallet(1, "Checking", WalletType.CHECKING, "100.00"),
+            wallet(2, "Marco", WalletType.CONTACT, "0.00"),
+        )
+        seedRecurringCosts(recurringCost(1, "Rent to Marco", nextUnpaid = "2026-08-01"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        awaitState { it.recurringCosts.isNotEmpty() }
+        viewModel.onSourceWalletChange(1)
+        viewModel.onDestinationWalletChange(2)
+        viewModel.onRecurringCostChange(1)
+        viewModel.onAmountChange("300.00")
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.type == TransactionType.TRANSFER } }
+
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(TransactionType.TRANSFER, create.type)
+        assertEquals(1, create.source_wallet_id)
+        assertEquals(2, create.destination_wallet_id)
+        // Money out to a Contact Wallet pays a Recurring Cost: the cost key
+        // rides, the income key never does (ADR-0027).
+        assertEquals(1, create.recurring_cost_id)
+        assertNull(create.recurring_income_id)
+        assertFalse(call("POST", "/api/transactions").body.contains("recurring_income_id"))
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(1, saved.recurring_cost_id)
+        assertEquals("2026-08-01", saved.occurrence_date)
+    }
+
+    @Test
+    fun `a transfer whose pair stops qualifying never sends a stale link pick`() = runBlocking {
+        seedWallets(
+            wallet(1, "Chiara", WalletType.CONTACT, "300.00"),
+            wallet(2, "Cash", WalletType.CASH, "100.00"),
+            wallet(3, "Card", WalletType.CREDIT_CARD, "0.00"),
+        )
+        seedRecurringIncomes(recurringIncome(1, "Chiara 300"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        awaitState { it.recurringIncomes.isNotEmpty() }
+        // Chiara → Card qualifies (money in from a Contact): pick an income.
+        viewModel.onSourceWalletChange(1)
+        viewModel.onDestinationWalletChange(3)
+        viewModel.onRecurringIncomeChange(1)
+        viewModel.onAmountChange("300.00")
+        // Swap the source to an own Wallet: Cash → Card no longer qualifies,
+        // the picker hides, and the stale pick must not ride along (the
+        // payload sends null for a side that does not qualify, web parity).
+        viewModel.onSourceWalletChange(2)
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.type == TransactionType.TRANSFER } }
+
+        val body = call("POST", "/api/transactions").body
+        assertFalse(body.contains("recurring_income_id"))
+        assertFalse(body.contains("recurring_cost_id"))
+        val create = json.decodeFromString<TransactionCreateRequest>(body)
+        assertNull(create.recurring_income_id)
+        assertNull(create.recurring_cost_id)
+    }
+
+    @Test
+    fun `editing a linked transfer without touching the picker leaves the link and the pin alone`() = runBlocking {
+        seedWallets(
+            wallet(1, "Chiara", WalletType.CONTACT, "300.00"),
+            wallet(2, "Checking", WalletType.CHECKING, "100.00"),
+        )
+        seedRecurringIncomes(recurringIncome(1, "Chiara 300"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.TRANSFER, "300.00", "2026-08-01",
+                sourceWalletId = 1, destinationWalletId = 2,
+                recurringIncomeId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        // Editing a linked Transfer seeds the pick with the stored link.
+        assertEquals(1, viewModel.uiState.value.modal?.recurringIncomeId)
+        viewModel.onAmountChange("310.00")
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        // The link keys are absent: a mere amount edit never reassigns the
+        // Occurrence the link pays (web TransactionForm parity).
+        val patch = call("PATCH", "/api/transactions/1")
+        assertFalse(patch.body.contains("recurring_income_id"))
+        assertFalse(patch.body.contains("recurring_cost_id"))
+        // The saved row lands through the write's own data-version refetch,
+        // link and pin intact, legs untouched.
+        awaitState { it.transactions.first { t -> t.id == 1 }.amount == "310.00" }
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(1, saved.recurring_income_id)
+        assertEquals("2026-08-01", saved.occurrence_date)
+        assertEquals(1, saved.source_wallet_id)
+        assertEquals(2, saved.destination_wallet_id)
+    }
+
+    @Test
+    fun `unlinking a transfer from a contact wallet sends an explicit null and frees the occurrence`() = runBlocking {
+        seedWallets(
+            wallet(1, "Chiara", WalletType.CONTACT, "300.00"),
+            wallet(2, "Checking", WalletType.CHECKING, "100.00"),
+        )
+        seedRecurringIncomes(recurringIncome(1, "Chiara 300"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.TRANSFER, "300.00", "2026-08-01",
+                sourceWalletId = 1, destinationWalletId = 2,
+                recurringIncomeId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onRecurringIncomeChange(null)
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val patch = call("PATCH", "/api/transactions/1")
+        val update = json.decodeFromString<TransactionTransferIncomeLinkUpdateRequest>(patch.body)
+        assertNull(update.recurring_income_id)
+        assertTrue(patch.body.contains("\"recurring_income_id\":null"))
+        assertFalse(patch.body.contains("recurring_cost_id"))
+        // Unlinking frees the Occurrence: the row's pin is cleared
+        // (CONTEXT.md), landing through the write's own refetch.
+        awaitState { it.transactions.first { t -> t.id == 1 }.recurring_income_id == null }
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertNull(saved.recurring_income_id)
+        assertNull(saved.occurrence_date)
+    }
+
+    @Test
+    fun `relinking a transfer pays the newly picked income's oldest unpaid occurrence`() = runBlocking {
+        seedWallets(
+            wallet(1, "Chiara", WalletType.CONTACT, "300.00"),
+            wallet(2, "Checking", WalletType.CHECKING, "100.00"),
+        )
+        seedRecurringIncomes(
+            recurringIncome(1, "Chiara 300", nextUnpaid = "2026-08-01"),
+            recurringIncome(2, "Freelance", nextUnpaid = "2026-07-15"),
+        )
+        seedTransactions(
+            transaction(
+                1, TransactionType.TRANSFER, "300.00", "2026-08-01",
+                sourceWalletId = 1, destinationWalletId = 2,
+                recurringIncomeId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onRecurringIncomeChange(2)
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val patch = call("PATCH", "/api/transactions/1")
+        val update = json.decodeFromString<TransactionTransferIncomeLinkUpdateRequest>(patch.body)
+        assertEquals(2, update.recurring_income_id)
+        // The link pays the newly picked income's oldest Unpaid Occurrence
+        // at link time; the row lands through the write's own refetch.
+        awaitState { it.transactions.first { t -> t.id == 1 }.recurring_income_id == 2 }
+        val saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(2, saved.recurring_income_id)
+        assertEquals("2026-07-15", saved.occurrence_date)
+    }
+
+    @Test
+    fun `unlinking and relinking a transfer to a contact wallet uses the recurring cost key`() = runBlocking {
+        seedWallets(
+            wallet(1, "Checking", WalletType.CHECKING, "100.00"),
+            wallet(2, "Marco", WalletType.CONTACT, "0.00"),
+        )
+        seedRecurringCosts(
+            recurringCost(1, "Rent to Marco", nextUnpaid = "2026-08-01"),
+            recurringCost(2, "Support", nextUnpaid = "2026-07-15"),
+        )
+        seedTransactions(
+            transaction(
+                1, TransactionType.TRANSFER, "300.00", "2026-08-01",
+                sourceWalletId = 1, destinationWalletId = 2,
+                recurringCostId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        // Unlink: the explicit null rides the cost key, freeing the pin.
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onRecurringCostChange(null)
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        var patch = call("PATCH", "/api/transactions/1")
+        var update = json.decodeFromString<TransactionTransferCostLinkUpdateRequest>(patch.body)
+        assertNull(update.recurring_cost_id)
+        assertTrue(patch.body.contains("\"recurring_cost_id\":null"))
+        assertFalse(patch.body.contains("recurring_income_id"))
+        awaitState { it.transactions.first { t -> t.id == 1 }.recurring_cost_id == null }
+        var saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertNull(saved.recurring_cost_id)
+        assertNull(saved.occurrence_date)
+
+        // Relink to another cost: the value rides the cost key and pays the
+        // new cost's oldest Unpaid Occurrence at link time.
+        viewModel.openEdit(saved)
+        viewModel.onRecurringCostChange(2)
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        patch = lastCall("PATCH", "/api/transactions/1")
+        update = json.decodeFromString<TransactionTransferCostLinkUpdateRequest>(patch.body)
+        assertEquals(2, update.recurring_cost_id)
+        awaitState { it.transactions.first { t -> t.id == 1 }.recurring_cost_id == 2 }
+        saved = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(2, saved.recurring_cost_id)
+        assertEquals("2026-07-15", saved.occurrence_date)
+    }
+
+    @Test
+    fun `a transfer linked to a recurring income passes the definition ledger filter`() = runBlocking {
+        // The read path follows the link columns whatever the Transaction's
+        // type (web issue #99): a linked Transfer flows through the
+        // definition's ledger filter without special-casing.
+        seedWallets(
+            wallet(1, "Chiara", WalletType.CONTACT, "300.00"),
+            wallet(2, "Checking", WalletType.CHECKING, "100.00"),
+        )
+        seedTransactions(
+            transaction(
+                1, TransactionType.TRANSFER, "300.00", "2026-08-01",
+                sourceWalletId = 1, destinationWalletId = 2,
+                recurringIncomeId = 5, occurrenceDate = "2026-08-01",
+            ),
+            transaction(2, TransactionType.EXPENSE, "5.00", "2026-08-02", walletId = 2),
+        )
+        createViewModel()
+        awaitLoaded()
+        assertEquals(listOf(2, 1), viewModel.uiState.value.transactions.map { it.id })
+
+        viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.INCOME, 5))
+        awaitState { it.transactions.map { t -> t.id } == listOf(1) }
+
+        val last = listCalls().last()
+        assertEquals("5", last.query["recurring_income_id"])
+        val row = viewModel.uiState.value.transactions.first()
+        assertEquals(TransactionType.TRANSFER, row.type)
+        assertEquals("2026-08-01", row.occurrence_date)
     }
 
     // --- Inline entity creation (ADR-0013/0014, ticket #21) ---

@@ -9,6 +9,8 @@ import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
 import com.budjetame.android.data.api.TransactionExpenseLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionPageDto
+import com.budjetame.android.data.api.TransactionTransferCostLinkUpdateRequest
+import com.budjetame.android.data.api.TransactionTransferIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.toApiException
@@ -80,15 +82,19 @@ interface TransactionGateway {
  * one of EXPENSE, INCOME, or TRANSFER (an Opening Balance is never created
  * or edited here). Expense/Income fill `walletId` (plus an optional
  * `categoryId`); a Transfer fills `sourceWalletId` and `destinationWalletId`.
- * `recurringCostId` is the optional Recurring Cost link (web issue #57) —
- * Expenses only; `recurringIncomeId` is the optional Recurring Income link
- * (web issue #61), the mirror — Incomes only. On create a picked link
- * travels whenever set. On edit the link key travels only when the form
- * changed it (`recurringCostTouched`/`recurringIncomeTouched`, the flag of
- * the type's own link), mirroring the web form: a PATCH field present
+ * `recurringCostId` is the optional Recurring Cost link (web issue #57,
+ * ADR-0027) — an Expense's, or a Transfer-to-a-Contact-Wallet's;
+ * `recurringIncomeId` is the optional Recurring Income link (web issue
+ * #61, ADR-0027), the mirror — an Income's, or a Transfer-from-a-Contact-
+ * Wallet's. On create a picked link travels whenever set. On edit the link
+ * key travels only when the form changed it
+ * (`recurringCostTouched`/`recurringIncomeTouched`, the flag of the
+ * type's own link), mirroring the web form: a PATCH field present
  * applies even when null (unlinking, freeing the Occurrence); absent leaves
  * the stored pin untouched — a mere amount or date edit never reassigns the
- * Occurrence a link pays.
+ * Occurrence a link pays. A Transfer's link rides only a qualifying pair
+ * (the draft the ViewModel builds already gates it); the repository's own
+ * branches never mix the two keys.
  * `location` is the optional Geographic Location's coordinates (ticket
  * #29); `place` is its optional Place reference (ADR-0005 parity). The
  * location keys are always sent on the wire — values or explicit nulls
@@ -176,6 +182,42 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
         val wire = locationFields(draft)
         return call {
             when {
+                // A Transfer whose matching-direction link the form changed
+                // (web issue #99 / ADR-0027) carries the touched key — null
+                // unlinking, a value (re)linking; never the untouched-kind
+                // key, exactly like the Expense/Income link shapes. The pair
+                // is immutable on edit, so at most one key can ever be
+                // touched.
+                draft.type == TransactionType.TRANSFER && draft.recurringCostTouched -> {
+                    api.updateTransferCostLink(
+                        id,
+                        TransactionTransferCostLinkUpdateRequest(
+                            amount = draft.amount,
+                            date = draft.date,
+                            description = draft.description,
+                            recurring_cost_id = draft.recurringCostId,
+                            latitude = wire.latitude,
+                            longitude = wire.longitude,
+                            place_name = wire.place_name,
+                            place_id = wire.place_id,
+                        ),
+                    )
+                }
+                draft.type == TransactionType.TRANSFER && draft.recurringIncomeTouched -> {
+                    api.updateTransferIncomeLink(
+                        id,
+                        TransactionTransferIncomeLinkUpdateRequest(
+                            amount = draft.amount,
+                            date = draft.date,
+                            description = draft.description,
+                            recurring_income_id = draft.recurringIncomeId,
+                            latitude = wire.latitude,
+                            longitude = wire.longitude,
+                            place_name = wire.place_name,
+                            place_id = wire.place_id,
+                        ),
+                    )
+                }
                 draft.type == TransactionType.TRANSFER -> {
                     api.updateTransfer(
                         id,
