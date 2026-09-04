@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.5.0] — 2026-09-04
+
 ### Added
 
 - **Transactions** — a Transfer between one of your Wallets and a Contact Wallet can now carry the matching recurring link: money in from a Contact Wallet (say Chiara's monthly €300 arriving into Checking) can mark a Recurring Income Occurrence as received, and money out to a Contact Wallet can mark a Recurring Cost Occurrence as paid — with the same "pays the oldest unpaid Occurrence" pinning, the None option to unlink, and the "Pays the occurrence of …" helper the Expense and Income links already have; Transfers between two of your own Wallets or two Contact Wallets stay unlinkable (#47).
@@ -280,6 +282,7 @@ build. Release builds talk to the production backend at budjetame.de.
   encrypted with a Keystore-generated IV (#14).
 
 [v1.4.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.4.0
+[v1.5.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.5.0
 [v1.3.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.3.0
 [v1.2.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.1
 [v1.2.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.0
