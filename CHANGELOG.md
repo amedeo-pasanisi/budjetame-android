@@ -11,6 +11,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Added
+
+- **Transactions** — a Transfer between one of your Wallets and a Contact Wallet can now carry the matching recurring link: money in from a Contact Wallet (say Chiara's monthly €300 arriving into Checking) can mark a Recurring Income Occurrence as received, and money out to a Contact Wallet can mark a Recurring Cost Occurrence as paid — with the same "pays the oldest unpaid Occurrence" pinning, the None option to unlink, and the "Pays the occurrence of …" helper the Expense and Income links already have; Transfers between two of your own Wallets or two Contact Wallets stay unlinkable (#47).
+
 ## [v1.4.0] — 2026-09-04
 
 ### Changed
