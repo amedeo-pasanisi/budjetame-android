@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.4.0] — 2026-09-04
+
 ### Changed
 
 - **Recurring definitions & Transactions** — a recurring card's whole surface now jumps to the Transactions ledger pre-filtered to that definition's linked Transactions, the edit moved to a trailing ✎ button, and the card Skip/Un-skip button is gone: skipping lives in the edit modal's new Occurrences section, where every non-Paid Occurrence has its own Skip/Un-skip — skip the top row and the next incoming one surfaces above it, so a whole month can be excused in one sitting — and skipped rows stay greyed with Un-skip, always reachable (#46).
@@ -273,6 +275,7 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.4.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.4.0
 [v1.3.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.3.0
 [v1.2.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.1
 [v1.2.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.0
