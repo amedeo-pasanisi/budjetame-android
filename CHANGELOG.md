@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.3.0] — 2026-09-04
+
 ### Changed
 
 - **Recurring definitions & Transactions** — a definition with unpaid dues now shows exactly one red "N unpaid" badge on the Recurring screens: the per-row "Overdue" mark and the "X costs overdue · N unpaid occurrences" summary pill are gone, and the badge is read from the Backlog alone. On Transactions, the filtered chips line never wraps: overflow hides behind edge fades and scrolls sideways on one line, Clear all stays pinned beside the strip, and Export to Excel left the chips line — the filter panel's footer is its one home (#45).
@@ -266,6 +268,7 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.3.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.3.0
 [v1.2.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.1
 [v1.2.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.2.0
 [v1.1.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.1.0
