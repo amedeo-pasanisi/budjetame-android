@@ -29,7 +29,7 @@ A Transaction that increases a Wallet's balance — money comes into the user's 
 _Avoid_: earning, incoming, deposit
 
 **Transfer**:
-A Transaction that moves money from a Source Wallet to a Destination Wallet. Net Worth never changes, it never carries a Category, and the source and destination must be different Wallets.
+A Transaction that moves money from a Source Wallet to a Destination Wallet. Net Worth never changes, it never carries a Category, and the source and destination must be different Wallets. A Transfer that crosses one of the user's own (non-Contact) Wallets and a Contact Wallet may carry the matching-direction recurring link: a Recurring Income when the source is the Contact Wallet (money received from a tracked person), a Recurring Cost when the destination is the Contact Wallet (money paid to one); own↔own and Contact↔Contact Transfers never carry one.
 _Avoid_: internal transfer, move
 
 **Recurring Cost**:
@@ -41,7 +41,7 @@ A definition of an income expected to repeat at a fixed interval (every N days, 
 _Avoid_: recurring earning, paycheck, salary entry
 
 **Occurrence**:
-One derived due instance of a Recurring Cost or Recurring Income, computed from the definition's start date plus k×interval (k = 0 is the start date itself). Its due date is its own date. Every definition has a start date: one left empty at creation is set to the creation day, so a fresh definition's first Occurrence is its creation day; afterwards the date can only be changed, never unset (ADR-0024). Each Occurrence is either Paid — exactly one linked Transaction of the matching type (an Expense for a Cost, an Income for a Recurring Income) covers it — Unpaid, or Skipped: the user marked it as not applying, so it never enters the Backlog, never counts toward Monthly Spendable, and a link can never cover it. Un-skipping restores it to Unpaid.
+One derived due instance of a Recurring Cost or Recurring Income, computed from the definition's start date plus k×interval (k = 0 is the start date itself). Its due date is its own date. Every definition has a start date: one left empty at creation is set to the creation day, so a fresh definition's first Occurrence is its creation day; afterwards the date can only be changed, never unset (ADR-0024). Each Occurrence is either Paid — covered by exactly one linked Transaction: a Recurring Cost Occurrence by an Expense or by a Transfer whose destination is a Contact Wallet, a Recurring Income Occurrence by an Income or by a Transfer whose source is a Contact Wallet — Unpaid, or Skipped: the user marked it as not applying, so it never enters the Backlog, never counts toward Monthly Spendable, and a link can never cover it. Un-skipping restores it to Unpaid.
 _Avoid_: instance, cycle, due event
 
 **Backlog**:
@@ -145,9 +145,9 @@ _Avoid_: transactions filtering on card tap, row-tap filter, filter shortcut
 - Searching the ledger matches Transactions whose Description contains the needle, case-insensitively (accents must match exactly), combined with any other filters.
 - Transaction dates are stored as UTC timestamps; months and years for reporting are bucketed in Europe/Rome, the app's single fixed timezone.
 - Recurring Costs and Recurring Incomes carry no Wallet and no Category: the Wallet and Category of a linked Transaction are chosen at Transaction creation time.
-- An Expense links to at most one Recurring Cost; linking pays exactly one Occurrence, the oldest Unpaid one — never a Skipped one; un-skipping comes first — pinned at link time and never reassigned by later date edits. Unlinking or deleting the Expense frees the Occurrence. An Income links to at most one Recurring Income under the same contract.
+- An Expense links to at most one Recurring Cost and an Income to at most one Recurring Income under the same contract; a Transfer may link the one its pair's direction allows (ADR-0027): money in from a Contact Wallet (source = Contact) pays a Recurring Income Occurrence, money out to a Contact Wallet (destination = Contact) pays a Recurring Cost Occurrence — Transfers between two own Wallets or two Contact Wallets never link. Linking pays exactly one Occurrence, the oldest Unpaid one — never a Skipped one; un-skipping comes first — pinned at link time and never reassigned by later date edits. Unlinking or deleting the linked Transaction frees the Occurrence. A write that would leave a link on a Transfer whose pair no longer qualifies is rejected with a rule error, never silently severed.
 - Recurring Cost names are unique per Account, case-insensitively; Recurring Income names are unique the same way.
-- Deleting a Recurring Cost severs the links and drops its skips: linked Expenses remain as ordinary Expenses. Deleting a Recurring Income severs the links and drops its skips: linked Incomes remain as ordinary Incomes.
+- Deleting a Recurring Cost severs the links and drops its skips: linked Transactions remain as ordinary Transactions. Deleting a Recurring Income severs the links and drops its skips: linked Transactions remain as ordinary Transactions.
 - A skip is anchored to its Occurrence's period — the month for a monthly definition, the year for a yearly one, the date itself for daily and weekly ones — and travels with the Occurrence: editing the definition never drops it, and changing the interval unit maps the period along (a skipped month becomes its year, a skipped year becomes its month). A skip whose period holds no Occurrence lies dormant; only un-skipping removes it.
 - Occurrences and Backlog are always derived from the definition; editing interval or start date reshapes only the derived future.
 - A Recurring definition never carries a due-day or due-date override (ADR-0024): every Occurrence is due on its own date, the definition's only date is the start date, and one left empty at creation is set to the creation day.
