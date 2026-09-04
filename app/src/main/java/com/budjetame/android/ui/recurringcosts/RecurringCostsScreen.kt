@@ -46,10 +46,8 @@ private val RED_700 = Color(0xFFB91C1C)
 /**
  * The Recurring Costs side of the Recurring tab (ticket #22, web issue
  * #56): every Recurring Cost sorted by next due date, each row showing the
- * name, the amount, the interval, the next due date, and — when the derived
- * dates diverge, e.g. under a Backlog — the next Unpaid Occurrence date
- * (the one a new linked Expense would pay), plus the red "N unpaid"
- * Backlog badge — the one Backlog signal (web ADR-0025, ticket #45):
+ * name, the amount, the interval, and the next due date, plus the red
+ * "N unpaid" Backlog badge — the one Backlog signal (web ADR-0025, ticket #45):
  * the Overdue mark and the summary line repeated the same fact in two
  * words, so they are gone.
  *
@@ -170,12 +168,9 @@ private fun RecurringCostsList(
  * Transactions, the previous filters and search reset by the jump
  * (ADR-0004). The trailing ✎ (RowEditButton) opens the edit modal, whose
  * Occurrences section holds the per-Occurrence Skip/Un-skip controls —
- * the card Skip/Un-skip pill is gone (web ADR-0026). The next Unpaid
- * Occurrence date earns its own line when it differs from the next due
- * date — under a Backlog the next thing a new linked Expense would pay is
- * not the schedule's next due date — and is otherwise the very date the
- * next-due line already names. The badge is the one Backlog signal (web
- * ADR-0025, ticket #45): it shows while the Backlog is non-empty.
+ * the card Skip/Un-skip pill is gone (web ADR-0026). The badge is the one
+ * Backlog signal (web ADR-0025, ticket #45): it shows while the Backlog
+ * is non-empty.
  */
 @Composable
 private fun RecurringCostRow(
@@ -194,7 +189,10 @@ private fun RecurringCostRow(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
-        Row(modifier = Modifier.clip(shape)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clip(shape),
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 // The whole tap surface is the ledger jump — the ✎ is its
@@ -219,13 +217,6 @@ private fun RecurringCostRow(
                         fontSize = 12.sp,
                         color = Slate500,
                     )
-                    if (cost.next_unpaid_occurrence_date != cost.next_due_date) {
-                        Text(
-                            text = "Next unpaid ${cost.next_unpaid_occurrence_date}",
-                            fontSize = 12.sp,
-                            color = Slate500,
-                        )
-                    }
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
