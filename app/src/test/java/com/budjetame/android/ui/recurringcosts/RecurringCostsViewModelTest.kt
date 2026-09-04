@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.Dispatcher
@@ -886,5 +887,50 @@ class RecurringCostsViewModelTest {
         assertEquals("2026-09-01", cost.next_unpaid_occurrence_date)
         // The modal is untouched by the refetch.
         assertEquals("Rent", viewModel.uiState.value.modal!!.name)
+    }
+
+    @Test
+    fun `a toggle response never lands in another definition's modal`() = runBlocking {
+        // The section's rows belong to the definition the modal edits: a
+        // write that completes after the modal closed and reopened on
+        // another cost must not swap its rows in (the read has the same
+        // guard). The latch holds the first PUT's response until the
+        // modal has moved on.
+        seed(costDto(1, "Rent"), costDto(2, "Netflix"))
+        seedOccurrences(1, occurrence("2026-09-05"), occurrence("2026-09-01"))
+        seedOccurrences(2, occurrence("2026-10-05"), occurrence("2026-10-01"))
+        val release = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.method == "PUT" && request.path?.contains("/occurrences/") == true) {
+                    release.await(5, TimeUnit.SECONDS)
+                }
+                return route(request)
+            }
+        }
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.costs.first { it.id == 1 })
+        awaitState { it.modal?.occurrences != null }
+        viewModel.toggleOccurrence(viewModel.uiState.value.modal!!.occurrences!!.first())
+        // The write is in flight; the user closes the modal and opens
+        // another definition's.
+        viewModel.closeModal()
+        viewModel.openEdit(viewModel.uiState.value.costs.first { it.id == 2 })
+        awaitState { it.modal?.occurrences?.first()?.date == "2026-10-05" }
+
+        release.countDown()
+        // Give the stale response every chance to (wrongly) land: a
+        // corruption would replace definition 2's rows with definition 1's.
+        val corrupted = withTimeoutOrNull(1_000) {
+            viewModel.uiState.first { state ->
+                state.modal?.occurrences?.firstOrNull()?.date == "2026-09-05"
+            }
+        }
+        assertNull("a stale toggle response must not land in another definition's modal", corrupted)
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals(listOf("2026-10-05", "2026-10-01"), modal.occurrences!!.map { it.date })
+        assertNull(modal.occurrencesError)
     }
 }

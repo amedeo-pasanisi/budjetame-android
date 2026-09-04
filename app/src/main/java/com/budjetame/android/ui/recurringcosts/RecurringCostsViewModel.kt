@@ -218,7 +218,9 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
      * behind the modal (ADR-0002), so the badge and the dates re-derive
      * from the stored skips. A double tap on the same row cannot fire two
      * writes: the row disables while its own toggle is in flight (the
-     * write is idempotent anyway).
+     * write is idempotent anyway). The response only lands if the modal
+     * still edits the same definition — a write that completes after the
+     * modal closed and reopened on another cost never swaps its rows in.
      */
     fun toggleOccurrence(row: RecurringOccurrenceDto) {
         val modal = _uiState.value.modal ?: return
@@ -232,12 +234,23 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
             updateModal { it.copy(togglingDate = row.date, occurrencesError = null) }
             try {
                 val rows = recurringCosts.setOccurrenceSkipped(cost.id, row.date, skipped = !row.skipped)
-                updateModal { it.copy(occurrences = rows, togglingDate = null) }
+                _uiState.update { state ->
+                    val open = state.modal
+                    if (open == null || open.cost?.id != cost.id) return@update state
+                    state.copy(modal = open.copy(occurrences = rows, togglingDate = null))
+                }
             } catch (_: Exception) {
                 // The web section's toggle-failure message: the rows stay on
                 // screen, only the action failed.
-                updateModal {
-                    it.copy(togglingDate = null, occurrencesError = "Could not update the occurrence.")
+                _uiState.update { state ->
+                    val open = state.modal
+                    if (open == null || open.cost?.id != cost.id) return@update state
+                    state.copy(
+                        modal = open.copy(
+                            togglingDate = null,
+                            occurrencesError = "Could not update the occurrence.",
+                        ),
+                    )
                 }
             }
         }
