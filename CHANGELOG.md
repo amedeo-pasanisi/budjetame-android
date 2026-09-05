@@ -11,6 +11,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Changed
+
+- **App icon** — the launcher icon is now the 💸 money-with-wings emoji over the app's indigo background, replacing the placeholder green bar chart.
+
 ## [v1.5.0] — 2026-09-04
 
 ### Added
