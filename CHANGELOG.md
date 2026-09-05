@@ -9,11 +9,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 <!-- Agents: every ticket whose work lands adds one bullet to [Unreleased].
      See docs/agents/changelog.md before editing. -->
 
-## [Unreleased]
+## [v1.6.0] — 2026-09-05
 
 ### Changed
 
 - **App icon** — the launcher icon is now the 💸 money-with-wings emoji over the app's indigo background, replacing the placeholder green bar chart.
+
+## [Unreleased]
 
 ## [v1.5.0] — 2026-09-04
 
@@ -285,6 +287,7 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.6.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.6.0
 [v1.4.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.4.0
 [v1.5.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.5.0
 [v1.3.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.3.0
