@@ -83,6 +83,14 @@ Notes:
   GOOGLE_MAPS_API_KEY=AIza…
   ```
 
+  Run `scripts/google-maps-wizard.sh` to be walked through the setup —
+  enabling Maps SDK for Android and the Places API in the Google Cloud
+  project, registering the Play App Signing and upload-key SHA-1s on an
+  Android-restricted key, and writing both properties into
+  `~/.gradle/gradle.properties`. Register **both** fingerprints: Play
+  re-signs every release, so a sideloaded APK (upload key) and a Play
+  install (app signing key) authorize differently.
+
   Anything that is not exactly `google` selects the free picker; a
   `google` build without a key fails loudly at render time instead of
   showing a broken map. Google picks (place search, POI taps) carry a
