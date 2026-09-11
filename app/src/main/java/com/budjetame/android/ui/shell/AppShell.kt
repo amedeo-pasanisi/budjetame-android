@@ -167,7 +167,11 @@ fun AppShell(
             val tab = TABS[page]
             tabState.SaveableStateProvider(key = tab.name) {
                 when (tab) {
-                    Tab.Dashboard -> DashboardScreen(dashboardRepository)
+                    Tab.Dashboard -> DashboardScreen(
+                        dashboardRepository,
+                        recurringCostRepository,
+                        recurringIncomeRepository,
+                    )
                     Tab.Wallets -> WalletsScreen(
                         walletRepository,
                         onLedgerJump = requestLedgerJump,

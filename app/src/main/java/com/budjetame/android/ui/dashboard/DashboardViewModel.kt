@@ -9,8 +9,13 @@ import com.budjetame.android.data.api.DashboardSummaryDto
 import com.budjetame.android.data.api.TrendDto
 import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.DashboardGateway
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.util.Dates
 import java.time.YearMonth
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,17 +32,22 @@ enum class PieSide { EXPENSE, INCOME }
  * (web parity), one summary response serving the toggle's two pies — the
  * monthly trend chart with its own Expenses/Incomes toggle over a
  * user-picked From/To month range (T12, US28); and the Budget card — the
- * current Europe/Rome month's Monthly Spendable, Daily Allowance, and
- * Spendable Today, rendered raw from GET /dashboard/budget (negative
- * Spendable Today is the card's job to floor, ADR-0012 semantics). The
- * month defaults to the current Europe/Rome one; the pie card's Month
- * picker refetches the summary for the picked month, and the card titles
- * itself with the loaded summary's month, never the requested one (US27).
- * Data is refetched in the background when the global data version bumps
- * (ADR-0002).
+ * current Europe/Rome month's Monthly Spendable, Daily Allowance, Spendable
+ * Today, and Remaining Monthly Spendable, rendered raw from
+ * GET /dashboard/budget (negative Spendable Today is the card's job to
+ * floor, ADR-0012 semantics). The card also hides entirely when the
+ * account has no Recurring definitions at all (web issue #66): the
+ * ViewModel reads the two Recurring lists alongside the Budget and holds
+ * `hasDefinitions` — null while unknown. The month defaults to the
+ * current Europe/Rome one; the pie card's Month picker refetches the
+ * summary for the picked month, and the card titles itself with the loaded
+ * summary's month, never the requested one (US27). Data is refetched in
+ * the background when the global data version bumps (ADR-0002).
  */
 class DashboardViewModel(
     private val dashboard: DashboardGateway,
+    private val recurringCosts: RecurringCostGateway,
+    private val recurringIncomes: RecurringIncomeGateway,
     private val currentMonth: () -> YearMonth = { Dates.currentMonthInRome() },
 ) : ViewModel() {
 
@@ -54,6 +64,11 @@ class DashboardViewModel(
         val trendError: String? = null,
         val budget: BudgetDto? = null,
         val budgetError: String? = null,
+        /** Whether the account has any Recurring definitions at all — the
+         * Budget card's hide rule (web issue #66). Null while unknown:
+         * the card only hides once both Recurring lists have loaded and
+         * proved empty, and a failed list keeps it visible. */
+        val hasDefinitions: Boolean? = null,
     ) {
         /** A loaded trend tagged with the side it was fetched for — a stale
          * trend must never render under the toggle's current side (US28). */
@@ -113,6 +128,12 @@ class DashboardViewModel(
         // (the current version) is the initial load.
         viewModelScope.launch {
             DataVersion.version.collect { reload() }
+        }
+        // The Budget card's visibility check is its own effect, like the
+        // web card's: it only decides whether the card shows at all, so a
+        // slow list must never delay the cards' own data.
+        viewModelScope.launch {
+            DataVersion.version.collect { reloadDefinitions() }
         }
     }
 
@@ -217,6 +238,43 @@ class DashboardViewModel(
         } catch (_: Exception) {
             _uiState.update { it.copy(budgetError = "Could not load the budget.") }
         }
+    }
+
+    /**
+     * The Budget card's hide rule (web issue #66): whether the account has
+     * any Recurring definitions at all — an all-zero Budget can't tell "no
+     * definitions" from a month that nets to zero. `hasDefinitions` is
+     * null while unknown: it only becomes false once both lists have
+     * loaded and proved empty, so nothing hides on half the evidence. A
+     * failed list is silent and keeps the held belief (null included) — a
+     * failed load must never look like an empty Budget. Refetched with the
+     * data version (ADR-0002), so the first definition created elsewhere
+     * brings the card back without a restart.
+     *
+     * Both lists are fetched concurrently like the web card's `Promise.all`,
+     * under a supervisor so one list's failure never cancels the other's
+     * request — each failure is per-list and none reaches the scope.
+     */
+    private suspend fun reloadDefinitions() {
+        val hasDefinitions = supervisorScope {
+            val costs = async { fetchOrNull { recurringCosts.fetchRecurringCosts() } }
+            val incomes = async { fetchOrNull { recurringIncomes.fetchRecurringIncomes() } }
+            val loadedCosts = costs.await() ?: return@supervisorScope null
+            val loadedIncomes = incomes.await() ?: return@supervisorScope null
+            loadedCosts.isNotEmpty() || loadedIncomes.isNotEmpty()
+        }
+        if (hasDefinitions == null) return
+        _uiState.update { it.copy(hasDefinitions = hasDefinitions) }
+    }
+
+    /** [fetch] mapped to null on any failure; cancellation still propagates
+     * (the ViewModel's scope is going away, not a failed list). */
+    private suspend fun <T> fetchOrNull(fetch: suspend () -> List<T>): List<T>? = try {
+        fetch()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        null
     }
 
     /**

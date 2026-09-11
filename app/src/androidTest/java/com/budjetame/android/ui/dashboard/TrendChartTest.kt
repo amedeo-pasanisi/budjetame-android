@@ -14,10 +14,18 @@ import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.BudgetDto
 import com.budjetame.android.data.api.DashboardSummaryDto
+import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.MonthBucketDto
+import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
+import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.TrendDto
 import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.DashboardGateway
+import com.budjetame.android.data.recurringcost.RecurringCostDraft
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.util.Dates
 import java.time.YearMonth
 import org.junit.Assert.assertTrue
@@ -57,7 +65,13 @@ class TrendChartTest {
 
     private fun launchDashboard() {
         dashboard = TrendFixtureGateway(amounts)
-        composeRule.setContent { DashboardScreen(dashboard = dashboard) }
+        composeRule.setContent {
+            DashboardScreen(
+                dashboard = dashboard,
+                recurringCosts = dashboard,
+                recurringIncomes = dashboard,
+            )
+        }
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("NET WORTH").fetchSemanticsNodes().isNotEmpty()
         }
@@ -195,8 +209,11 @@ class TrendChartTest {
 /** The in-memory dashboard for the chart tests: a loaded summary and
  * budget (no €0.00 texts elsewhere on screen, so the zero stub's chip is
  * unambiguous) and a trend whose six default-range months carry the test's
- * amounts in range order. */
-private class TrendFixtureGateway(private val amounts: List<String>) : DashboardGateway {
+ * amounts in range order. It also serves the two Recurring lists the
+ * Budget card's hide rule reads — one definition on the costs side keeps
+ * the card visible (its own rules are not under test here). */
+private class TrendFixtureGateway(private val amounts: List<String>) :
+    DashboardGateway, RecurringCostGateway, RecurringIncomeGateway {
     var fetchedFrom: String? = null
     var fetchedTo: String? = null
 
@@ -228,5 +245,40 @@ private class TrendFixtureGateway(private val amounts: List<String>) : Dashboard
             monthly_spendable = "61.50",
             daily_allowance = "2.05",
             spendable_today = "12.30",
+            remaining_monthly_spendable = "49.20",
         )
+
+    /** One definition is enough for the hide rule: only the lists'
+     * emptiness matters. */
+    override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = listOf(costDefinition)
+    override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> = emptyList()
+    override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto =
+        error("unused")
+    override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
+        error("unused")
+    override suspend fun deleteRecurringCost(id: Int) = error("unused")
+    override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
+    override suspend fun setOccurrenceSkipped(
+        id: Int,
+        occurrenceDate: String,
+        skipped: Boolean,
+    ): List<RecurringOccurrenceDto> = error("unused")
+    override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
+        error("unused")
+    override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
+        error("unused")
+    override suspend fun deleteRecurringIncome(id: Int) = error("unused")
+
+    private val costDefinition = RecurringCostDto(
+        id = 1,
+        name = "Rent",
+        amount = "800.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        start_date = "2026-08-01",
+        next_due_date = "2026-09-01",
+        next_unpaid_occurrence_date = "2026-09-01",
+        backlog_count = 0,
+        created_at = "2026-08-01T10:00:00Z",
+    )
 }

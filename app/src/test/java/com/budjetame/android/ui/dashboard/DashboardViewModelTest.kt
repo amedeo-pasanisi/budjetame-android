@@ -7,10 +7,17 @@ import com.budjetame.android.data.api.CategorySliceDto
 import com.budjetame.android.data.api.DashboardApi
 import com.budjetame.android.data.api.DashboardSummaryDto
 import com.budjetame.android.data.api.DataVersion
+import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.MonthBucketDto
+import com.budjetame.android.data.api.RecurringCostApi
+import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeApi
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TrendDto
 import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
+import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
+import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
 import java.time.YearMonth
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -41,7 +48,8 @@ import org.junit.Test
  * MockWebServer whose dispatcher is a small stateful fake of the
  * /dashboard/summary resource — echoing the requested month back, so the
  * pie month picker and the stale-response guard (US27) are observable on
- * the wire.
+ * the wire — plus the Budget resource and the two Recurring lists the hide
+ * rule reads (web issue #66).
  * The month clock is injected for determinism.
  */
 class DashboardViewModelTest {
@@ -68,6 +76,14 @@ class DashboardViewModelTest {
     private val failMonths = mutableSetOf<String>()
     private var failBudget = false
     private var failTrend = false
+    private var failRecurringCosts = false
+    private var failRecurringIncomes = false
+    /** The account's Recurring definitions the fake lists serve; both empty
+     * is the hide rule's case (web issue #66). */
+    private val recurringCosts = mutableListOf<RecurringCostDto>()
+    private val recurringIncomes = mutableListOf<RecurringIncomeDto>()
+    /** "costs"/"incomes" → latch: a gated list response is held back. */
+    private val heldRecurringLists = ConcurrentHashMap<String, CountDownLatch>()
     /** kind:month → amount: overrides a trend bucket's zero default. */
     private val trendAmounts = mutableMapOf<String, String>()
     private var budgetSpendableToday = "49.80"
@@ -85,6 +101,11 @@ class DashboardViewModelTest {
         failMonths.clear()
         failBudget = false
         failTrend = false
+        failRecurringCosts = false
+        failRecurringIncomes = false
+        recurringCosts.clear()
+        recurringIncomes.clear()
+        heldRecurringLists.clear()
         trendAmounts.clear()
         budgetSpendableToday = "49.80"
         now = YearMonth.of(2026, 8)
@@ -101,7 +122,12 @@ class DashboardViewModelTest {
     private fun createViewModel() {
         val client = ApiClient(server.url("/api/").toString()) { null }
         val repository = ApiDashboardRepository(client.create(DashboardApi::class.java))
-        viewModel = DashboardViewModel(repository, currentMonth = { now })
+        viewModel = DashboardViewModel(
+            dashboard = repository,
+            recurringCosts = ApiRecurringCostRepository(client.create(RecurringCostApi::class.java)),
+            recurringIncomes = ApiRecurringIncomeRepository(client.create(RecurringIncomeApi::class.java)),
+            currentMonth = { now },
+        )
     }
 
     private fun route(request: RecordedRequest): MockResponse {
@@ -126,6 +152,18 @@ class DashboardViewModelTest {
             method == "GET" && path == "/api/dashboard/budget" -> {
                 if (failBudget) jsonResponse(500, """{"detail":"boom"}""")
                 else jsonResponse(200, json.encodeToString(budgetFor()))
+            }
+
+            method == "GET" && path == "/api/recurring-costs" -> {
+                heldRecurringLists["costs"]?.await(5, TimeUnit.SECONDS)
+                if (failRecurringCosts) jsonResponse(500, """{"detail":"boom"}""")
+                else jsonResponse(200, json.encodeToString(recurringCosts.toList()))
+            }
+
+            method == "GET" && path == "/api/recurring-incomes" -> {
+                heldRecurringLists["incomes"]?.await(5, TimeUnit.SECONDS)
+                if (failRecurringIncomes) jsonResponse(500, """{"detail":"boom"}""")
+                else jsonResponse(200, json.encodeToString(recurringIncomes.toList()))
             }
 
             method == "GET" &&
@@ -189,6 +227,36 @@ class DashboardViewModelTest {
         monthly_spendable = "500.00",
         daily_allowance = "16.60",
         spendable_today = budgetSpendableToday,
+        remaining_monthly_spendable = "333.40",
+    )
+
+    /** One Recurring definition for the hide rule's fake lists — only the
+     * list's emptiness matters, so the derived dates are arbitrary. */
+    private fun costDto(id: Int, name: String) = RecurringCostDto(
+        id = id,
+        name = name,
+        amount = "10.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        start_date = "2026-08-01",
+        next_due_date = "2026-09-01",
+        next_unpaid_occurrence_date = "2026-09-01",
+        backlog_count = 0,
+        created_at = "2026-08-01T10:00:00Z",
+    )
+
+    /** The Recurring Income mirror of [costDto]. */
+    private fun incomeDto(id: Int, name: String) = RecurringIncomeDto(
+        id = id,
+        name = name,
+        amount = "10.00",
+        interval_value = 1,
+        interval_unit = IntervalUnit.MONTHS,
+        start_date = "2026-08-01",
+        next_due_date = "2026-09-01",
+        next_unpaid_occurrence_date = "2026-09-01",
+        backlog_count = 0,
+        created_at = "2026-08-01T10:00:00Z",
     )
 
     /** The fake of the two trend endpoints: one bucket per month in the
@@ -223,6 +291,16 @@ class DashboardViewModelTest {
         }
 
     private fun budgetCalls(): Int = calls.count { it.path == "/api/dashboard/budget" }
+
+    private fun recurringListCalls(): Int =
+        calls.count { it.path == "/api/recurring-costs" || it.path == "/api/recurring-incomes" }
+
+    /** Waits until [count] Recurring list calls have been recorded: the
+     * definitions check is its own effect, so the cards settling does not
+     * imply it ran (or settled). */
+    private suspend fun awaitRecurringLists(count: Int = 2) {
+        withTimeout(5_000) { while (recurringListCalls() < count) delay(10) }
+    }
 
     private suspend fun awaitLoaded() {
         withTimeout(5_000) { viewModel.uiState.first { !it.loading } }
@@ -358,8 +436,9 @@ class DashboardViewModelTest {
 
         // The toggle is pure state: both pies arrive in one summary response,
         // so no extra request goes out — the initial load's summary, budget,
-        // and trend fetches stay untouched.
-        assertEquals(3, calls.size)
+        // trend, and definitions fetches stay untouched.
+        awaitRecurringLists()
+        assertEquals(5, calls.size)
     }
 
     // --- Load failure + retry ---
@@ -426,12 +505,14 @@ class DashboardViewModelTest {
     // --- ADR-0002 background refetch ---
 
     @Test
-    fun `a write elsewhere refetches summary, budget, and trend in the background`() = runBlocking {
+    fun `a write elsewhere refetches summary, budget, trend, and definitions`() = runBlocking {
         createViewModel()
         awaitDashboard()
+        awaitRecurringLists()
         assertEquals(1, months().size)
         assertEquals(1, budgetCalls())
         assertEquals(1, trendCalls().size)
+        assertEquals(2, recurringListCalls())
 
         // ADR-0002: the transport bumps the data version after a successful
         // write anywhere; the screen re-fetches every card in the
@@ -439,13 +520,16 @@ class DashboardViewModelTest {
         // request counts are the observable).
         DataVersion.bump()
         withTimeout(5_000) {
-            while (months().size < 2 || budgetCalls() < 2 || trendCalls().size < 2) {
+            while (months().size < 2 || budgetCalls() < 2 || trendCalls().size < 2 ||
+                recurringListCalls() < 4
+            ) {
                 delay(10)
             }
         }
 
         assertEquals(listOf("2026-08", "2026-08"), months())
         assertEquals(2, budgetCalls())
+        assertEquals(4, recurringListCalls())
         assertEquals(
             listOf(
                 Triple("expense", "2026-03", "2026-08"),
@@ -467,6 +551,7 @@ class DashboardViewModelTest {
         assertEquals("500.00", budget.monthly_spendable)
         assertEquals("16.60", budget.daily_allowance)
         assertEquals("49.80", budget.spendable_today)
+        assertEquals("333.40", budget.remaining_monthly_spendable)
 
         // The Budget is current-month-only by product decision: no month
         // parameter ever goes out.
@@ -498,6 +583,79 @@ class DashboardViewModelTest {
         failBudget = false
         DataVersion.bump()
         awaitState { it.budget != null && it.budgetError == null }
+    }
+
+    // --- The Budget card's hide rule (web issue #66) ---
+
+    @Test
+    fun `the budget hides once both recurring lists have loaded empty`() = runBlocking {
+        createViewModel()
+        awaitState { it.hasDefinitions == false }
+    }
+
+    @Test
+    fun `a definition on the income side keeps the budget visible`() = runBlocking {
+        recurringIncomes += incomeDto(id = 1, name = "Salary")
+        createViewModel()
+        awaitState { it.hasDefinitions == true }
+    }
+
+    @Test
+    fun `a definition on the cost side keeps the budget visible`() = runBlocking {
+        recurringCosts += costDto(id = 1, name = "Rent")
+        createViewModel()
+        awaitState { it.hasDefinitions == true }
+    }
+
+    @Test
+    fun `a failed recurring list is silent and leaves the budget visible`() = runBlocking {
+        failRecurringCosts = true
+        createViewModel()
+        awaitRecurringLists()
+
+        // Silent failure (web issue #66): the card renders rather than
+        // hiding — a failed load must never look like an empty Budget.
+        assertNull(viewModel.uiState.value.hasDefinitions)
+    }
+
+    @Test
+    fun `nothing hides before both recurring lists have loaded`() = runBlocking {
+        val holdIncomes = CountDownLatch(1)
+        heldRecurringLists["incomes"] = holdIncomes
+        createViewModel()
+        awaitRecurringLists()
+
+        // The empty costs list is in while the incomes list is still on the
+        // wire: half the evidence must not hide the card.
+        assertNull(viewModel.uiState.value.hasDefinitions)
+
+        holdIncomes.countDown()
+        awaitState { it.hasDefinitions == false }
+    }
+
+    @Test
+    fun `a write elsewhere re-checks the definitions`() = runBlocking {
+        createViewModel()
+        awaitState { it.hasDefinitions == false }
+
+        // The account's first Recurring definition is created elsewhere:
+        // the card comes back without a restart (ADR-0002).
+        recurringIncomes += incomeDto(id = 1, name = "Salary")
+        DataVersion.bump()
+        awaitState { it.hasDefinitions == true }
+    }
+
+    @Test
+    fun `a failed re-check keeps the held belief`() = runBlocking {
+        recurringIncomes += incomeDto(id = 1, name = "Salary")
+        createViewModel()
+        awaitState { it.hasDefinitions == true }
+
+        failRecurringCosts = true
+        DataVersion.bump()
+        awaitRecurringLists(count = 4)
+
+        assertEquals(true, viewModel.uiState.value.hasDefinitions)
     }
 
     // --- The trend chart (T12, US28) ---

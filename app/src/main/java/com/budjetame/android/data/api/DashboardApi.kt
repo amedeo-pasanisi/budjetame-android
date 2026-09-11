@@ -83,6 +83,10 @@ data class TrendDto(
  * the allowance accrued through today minus the Discretionary Expenses
  * dated in that span). `spendable_today` is sent raw and possibly negative:
  * the card renders it as 0 until future accruals repay it.
+ * `remaining_monthly_spendable` is the Remaining Monthly Spendable
+ * (CONTEXT.md, web issue #100): the Monthly Spendable minus the
+ * Discretionary Expenses dated from the 1st through today — also sent raw
+ * and possibly negative, and rendered as the card's month bottom line.
  */
 @Serializable
 data class BudgetDto(
@@ -90,6 +94,7 @@ data class BudgetDto(
     val monthly_spendable: String,
     val daily_allowance: String,
     val spendable_today: String,
+    val remaining_monthly_spendable: String,
 )
 
 /**

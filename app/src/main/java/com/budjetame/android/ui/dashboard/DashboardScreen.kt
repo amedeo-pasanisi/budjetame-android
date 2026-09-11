@@ -75,6 +75,8 @@ import com.budjetame.android.data.api.CategorySliceDto
 import com.budjetame.android.data.api.MonthBucketDto
 import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.DashboardGateway
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.util.Dates
@@ -126,8 +128,14 @@ private val GridlineFractions = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)
  * the month labels are the frontend's job (spec decision #14).
  */
 @Composable
-fun DashboardScreen(dashboard: DashboardGateway) {
-    val viewModel: DashboardViewModel = viewModel { DashboardViewModel(dashboard) }
+fun DashboardScreen(
+    dashboard: DashboardGateway,
+    recurringCosts: RecurringCostGateway,
+    recurringIncomes: RecurringIncomeGateway,
+) {
+    val viewModel: DashboardViewModel = viewModel {
+        DashboardViewModel(dashboard, recurringCosts, recurringIncomes)
+    }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -180,7 +188,14 @@ private fun DashboardContent(
         item(key = "net-worth") { NetWorthCard(netWorth = summary.net_worth) }
         // The Budget is current-month-only: it ignores the pie card's month
         // selector below, exactly like the web app's card (web issue #66).
-        item(key = "budget") { BudgetCard(state = state) }
+        // The card hides entirely when the account has no Recurring
+        // definitions at all — an all-zero Budget can't tell "no
+        // definitions" from a month that nets to zero. `hasDefinitions` is
+        // null while unknown: nothing hides before both Recurring lists
+        // have loaded and proved empty.
+        if (state.hasDefinitions != false) {
+            item(key = "budget") { BudgetCard(state = state) }
+        }
         item(key = "pie") { PieCard(state = state, viewModel = viewModel) }
         item(key = "trend") { TrendCard(state = state, viewModel = viewModel) }
     }
@@ -232,15 +247,19 @@ private fun NetWorthCard(netWorth: String) {
 }
 
 /**
- * The Budget card (web issue #65): the current Europe/Rome month's frame —
- * Spendable Today big, the "X per day · Y this month" explanation line
- * (Daily Allowance · Monthly Spendable), and a "You're €X over" note when
- * the bucket is negative — the big number then shows 0: future accruals
- * repay the debt (ADR-0012 semantics). Everything is rendered from
- * GET /dashboard/budget raw; the client never computes the frame, and a
- * failed load never looks like an empty Budget (its own error state). The
- * web app hides the card when the account has no Recurring definitions
- * (issue #66); that lands with the Recurring screen (tickets #22–#24).
+ * The Budget card (web issues #65, #100): the current Europe/Rome month's
+ * frame — Spendable Today big, the frame line "€Y this month (€X per day)"
+ * (Monthly Spendable · Daily Allowance), a red "€X over today's budget"
+ * note when the bucket is negative (the big number then shows 0: future
+ * accruals repay the debt), and the Remaining Monthly Spendable line below
+ * it: "€X left this month", muted. When the Remaining Monthly Spendable
+ * itself is negative the whole frame is blown, so the month's bottom line
+ * replaces the bucket note: a red "€X over this month's budget", never two
+ * over-notes at once (the pure rules live in [budgetCardText]). Everything
+ * is rendered from GET /dashboard/budget raw; the client never computes the
+ * frame, and a failed load never looks like an empty Budget (its own error
+ * state). [DashboardContent] hides the card when the account has no
+ * Recurring definitions at all (web issue #66).
  */
 @Composable
 private fun BudgetCard(state: DashboardViewModel.UiState) {
@@ -261,33 +280,43 @@ private fun BudgetCard(state: DashboardViewModel.UiState) {
             )
 
             else -> {
+                val text = budgetCardText(budget)
                 Text(
                     text = "SPENDABLE TODAY",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                val negative = budget.spendable_today.startsWith("-")
                 Text(
-                    text = Money.formatEuros(if (negative) "0.00" else budget.spendable_today),
+                    text = Money.formatEuros(text.spendableToday),
                     fontSize = 30.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                if (negative) {
+                Text(
+                    text = text.frameLine,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                val bucketNote = text.bucketNote
+                if (bucketNote != null) {
                     Text(
-                        text = "You're ${Money.formatEuros(budget.spendable_today.drop(1))} over",
+                        text = bucketNote,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
                 Text(
-                    text = "${Money.formatEuros(budget.daily_allowance)} per day · " +
-                        "${Money.formatEuros(budget.monthly_spendable)} this month",
+                    text = text.remainingLine,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (text.remainingOver) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }

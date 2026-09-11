@@ -421,7 +421,7 @@ class TabPagerTest {
         override suspend fun fetchTrend(kind: TrendKind, fromMonth: String, toMonth: String): TrendDto =
             TrendDto(from_month = fromMonth, to_month = toMonth, months = emptyList())
         override suspend fun fetchBudget(): BudgetDto =
-            BudgetDto(month = "2026-08", monthly_spendable = "0.00", daily_allowance = "0.00", spendable_today = "0.00")
+            BudgetDto(month = "2026-08", monthly_spendable = "0.00", daily_allowance = "0.00", spendable_today = "0.00", remaining_monthly_spendable = "0.00")
     }
 
     /** The ledger over a seeded list of `Row 01`…`Row NN` expenses,
