@@ -17,6 +17,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Added
+
+- **Dashboard** — the Budget card's frame line now reads "€500.00 this month (€16.60 per day)" (Monthly Spendable, then Daily Allowance) and gains the month's bottom line below it: a muted "€333.40 left this month" (the Remaining Monthly Spendable: the Monthly Spendable minus the Discretionary Expenses dated from the 1st through today, so a future-dated Expense reduces it only once its date arrives). A negative bucket keeps its red "€12.34 over today's budget" note; when the whole frame is spent, that note gives way to the month's bottom line — a red "€100.00 over this month's budget", never two over-notes at once. The card also hides entirely when your account has no Recurring definitions at all — and a failed definitions check never hides it (#48).
+
 ## [v1.5.0] — 2026-09-04
 
 ### Added
