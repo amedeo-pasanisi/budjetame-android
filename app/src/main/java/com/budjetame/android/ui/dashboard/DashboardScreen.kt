@@ -194,7 +194,7 @@ private fun DashboardContent(
         // null while unknown: nothing hides before both Recurring lists
         // have loaded and proved empty.
         if (state.hasDefinitions != false) {
-            item(key = "budget") { BudgetCard(state = state) }
+            item(key = "budget") { BudgetCard(state = state, viewModel = viewModel) }
         }
         item(key = "pie") { PieCard(state = state, viewModel = viewModel) }
         item(key = "trend") { TrendCard(state = state, viewModel = viewModel) }
@@ -247,22 +247,28 @@ private fun NetWorthCard(netWorth: String) {
 }
 
 /**
- * The Budget card (web issues #65, #100): the current Europe/Rome month's
- * frame — Spendable Today big, the frame line "€Y this month (€X per day)"
- * (Monthly Spendable · Daily Allowance), a red "€X over today's budget"
- * note when the bucket is negative (the big number then shows 0: future
- * accruals repay the debt), and the Remaining Monthly Spendable line below
- * it: "€X left this month", muted. When the Remaining Monthly Spendable
- * itself is negative the whole frame is blown, so the month's bottom line
- * replaces the bucket note: a red "€X over this month's budget", never two
- * over-notes at once (the pure rules live in [budgetCardText]). Everything
- * is rendered from GET /dashboard/budget raw; the client never computes the
+ * The Budget card (web issues #65, #66): the selected Europe/Rome month's
+ * frame — defaults to the current month, with its own month selector so
+ * the user can browse previous and future months' Budget frames.
+ * Spendable Today big, the frame line "€Y this month (€A income − €B costs)
+ * · €X per day" (Monthly Spendable, its recurring breakdown, Daily
+ * Allowance), a red "€X over today's budget" note when the bucket is
+ * negative (the big number then shows 0: future accruals repay the debt),
+ * and the Remaining Monthly Spendable line below it: "€X left this month",
+ * muted. When the Remaining Monthly Spendable itself is negative the whole
+ * frame is blown, so the month's bottom line replaces the bucket note: a
+ * red "€X over this month's budget", never two over-notes at once (the
+ * pure rules live in [budgetCardText]).). Everything is rendered from GET
+ * /dashboard/budget raw; the client never computes the
  * frame, and a failed load never looks like an empty Budget (its own error
  * state). [DashboardContent] hides the card when the account has no
  * Recurring definitions at all (web issue #66).
  */
 @Composable
-private fun BudgetCard(state: DashboardViewModel.UiState) {
+private fun BudgetCard(
+    state: DashboardViewModel.UiState,
+    viewModel: DashboardViewModel,
+) {
     DashboardCard {
         val budgetError = state.budgetError
         val budget = state.budget
@@ -319,6 +325,27 @@ private fun BudgetCard(state: DashboardViewModel.UiState) {
                     },
                     modifier = Modifier.padding(top = 4.dp),
                 )
+                // Month selector, like the Pie card's month picker but
+                // for the Budget frame (web parity).
+                var monthPickerOpen by remember { mutableStateOf(false) }
+                MonthField(
+                    label = "Month",
+                    month = state.budgetMonth,
+                    onClick = { monthPickerOpen = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+                if (monthPickerOpen) {
+                    MonthPickerDialog(
+                        initial = state.budgetMonth,
+                        onDismiss = { monthPickerOpen = false },
+                        onSelect = { month ->
+                            viewModel.onBudgetMonthChange(month)
+                            monthPickerOpen = false
+                        },
+                    )
+                }
             }
         }
     }

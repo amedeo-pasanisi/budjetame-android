@@ -220,11 +220,13 @@ class DashboardViewModelTest {
             .setHeader("Content-Type", "application/json")
             .setBody(body)
 
-    /** The fake of GET /dashboard/budget: the current month's frame, raw —
+    /** The fake of GET /dashboard/budget: the selected month's frame, raw —
      * spendable_today overridable so the negative case is observable. */
     private fun budgetFor() = BudgetDto(
         month = "2026-08",
         monthly_spendable = "500.00",
+        recurring_incomes_total = "2100.00",
+        recurring_costs_total = "850.00",
         daily_allowance = "16.60",
         spendable_today = budgetSpendableToday,
         remaining_monthly_spendable = "333.40",
@@ -549,15 +551,16 @@ class DashboardViewModelTest {
         val budget = requireNotNull(viewModel.uiState.value.budget)
         assertEquals("2026-08", budget.month)
         assertEquals("500.00", budget.monthly_spendable)
+        assertEquals("2100.00", budget.recurring_incomes_total)
+        assertEquals("850.00", budget.recurring_costs_total)
         assertEquals("16.60", budget.daily_allowance)
         assertEquals("49.80", budget.spendable_today)
         assertEquals("333.40", budget.remaining_monthly_spendable)
 
-        // The Budget is current-month-only by product decision: no month
-        // parameter ever goes out.
+        // The Budget now sends the month parameter (the selected budget month).
         val call = calls.first { it.path == "/api/dashboard/budget" }
         assertEquals("GET", call.method)
-        assertNull(call.month)
+        assertEquals("2026-08", call.month)
     }
 
     @Test

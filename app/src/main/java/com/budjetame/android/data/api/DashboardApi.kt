@@ -74,24 +74,31 @@ data class TrendDto(
 )
 
 /**
- * The Dashboard's Budget card frame (web issue #65): the current
- * Europe/Rome month — deliberately no month parameter, the Budget is
- * current-month-only by product decision. Everything is derived server-side
- * per ADR-0012 (`monthly_spendable` counts Recurring Occurrences due in the
- * month; `daily_allowance` divides it by the days of the month, floored to
- * the cent, floored at 0 when the month is negative; `spendable_today` is
- * the allowance accrued through today minus the Discretionary Expenses
- * dated in that span). `spendable_today` is sent raw and possibly negative:
- * the card renders it as 0 until future accruals repay it.
- * `remaining_monthly_spendable` is the Remaining Monthly Spendable
- * (CONTEXT.md, web issue #100): the Monthly Spendable minus the
- * Discretionary Expenses dated from the 1st through today — also sent raw
- * and possibly negative, and rendered as the card's month bottom line.
+ * The Dashboard's Budget card frame (web issues #65, #66): the requested
+ * Europe/Rome month's frame — defaults to the current month when
+ * `?month=YYYY-MM` is absent (backward-compatible). `monthly_spendable`
+ * is the Recurring Income Occurrences due in the month minus the
+ * Recurring Cost Occurrences due in it, counted by due date whether paid
+ * or not. `recurring_incomes_total` and `recurring_costs_total` are the
+ * component totals (their difference is `monthly_spendable`).
+ * `daily_allowance` divides `monthly_spendable` by the days of the
+ * month, floored to the cent, floored at 0 when the month is negative
+ * (ADR-0012); `spendable_today` is the allowance accrued from the 1st
+ * through today (or the last day of the month for past/future months)
+ * minus the Discretionary Expenses dated in that span — sent raw,
+ * possibly negative, the card renders it as 0 until future accruals
+ * repay it. `remaining_monthly_spendable` is the Remaining Monthly
+ * Spendable (CONTEXT.md, web issue #100): the Monthly Spendable minus
+ * the Discretionary Expenses dated from the 1st through today (or the
+ * month's last day for non-current months) — also sent raw and possibly
+ * negative.
  */
 @Serializable
 data class BudgetDto(
     val month: String,
     val monthly_spendable: String,
+    val recurring_incomes_total: String,
+    val recurring_costs_total: String,
     val daily_allowance: String,
     val spendable_today: String,
     val remaining_monthly_spendable: String,
@@ -124,8 +131,8 @@ interface DashboardApi {
         @Query("to_month") toMonth: String,
     ): TrendDto
 
-    /** The Budget card's frame (web issue #65): current-month-only — the
-     * client sends no month and never computes the frame. */
+    /** The Budget card's frame (web issues #65, #66): defaults to the
+     * current month; pass `?month=YYYY-MM` for a specific one. */
     @GET("dashboard/budget")
-    suspend fun budget(): BudgetDto
+    suspend fun budget(@Query("month") month: String? = null): BudgetDto
 }

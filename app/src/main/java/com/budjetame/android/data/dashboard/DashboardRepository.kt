@@ -16,8 +16,9 @@ interface DashboardGateway {
     /** One trend side over the inclusive month range ("YYYY-MM", from ≤ to). */
     suspend fun fetchTrend(kind: TrendKind, fromMonth: String, toMonth: String): TrendDto
 
-    /** The Budget card's frame for the current Europe/Rome month (no month parameter). */
-    suspend fun fetchBudget(): BudgetDto
+    /** The Budget card's frame for the given Europe/Rome month ("YYYY-MM"),
+     * or the current month when null. */
+    suspend fun fetchBudget(month: String? = null): BudgetDto
 }
 
 /** The API-backed DashboardGateway (web issues #17, #65, #29). */
@@ -42,8 +43,8 @@ class ApiDashboardRepository(private val api: DashboardApi) : DashboardGateway {
         throw error.toApiException()
     }
 
-    override suspend fun fetchBudget(): BudgetDto = try {
-        api.budget()
+    override suspend fun fetchBudget(month: String?): BudgetDto = try {
+        api.budget(month)
     } catch (error: HttpException) {
         throw error.toApiException()
     }

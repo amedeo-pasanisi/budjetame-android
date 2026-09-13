@@ -24,22 +24,29 @@ class BudgetDisplayTest {
         spendableToday: String = "49.80",
         remaining: String = "333.40",
         monthlySpendable: String = "500.00",
+        incomesTotal: String = "2100.00",
+        costsTotal: String = "850.00",
         dailyAllowance: String = "16.60",
     ) = BudgetDto(
         month = "2026-08",
         monthly_spendable = monthlySpendable,
+        recurring_incomes_total = incomesTotal,
+        recurring_costs_total = costsTotal,
         daily_allowance = dailyAllowance,
         spendable_today = spendableToday,
         remaining_monthly_spendable = remaining,
     )
 
     @Test
-    fun `the normal card shows the frame line and the amount left this month`() {
+    fun `the normal card shows the frame line with recurring breakdown and the amount left this month`() {
         val text = budgetCardText(budget())
 
         assertEquals("49.80", text.spendableToday)
         assertNull(text.bucketNote)
-        assertEquals("€500.00 this month (€16.60 per day)", text.frameLine)
+        assertEquals(
+            "€500.00 this month (€2100.00 income − €850.00 costs) · €16.60 per day",
+            text.frameLine,
+        )
         assertEquals("€333.40 left this month", text.remainingLine)
         assertFalse(text.remainingOver)
     }

@@ -62,6 +62,7 @@ class DashboardViewModel(
         val trendTo: YearMonth,
         val trend: LoadedTrend? = null,
         val trendError: String? = null,
+        val budgetMonth: YearMonth,
         val budget: BudgetDto? = null,
         val budgetError: String? = null,
         /** Whether the account has any Recurring definitions at all — the
@@ -114,6 +115,7 @@ class DashboardViewModel(
     private val _uiState = MutableStateFlow(
         UiState(
             requestedMonth = currentMonth(),
+            budgetMonth = currentMonth(),
             // The web app's default trend range: the current month minus
             // five months through the current month.
             trendFrom = currentMonth().minusMonths(5),
@@ -138,12 +140,20 @@ class DashboardViewModel(
     }
 
     /** The pie card's month picker (web parity): picking a month refetches
-     * the summary for it. Only the summary is month-driven: the Budget is
-     * current-month-only and the trend has its own range, so a month change
-     * refetches the summary alone (exactly like the web app's effects). */
+     * the summary for it. Only the summary is month-driven: the Budget has
+     * its own selector and the trend has its own range, so a month change
+     * refetches the summary alone. */
     fun onPieMonthChange(month: YearMonth) {
         _uiState.update { it.copy(requestedMonth = month) }
         viewModelScope.launch { reloadSummary() }
+    }
+
+    /** The Budget card's month picker: picking a month refetches the Budget
+     * frame for it. The Budget is no longer current-month-only: the endpoint
+     * accepts `?month=YYYY-MM` and the card navigates any month. */
+    fun onBudgetMonthChange(month: YearMonth) {
+        _uiState.update { it.copy(budgetMonth = month) }
+        viewModelScope.launch { reloadBudget() }
     }
 
     fun onPieSideChange(side: PieSide) {
@@ -223,17 +233,16 @@ class DashboardViewModel(
         }
     }
 
-    /**
-     * Fetch the Budget card's frame. The Budget is current-month-only (web
-     * issue #66): unlike the summary, the endpoint takes no month parameter
-     * and the card ignores the pie's month selector, so a month change never
-     * refetches it. A failed load must never look like an empty Budget, so
-     * the error is its own state.
-     */
+    /** Fetch the Budget card's frame for the currently selected month
+     * (`budgetMonth` in the state). The endpoint now accepts `?month=YYYY-MM`
+     * to return any month's frame; when null (default) it returns the
+     * current month. A failed load must never look like an empty Budget,
+     * so the error is its own state. */
     private suspend fun reloadBudget() {
+        val month = _uiState.value.budgetMonth
         _uiState.update { it.copy(budgetError = null) }
         try {
-            val loaded = dashboard.fetchBudget()
+            val loaded = dashboard.fetchBudget(month.toString())
             _uiState.update { it.copy(budget = loaded, budgetError = null) }
         } catch (_: Exception) {
             _uiState.update { it.copy(budgetError = "Could not load the budget.") }

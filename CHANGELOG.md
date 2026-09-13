@@ -17,6 +17,17 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Added
+
+- **Dashboard** — the Budget card now supports a **month selector** (just
+  like the Pie card's): tap the month field to pick any month, not just the
+  current one. For past/future months, Spendable Today and Remaining
+  Monthly Spendable are computed against the month's last day, so you see
+  the final state. The frame line also breaks the Monthly Spendable into
+  its components: "€500.00 this month (€2100.00 income − €850.00 costs) ·
+  €16.60 per day" — you can see at a glance what's coming in, what's going
+  out, and what's left of the frame.
+
 ## [v1.6.0] — 2026-09-05
 
 ### Changed
