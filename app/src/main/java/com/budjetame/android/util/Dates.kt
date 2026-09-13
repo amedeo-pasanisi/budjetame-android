@@ -28,34 +28,34 @@ object Dates {
     fun parseApiDay(value: String): LocalDate = LocalDate.parse(value)
 
     /**
-     * An API month string ("2026-08") as its long form ("August 2026"),
-     * rendered in the user's locale — the web app's `monthLabel`.
+     * An API month string ("2026-08") as its short English form
+     * ("Aug 2026") — always uses abbreviated English month names.
+     * i18n will come in the future, so English is the default.
      */
-    fun monthLabel(isoMonth: String): String = monthLabel(isoMonth, Locale.getDefault())
+    fun monthLabel(isoMonth: String): String = monthLabel(isoMonth, Locale.US)
 
     internal fun monthLabel(isoMonth: String, locale: Locale): String =
-        YearMonth.parse(isoMonth).format(DateTimeFormatter.ofPattern("MMMM yyyy", locale))
+        YearMonth.parse(isoMonth).format(DateTimeFormatter.ofPattern("MMM yyyy", locale))
 
     /**
      * An API month string ("2026-08") in the compact field form
-     * ("Aug 2026") — the trend card's From/To field values, rendered in
-     * the user's locale.
+     * ("Aug 2026") — always abbreviated English. i18n will come later.
      */
-    fun monthLabelCompact(isoMonth: String): String = monthLabelCompact(isoMonth, Locale.getDefault())
+    fun monthLabelCompact(isoMonth: String): String = monthLabelCompact(isoMonth, Locale.US)
 
     internal fun monthLabelCompact(isoMonth: String, locale: Locale): String =
         YearMonth.parse(isoMonth).format(DateTimeFormatter.ofPattern("MMM yyyy", locale))
 
     /**
      * "2026-08" → "Aug", a trend bar's label; a January bar also carries
-     * the year ("Jan ’26") so long ranges stay readable — the web app's
-     * `shortMonthLabel`, rendered in the user's locale.
+     * the year ("Jan '26") so long ranges stay readable — the web app's
+     * `shortMonthLabel`, always abbreviated English. i18n will come later.
      */
-    fun shortMonthLabel(isoMonth: String): String = shortMonthLabel(isoMonth, Locale.getDefault())
+    fun shortMonthLabel(isoMonth: String): String = shortMonthLabel(isoMonth, Locale.US)
 
     internal fun shortMonthLabel(isoMonth: String, locale: Locale): String {
         val month = YearMonth.parse(isoMonth)
         val short = month.format(DateTimeFormatter.ofPattern("MMM", locale))
-        return if (month.monthValue == 1) "$short ’${month.year.toString().takeLast(2)}" else short
+        return if (month.monthValue == 1) "$short '${month.year.toString().takeLast(2)}" else short
     }
 }

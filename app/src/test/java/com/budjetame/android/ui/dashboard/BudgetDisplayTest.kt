@@ -10,9 +10,10 @@ import org.junit.Test
 /**
  * The Budget card's pure text rules (web issues #65, #100), ported from
  * the web app's BudgetCard: the big number's floor, the frame line
- * "€Y this month (€X per day)" (Monthly Spendable, then Daily Allowance),
- * the bucket's transient "€X over today's budget" note, and the Remaining
- * Monthly Spendable bottom line — "€X left this month", or the month's red
+ * "€Y this month (€A income − €B costs)" (Monthly Spendable, its recurring
+ * breakdown), the daily allowance line "€X per day", the bucket's
+ * transient "€X over today's budget" note, and the Remaining Monthly
+ * Spendable bottom line — "€X left this month", or the month's red
  * "€X over this month's budget" when the whole frame is blown, including
  * the negative-supersede rule: never two over-notes at once. These are the
  * cheap spots where porting bugs hide (spec #13 testing decisions), so they
@@ -44,9 +45,10 @@ class BudgetDisplayTest {
         assertEquals("49.80", text.spendableToday)
         assertNull(text.bucketNote)
         assertEquals(
-            "€500.00 this month (€2100.00 income − €850.00 costs) · €16.60 per day",
+            "€500.00 this month (€2100.00 income − €850.00 costs)",
             text.frameLine,
         )
+        assertEquals("€16.60 per day", text.dailyLine)
         assertEquals("€333.40 left this month", text.remainingLine)
         assertFalse(text.remainingOver)
     }

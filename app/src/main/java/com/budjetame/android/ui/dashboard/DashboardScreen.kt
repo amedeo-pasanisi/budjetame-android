@@ -250,8 +250,8 @@ private fun NetWorthCard(netWorth: String) {
  * The Budget card (web issues #65, #66): the selected Europe/Rome month's
  * frame — defaults to the current month, with its own month selector so
  * the user can browse previous and future months' Budget frames.
- * Spendable Today big, the frame line "€Y this month (€A income − €B costs)
- * · €X per day" (Monthly Spendable, its recurring breakdown, Daily
+ * Spendable Today big, the frame line "€Y this month (€A income − €B costs)"
+ * (Monthly Spendable, its recurring breakdown), "€X per day" (Daily
  * Allowance), a red "€X over today's budget" note when the bucket is
  * negative (the big number then shows 0: future accruals repay the debt),
  * and the Remaining Monthly Spendable line below it: "€X left this month",
@@ -287,11 +287,30 @@ private fun BudgetCard(
 
             else -> {
                 val text = budgetCardText(budget)
+                // Month selector at the top of the card.
+                var monthPickerOpen by remember { mutableStateOf(false) }
+                MonthField(
+                    label = "Month",
+                    month = state.budgetMonth,
+                    onClick = { monthPickerOpen = true },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (monthPickerOpen) {
+                    MonthPickerDialog(
+                        initial = state.budgetMonth,
+                        onDismiss = { monthPickerOpen = false },
+                        onSelect = { month ->
+                            viewModel.onBudgetMonthChange(month)
+                            monthPickerOpen = false
+                        },
+                    )
+                }
                 Text(
                     text = "SPENDABLE TODAY",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp),
                 )
                 Text(
                     text = Money.formatEuros(text.spendableToday),
@@ -305,6 +324,11 @@ private fun BudgetCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    text = text.dailyLine,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 val bucketNote = text.bucketNote
                 if (bucketNote != null) {
@@ -325,27 +349,6 @@ private fun BudgetCard(
                     },
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                // Month selector, like the Pie card's month picker but
-                // for the Budget frame (web parity).
-                var monthPickerOpen by remember { mutableStateOf(false) }
-                MonthField(
-                    label = "Month",
-                    month = state.budgetMonth,
-                    onClick = { monthPickerOpen = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                )
-                if (monthPickerOpen) {
-                    MonthPickerDialog(
-                        initial = state.budgetMonth,
-                        onDismiss = { monthPickerOpen = false },
-                        onSelect = { month ->
-                            viewModel.onBudgetMonthChange(month)
-                            monthPickerOpen = false
-                        },
-                    )
-                }
             }
         }
     }
@@ -787,7 +790,7 @@ private fun MonthPickerDialog(
                             ) {
                                 Text(
                                     text = Month.of(monthValue)
-                                        .getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                                        .getDisplayName(TextStyle.SHORT, Locale.US),
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier
