@@ -201,16 +201,7 @@ class TransactionsViewModel(
          * coordinates-only pick (free-map tap, GPS) or a Remove. It always
          * accompanies coordinates — never the reverse. */
         val place: Place? = null,
-        /** Set once the user changed the location themselves (a pick, GPS,
-         * or Remove): a pending GPS prefill can never overwrite an explicit
-         * choice. */
-        val locationTouched: Boolean = false,
-        /** Set once the user removes the location from a new Transaction:
-         * the first-save prompt must not silently re-attach a position the
-         * user opted out of. Seeded from the session flag so the opt-out
-         * survives the modal being closed and reopened; a fresh ViewModel
-         * (a new app session) clears it and the prefill returns. */
-        val locationOptedOut: Boolean = false,
+
         /** True while the "Use my location" lookup runs, so the button can
          * disable and read "Locating…" instead of failing silently. */
         val locating: Boolean = false,
@@ -292,7 +283,6 @@ class TransactionsViewModel(
      * tab switches in the ViewModel, so unlike the web's sessionStorage no
      * storage is needed for the form's own lifetime; the flag covers the
      * next form the user opens. */
-    private var sessionLocationOptedOut = false
 
     /** The in-flight location-permission prompt (ticket #29): one request at
      * a time — the screen launches the system dialog while the modal's
@@ -524,17 +514,12 @@ class TransactionsViewModel(
                     walletId = spendable.firstOrNull()?.id,
                     sourceWalletId = active.firstOrNull()?.id,
                     destinationWalletId = active.getOrNull(1)?.id ?: active.firstOrNull()?.id,
-                    // A location removed from an earlier create form opts the
-                    // session out of the GPS prefill (web issue #25): the
-                    // first-save prompt must not re-attach a position the
-                    // user rejected.
-                    locationOptedOut = sessionLocationOptedOut,
+
                 ),
             )
         }
         refreshRecurringCosts()
         refreshRecurringIncomes()
-        maybeGpsPrefill()
     }
 
     fun openEdit(transaction: TransactionDto) {
@@ -662,7 +647,6 @@ class TransactionsViewModel(
             it.copy(
                 location = picked,
                 place = pickedPlace,
-                locationTouched = true,
                 showingPicker = false,
                 gpsError = null,
             )
@@ -683,14 +667,10 @@ class TransactionsViewModel(
      * user opted out of.
      */
     fun onRemoveLocation() {
-        val editing = _uiState.value.modal?.isEditing == true
-        if (!editing) sessionLocationOptedOut = true
         updateModal {
             it.copy(
                 location = null,
                 place = null,
-                locationOptedOut = true,
-                locationTouched = true,
                 showingPicker = false,
                 gpsError = null,
             )
@@ -724,7 +704,6 @@ class TransactionsViewModel(
                         // GPS is coordinates-only: any stored Place is stale
                         // the moment the coordinates move (ADR-0005).
                         place = null,
-                        locationTouched = true,
                         showingPicker = false,
                         gpsError = null,
                     )
@@ -772,23 +751,6 @@ class TransactionsViewModel(
      * the first save. A user-chosen or user-removed location is never
      * overwritten by a pending prefill.
      */
-    private fun maybeGpsPrefill() {
-        if (sessionLocationOptedOut) return
-        viewModelScope.launch {
-            if (!location.permissionGranted()) return@launch
-            val position = location.currentPosition() ?: return@launch
-            _uiState.update { state ->
-                val modal = state.modal
-                if (modal == null || modal.isEditing || modal.locationTouched ||
-                    modal.locationOptedOut || modal.location != null
-                ) {
-                    state
-                } else {
-                    state.copy(modal = modal.copy(location = position))
-                }
-            }
-        }
-    }
 
     // --- Inline entity creation (ADR-0013, ticket #21) ---
 
