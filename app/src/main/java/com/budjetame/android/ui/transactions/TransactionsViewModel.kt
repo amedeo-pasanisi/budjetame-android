@@ -1081,21 +1081,7 @@ class TransactionsViewModel(
     private fun create() {
         viewModelScope.launch {
             updateModal { it.copy(submitting = true, error = null) }
-            // First-save permission (web parity): when creating without a
-            // location, ask for the location permission — the platform
-            // prompts once — and attach the position when granted. A
-            // location the user removed (locationOptedOut) is never
-            // overridden, and a denial saves without a location.
-            var modal = _uiState.value.modal ?: return@launch
-            if (modal.location == null && !modal.locationOptedOut) {
-                if (ensureLocationPermission()) {
-                    val position = location.currentPosition()
-                    if (position != null) {
-                        updateModal { it.copy(location = position) }
-                    }
-                }
-                modal = _uiState.value.modal ?: return@launch
-            }
+            val modal = _uiState.value.modal ?: return@launch
             try {
                 val saved = transactions.createTransaction(draftOf(modal, _uiState.value.wallets))
                 _uiState.update { state ->

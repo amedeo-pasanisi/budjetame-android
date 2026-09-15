@@ -19,7 +19,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Added
 
-- **Dashboard** — the Budget card now supports a **month selector** (just
+- **Dashboard** — the Budget card now supports a **month selector**
+
+### Fixed
+
+- **Location permission no longer requested on save** — the device-location
+  permission prompt was appearing when saving a new Transaction without a
+  location; it now only triggers when the user taps "Use my location". (just
   like the Pie card's): tap the month field to pick any month, not just the
   current one. For past/future months, Spendable Today and Remaining
   Monthly Spendable are computed against the month's last day, so you see
