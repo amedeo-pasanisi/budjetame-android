@@ -6,6 +6,25 @@ same product, with the same data and the same behavior as the web app
 (ported from the web repo — keep the two in sync); architectural decisions in
 [`docs/adr/`](docs/adr/).
 
+## Documentation
+
+All documentation lives at the repo root or under `docs/`. Read them in this
+order to understand the project:
+
+| File / Directory | What it contains |
+|---|---|
+| [`CONTEXT.md`](CONTEXT.md) | Domain glossary — every term and business rule, in precise language |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records, numbered `0001-` upwards. Read in order. |
+| [`README.md`](README.md) (this file) | Project overview, stack, build, testing, project layout |
+| [`CHANGELOG.md`](CHANGELOG.md) | User-facing change history from the first release onward |
+| [`docs/agents/`](docs/agents/) | Agent workflow policies (issue tracker, triage labels, changelog policy, domain docs conventions) |
+| [`AGENTS.md`](AGENTS.md) | Agent skills index — links into `docs/agents/` |
+| [`art/README.md`](art/README.md) | Play Store listing icon specification |
+| [`docs/build-and-release.md`](docs/build-and-release.md) | Build and release process — signing, versioning, release ritual |
+
+The directories above are conventions — new files added under `docs/adr/` or
+`docs/agents/` are automatically discoverable by their naming pattern.
+
 ## Architecture
 
 - **Client of the shared backend** (ADR-0001): online-only, no local cache —
