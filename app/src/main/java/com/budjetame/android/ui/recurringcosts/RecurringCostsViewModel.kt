@@ -101,7 +101,11 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         val loadError: String? = null,
         val costs: List<RecurringCostDto> = emptyList(),
         val modal: RecurringCostModalState? = null,
-    )
+        val frozenExpanded: Boolean = false,
+    ) {
+        val activeCosts: List<RecurringCostDto> get() = costs.filter { !it.frozen }
+        val frozenCosts: List<RecurringCostDto> get() = costs.filter { it.frozen }
+    }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -142,6 +146,10 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         _uiState.update { it.copy(modal = null) }
     }
 
+    fun toggleFrozenExpanded() {
+        _uiState.update { it.copy(frozenExpanded = !it.frozenExpanded) }
+    }
+
     fun onNameChange(value: String) =
         updateModal { it.copy(name = value.take(NAME_MAX_LENGTH), error = null) }
 
@@ -164,7 +172,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
     fun onFreezeTap() {
         val modal = _uiState.value.modal ?: return
         val cost = modal.cost ?: return
-        if (modal.busy || modal.cost?.frozen == true) return
+        if (modal.busy || cost.frozen) return
         if (!modal.confirmingFreeze) {
             updateModal { it.copy(confirmingFreeze = true, error = null) }
             return

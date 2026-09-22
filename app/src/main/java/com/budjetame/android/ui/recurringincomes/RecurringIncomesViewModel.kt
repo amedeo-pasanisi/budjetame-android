@@ -106,7 +106,11 @@ class RecurringIncomesViewModel(
         val loadError: String? = null,
         val incomes: List<RecurringIncomeDto> = emptyList(),
         val modal: RecurringIncomeModalState? = null,
-    )
+        val frozenExpanded: Boolean = false,
+    ) {
+        val activeIncomes: List<RecurringIncomeDto> get() = incomes.filter { !it.frozen }
+        val frozenIncomes: List<RecurringIncomeDto> get() = incomes.filter { it.frozen }
+    }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -147,6 +151,10 @@ class RecurringIncomesViewModel(
         _uiState.update { it.copy(modal = null) }
     }
 
+    fun toggleFrozenExpanded() {
+        _uiState.update { it.copy(frozenExpanded = !it.frozenExpanded) }
+    }
+
     fun onNameChange(value: String) =
         updateModal { it.copy(name = value.take(NAME_MAX_LENGTH), error = null) }
 
@@ -169,7 +177,7 @@ class RecurringIncomesViewModel(
     fun onFreezeTap() {
         val modal = _uiState.value.modal ?: return
         val income = modal.income ?: return
-        if (modal.busy || modal.income?.frozen == true) return
+        if (modal.busy || income.frozen) return
         if (!modal.confirmingFreeze) {
             updateModal { it.copy(confirmingFreeze = true, error = null) }
             return

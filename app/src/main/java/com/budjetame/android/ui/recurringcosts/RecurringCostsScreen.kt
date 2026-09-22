@@ -2,6 +2,9 @@ package com.budjetame.android.ui.recurringcosts
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +39,7 @@ import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.theme.Slate500
+import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.util.Money
 
 // The web app's Tailwind red palette, ported for the Backlog badge
@@ -151,12 +157,22 @@ private fun RecurringCostsList(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        items(state.costs, key = { it.id }) { cost ->
+        items(state.activeCosts, key = { it.id }) { cost ->
             RecurringCostRow(
                 cost = cost,
                 onLedgerJump = { onLedgerJump(LedgerJump.RecurringCost(cost.id)) },
                 onEdit = { viewModel.openEdit(cost) },
             )
+        }
+        if (state.frozenCosts.isNotEmpty()) {
+            item(key = "frozen") {
+                FrozenSection(
+                    frozenCosts = state.frozenCosts,
+                    expanded = state.frozenExpanded,
+                    onToggle = viewModel::toggleFrozenExpanded,
+                    onEdit = { viewModel.openEdit(it) },
+                )
+            }
         }
     }
 }
@@ -240,6 +256,49 @@ private fun RecurringCostRow(
                 }
             }
             RowEditButton(name = cost.name, onEdit = onEdit)
+        }
+    }
+}
+
+/** Collapsed Frozen Recurring Costs section (ADR-0028). */
+@Composable
+private fun FrozenSection(
+    frozenCosts: List<RecurringCostDto>,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onEdit: (RecurringCostDto) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .background(
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(16.dp),
+                )
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Frozen recurring costs (${frozenCosts.size})",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = Slate600,
+                textAlign = TextAlign.Center,
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column {
+                frozenCosts.forEach { cost ->
+                    RecurringCostRow(
+                        cost = cost,
+                        onLedgerJump = { },
+                        onEdit = { onEdit(cost) },
+                    )
+                }
+            }
         }
     }
 }

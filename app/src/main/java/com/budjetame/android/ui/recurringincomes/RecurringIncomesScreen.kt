@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.recurringincomes
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,6 +37,8 @@ import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.recurringcosts.intervalText
 import com.budjetame.android.ui.theme.Slate500
+import com.budjetame.android.ui.theme.Slate600
+import androidx.compose.ui.text.style.TextAlign
 import com.budjetame.android.util.Money
 
 // The web app's Tailwind red palette, ported for the Backlog badge
@@ -244,6 +248,45 @@ private fun RecurringIncomeRow(
                 }
             }
             RowEditButton(name = income.name, onEdit = onEdit)
+        }
+    }
+}
+
+/** Collapsed Frozen Recurring Incomes section (ADR-0028). */
+@Composable
+private fun FrozenSection(
+    frozenIncomes: List<RecurringIncomeDto>,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onEdit: (RecurringIncomeDto) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Frozen recurring incomes (${frozenIncomes.size})",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = Slate600,
+                textAlign = TextAlign.Center,
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column {
+                frozenIncomes.forEach { income ->
+                    RecurringIncomeRow(
+                        income = income,
+                        onLedgerJump = { },
+                        onEdit = { onEdit(income) },
+                    )
+                }
+            }
         }
     }
 }
