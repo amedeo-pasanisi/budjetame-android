@@ -207,6 +207,7 @@ fun ImportScreen(
             onOpeningBalanceChange = viewModel::onRowWalletCreateOpeningBalanceChange,
             onSubmit = viewModel::submitRowWalletCreate,
             onFreeze = {}, // Create-only: the freeze section never renders.
+            onUnfreeze = {}, // Create-only: neither the freeze nor unfreeze section renders.
             onClose = viewModel::cancelRowWalletCreate,
         )
     }

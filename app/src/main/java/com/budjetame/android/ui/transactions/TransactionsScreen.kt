@@ -407,6 +407,7 @@ fun TransactionsScreen(
             onOpeningBalanceChange = viewModel::onWalletCreateOpeningBalanceChange,
             onSubmit = viewModel::submitWalletCreate,
             onFreeze = {}, // Create-only: the freeze section never renders.
+            onUnfreeze = {}, // Create-only: neither the freeze nor unfreeze section renders.
             onClose = viewModel::cancelWalletCreate,
         )
     }

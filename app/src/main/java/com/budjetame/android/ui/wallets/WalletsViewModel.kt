@@ -101,6 +101,28 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
         _uiState.update { it.copy(modal = null) }
     }
 
+    fun unfreezeFromModal() {
+        val wallet = _uiState.value.modal?.wallet ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(unfreezeError = null) }
+            try {
+                val unfrozen = wallets.unfreezeWallet(wallet.id)
+                _uiState.update { state ->
+                    state.copy(
+                        wallets = state.wallets.map { existing ->
+                            if (existing.id == unfrozen.id) unfrozen else existing
+                        },
+                        modal = null,
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update { state ->
+                    state.copy(unfreezeError = "Could not unfreeze the wallet.")
+                }
+            }
+        }
+    }
+
     fun onNameChange(value: String) = updateModal { it.copy(name = value, error = null) }
 
     fun onTypeChange(value: WalletType) = updateModal {

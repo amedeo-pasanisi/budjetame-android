@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,6 +55,7 @@ fun WalletModal(
     onOpeningBalanceChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onFreeze: () -> Unit,
+    onUnfreeze: () -> Unit,
     onClose: () -> Unit,
 ) {
     val wallet = modal.wallet
@@ -140,7 +142,11 @@ fun WalletModal(
                 }
 
                 if (wallet != null) {
-                    FreezeSection(modal = modal, wallet = wallet, onFreeze = onFreeze)
+                    if (wallet.frozen) {
+                        UnfreezeSection(modal = modal, onUnfreeze = onUnfreeze)
+                    } else {
+                        FreezeSection(modal = modal, wallet = wallet, onFreeze = onFreeze)
+                    }
                 }
             }
         },
@@ -206,6 +212,48 @@ private fun WalletTypeField(
 }
 
 @Composable
+private fun UnfreezeSection(
+    modal: WalletModalState,
+    onUnfreeze: () -> Unit,
+) {
+    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+    Text(
+        text = "Unfreeze wallet",
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Medium,
+    )
+    Text(
+        text = "Restore this wallet: it will accept transactions again and reappear in its type section.",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+    modal.freezeError?.let { error ->
+        Text(
+            text = error,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+    Button(
+        onClick = onUnfreeze,
+        enabled = !modal.freezing && !modal.submitting,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = INDIGO_50,
+            contentColor = INDIGO_600,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+    shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+        Text(
+            if (modal.freezing) "Unfreezing…" else "Unfreeze wallet",
+        )
+    }
+}
+
+@Composable
 private fun FreezeSection(
     modal: WalletModalState,
     wallet: WalletDto,
@@ -256,3 +304,6 @@ private fun FreezeSection(
         )
     }
 }
+
+private val INDIGO_50 = Color(0xFFEEF2FF)
+private val INDIGO_600 = Color(0xFF4F46E5)

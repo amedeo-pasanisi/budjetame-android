@@ -93,6 +93,7 @@ fun WalletsScreen(
             onOpeningBalanceChange = viewModel::onOpeningBalanceChange,
             onSubmit = viewModel::submit,
             onFreeze = viewModel::onFreezeTap,
+            onUnfreeze = viewModel::unfreezeFromModal,
             onClose = viewModel::closeModal,
         )
     }
@@ -199,15 +200,6 @@ private fun FrozenSection(
                     balance = wallet.balance,
                     onOpenLedger = { onOpenLedger(LedgerJump.Wallet(wallet.id)) },
                     actions = {
-                        TextButton(
-                            onClick = { onUnfreeze(wallet) },
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                        ) {
-                            // The web's Unfreeze: text-xs font-medium in
-                            // indigo — 12 sp Medium, not the M3 14 sp
-                            // label (ticket #44).
-                            Text("Unfreeze", style = MaterialTheme.typography.labelMedium)
-                        }
                         RowEditButton(name = wallet.name, onEdit = { onEdit(wallet) })
                     },
                 )
