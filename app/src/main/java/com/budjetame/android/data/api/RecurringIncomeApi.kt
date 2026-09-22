@@ -7,6 +7,7 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Query
 import retrofit2.http.Path
 
 /**
@@ -95,7 +96,7 @@ data class RecurringIncomeUpdateRequest(
 interface RecurringIncomeApi {
 
     @GET("recurring-incomes")
-    suspend fun list(): List<RecurringIncomeDto>
+    suspend fun list(@Query("include_frozen") includeFrozen: Boolean = false): List<RecurringIncomeDto>
 
     /** 201 with the created Recurring Income; 409 duplicate name; 422 on a
      * start date that is not a Europe/Rome calendar day. */

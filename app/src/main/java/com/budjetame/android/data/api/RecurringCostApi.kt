@@ -8,6 +8,7 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Query
 import retrofit2.http.Path
 
 /**
@@ -147,7 +148,7 @@ data class RecurringCostUpdateRequest(
 interface RecurringCostApi {
 
     @GET("recurring-costs")
-    suspend fun list(): List<RecurringCostDto>
+    suspend fun list(@Query("include_frozen") includeFrozen: Boolean = false): List<RecurringCostDto>
 
     /** 201 with the created Recurring Cost; 409 duplicate name; 422 on a
      * start date that is not a Europe/Rome calendar day. */

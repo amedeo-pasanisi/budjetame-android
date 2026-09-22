@@ -414,7 +414,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
      */
     private suspend fun reload() {
         try {
-            val loaded = sortByNextDue(recurringCosts.fetchRecurringCosts())
+            val loaded = sortByNextDue(recurringCosts.fetchRecurringCosts(includeFrozen = true))
             _uiState.update {
                 it.copy(costs = loaded, loadError = null, loading = false)
             }

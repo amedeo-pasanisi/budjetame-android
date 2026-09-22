@@ -421,7 +421,7 @@ class RecurringIncomesViewModel(
      */
     private suspend fun reload() {
         try {
-            val loaded = sortByNextDue(recurringIncomes.fetchRecurringIncomes())
+            val loaded = sortByNextDue(recurringIncomes.fetchRecurringIncomes(includeFrozen = true))
             _uiState.update {
                 it.copy(incomes = loaded, loadError = null, loading = false)
             }

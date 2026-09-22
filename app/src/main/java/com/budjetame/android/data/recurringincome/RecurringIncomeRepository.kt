@@ -28,7 +28,7 @@ data class RecurringIncomeDraft(
 
 /** The recurring-income operations screens call (UI-independent). */
 interface RecurringIncomeGateway {
-    suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto>
+    suspend fun fetchRecurringIncomes(includeFrozen: Boolean = false): List<RecurringIncomeDto>
     suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto
     suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto
     suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto
@@ -49,8 +49,8 @@ interface RecurringIncomeGateway {
  * ApiRecurringCostRepository (ADR-0011). */
 class ApiRecurringIncomeRepository(private val api: RecurringIncomeApi) : RecurringIncomeGateway {
 
-    override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> =
-        call { api.list() }
+    override suspend fun fetchRecurringIncomes(includeFrozen: Boolean): List<RecurringIncomeDto> =
+        call { api.list(includeFrozen) }
 
     override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
         call {

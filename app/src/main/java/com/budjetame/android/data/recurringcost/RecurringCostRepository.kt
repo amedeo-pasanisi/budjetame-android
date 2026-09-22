@@ -28,7 +28,7 @@ data class RecurringCostDraft(
 
 /** The recurring-cost operations screens call (UI-independent). */
 interface RecurringCostGateway {
-    suspend fun fetchRecurringCosts(): List<RecurringCostDto>
+    suspend fun fetchRecurringCosts(includeFrozen: Boolean = false): List<RecurringCostDto>
     suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto
     suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto
     suspend fun freezeRecurringCost(id: Int): RecurringCostDto
@@ -47,8 +47,8 @@ interface RecurringCostGateway {
 /** The API-backed RecurringCostGateway (web issue #56). */
 class ApiRecurringCostRepository(private val api: RecurringCostApi) : RecurringCostGateway {
 
-    override suspend fun fetchRecurringCosts(): List<RecurringCostDto> =
-        call { api.list() }
+    override suspend fun fetchRecurringCosts(includeFrozen: Boolean): List<RecurringCostDto> =
+        call { api.list(includeFrozen) }
 
     override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto =
         call {
