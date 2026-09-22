@@ -30,7 +30,7 @@ enum class IntervalUnit {
  * layer free to share pure logic).
  */
 interface RecurringDefinition {
-    val next_due_date: String
+    val next_due_date: String?
     val name: String
 }
 
@@ -80,7 +80,9 @@ data class RecurringOccurrenceUpdateRequest(
  * `start_date` is the stored start date — every definition always carries
  * one (ADR-0024): left empty at creation it is set to the creation day,
  * and an Occurrence's due date is its own date, so the optional due-date
- * override is gone.
+ * override is gone. `frozen` marks whether the definition was frozen
+ * (ADR-0028). When frozen, `next_due_date` and
+ * `next_unpaid_occurrence_date` are null.
  */
 @Serializable
 data class RecurringCostDto(
@@ -90,9 +92,10 @@ data class RecurringCostDto(
     val interval_value: Int,
     val interval_unit: IntervalUnit,
     val start_date: String,
-    override val next_due_date: String,
-    val next_unpaid_occurrence_date: String,
+    override val next_due_date: String?,
+    val next_unpaid_occurrence_date: String?,
     val backlog_count: Int = 0,
+    val frozen: Boolean = false,
     val created_at: String,
 ) : RecurringDefinition
 
@@ -156,11 +159,19 @@ interface RecurringCostApi {
     @PATCH("recurring-costs/{id}")
     suspend fun update(@Path("id") id: Int, @Body body: RecurringCostUpdateRequest): RecurringCostDto
 
-    /** 204: the definition is gone, its links severed, its skips dropped. */
-    @DELETE("recurring-costs/{id}")
-    suspend fun delete(@Path("id") id: Int)
+    /** Freeze a Recurring Cost (ADR-0028): clean up unpaid/skipped
+     * Occurrences, stop generating new ones. All links to Transactions
+     * survive intact. Returns the frozen definition. */
+    @POST("recurring-costs/{id}/freeze")
+    suspend fun freeze(@Path("id") id: Int): RecurringCostDto
 
-    /** The Occurrences section's read (web ADR-0026): every non-Paid
+    /** Unfreeze a frozen Recurring Cost (ADR-0028): restore editability and
+     * resume Occurrence generation on the natural cycle. 409 if the name
+     * collides with an active definition. */
+    @POST("recurring-costs/{id}/unfreeze")
+    suspend fun unfreeze(@Path("id") id: Int): RecurringCostDto
+
+    /** The Occu section's read (web ADR-0026): every non-Paid
      * Occurrence with its skipped state — newest first, the one order the
      * edit modal renders: the next incoming Unpaid row on top, then every
      * excused future row, then the past rows (today first) down to the

@@ -112,7 +112,8 @@ fun RecurringIncomesScreen(
             onStartDateChange = viewModel::onStartDateChange,
             onToggleOccurrence = viewModel::toggleOccurrence,
             onSubmit = viewModel::submit,
-            onDelete = viewModel::onDeleteTap,
+            onFreeze = viewModel::onFreezeTap,
+            onUnfreeze = viewModel::onUnfreezeTap,
             onClose = viewModel::closeModal,
         )
     }
@@ -216,7 +217,7 @@ private fun RecurringIncomeRow(
                     )
                     Text(
                         text = "${intervalText(income.interval_value, income.interval_unit)} · " +
-                            "next due ${income.next_due_date}",
+                            "next due ${income.next_due_date ?: "—"}",
                         // The web subtitle type: text-xs text-slate-500 (ticket #44).
                         fontSize = 12.sp,
                         color = Slate500,

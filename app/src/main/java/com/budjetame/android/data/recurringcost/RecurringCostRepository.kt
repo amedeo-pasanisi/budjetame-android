@@ -31,7 +31,8 @@ interface RecurringCostGateway {
     suspend fun fetchRecurringCosts(): List<RecurringCostDto>
     suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto
     suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto
-    suspend fun deleteRecurringCost(id: Int)
+    suspend fun freezeRecurringCost(id: Int): RecurringCostDto
+    suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto
 
     /** The Occurrences section's read (web ADR-0026): every non-Paid
      * Occurrence with its skipped state, newest first — the one order the
@@ -82,9 +83,11 @@ class ApiRecurringCostRepository(private val api: RecurringCostApi) : RecurringC
             )
         }
 
-    override suspend fun deleteRecurringCost(id: Int) {
-        call { api.delete(id) }
-    }
+    override suspend fun freezeRecurringCost(id: Int): RecurringCostDto =
+        call { api.freeze(id) }
+
+    override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto =
+        call { api.unfreeze(id) }
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
         call { api.occurrences(id) }

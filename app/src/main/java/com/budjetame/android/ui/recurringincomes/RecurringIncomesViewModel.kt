@@ -38,8 +38,8 @@ data class RecurringIncomeModalState(
     val startDate: String = "",
     val error: String? = null,
     val submitting: Boolean = false,
-    val confirmingDelete: Boolean = false,
-    val deleting: Boolean = false,
+    val confirmingFreeze: Boolean = false,
+    val freezing: Boolean = false,
     /** The Occurrences section's rows (web ADR-0026): their own read, null
      * while the read is still in flight. Edit mode only — a definition
      * under creation has no id yet, so a create never fetches. The rows
@@ -58,7 +58,7 @@ data class RecurringIncomeModalState(
 ) {
     val editing: Boolean get() = income != null
 
-    val busy: Boolean get() = submitting || deleting
+    val busy: Boolean get() = submitting || freezing
 
     /** The web form's save gate (ADR-0024): a non-blank name, an amount
      * over €0, a whole interval of at least 1, and — the start date is
@@ -166,42 +166,82 @@ class RecurringIncomesViewModel(
         if (modal.editing) update(modal) else create(modal)
     }
 
-    fun onDeleteTap() {
+    fun onFreezeTap() {
         val modal = _uiState.value.modal ?: return
         val income = modal.income ?: return
-        if (modal.busy) return
-        if (!modal.confirmingDelete) {
-            updateModal { it.copy(confirmingDelete = true, error = null) }
+        if (modal.busy || modal.income?.frozen == true) return
+        if (!modal.confirmingFreeze) {
+            updateModal { it.copy(confirmingFreeze = true, error = null) }
             return
         }
         viewModelScope.launch {
-            updateModal { it.copy(deleting = true, error = null) }
+            updateModal { it.copy(freezing = true, error = null) }
             try {
-                recurringIncomes.deleteRecurringIncome(income.id)
+                val frozen = recurringIncomes.freezeRecurringIncome(income.id)
                 _uiState.update { state ->
                     state.copy(
-                        incomes = state.incomes.filterNot { it.id == income.id },
+                        incomes = sortByNextDue(
+                            state.incomes.map { if (it.id == frozen.id) frozen else it },
+                        ),
                         modal = null,
                     )
                 }
             } catch (error: ApiException) {
                 updateModal {
                     it.copy(
-                        confirmingDelete = false,
-                        deleting = false,
+                        confirmingFreeze = false,
+                        freezing = false,
                         error = apiErrorMessage(
                             error.status,
                             CONFLICT_MESSAGE,
-                            "Could not delete the recurring income.",
+                            "Could not freeze the recurring income.",
                         ),
                     )
                 }
             } catch (_: Exception) {
                 updateModal {
                     it.copy(
-                        confirmingDelete = false,
-                        deleting = false,
-                        error = "Could not delete the recurring income.",
+                        confirmingFreeze = false,
+                        freezing = false,
+                        error = "Could not freeze the recurring income.",
+                    )
+                }
+            }
+        }
+    }
+
+    fun onUnfreezeTap() {
+        val modal = _uiState.value.modal ?: return
+        val income = modal.income ?: return
+        if (modal.busy || modal.income?.frozen != true) return
+        viewModelScope.launch {
+            updateModal { it.copy(freezing = true, error = null) }
+            try {
+                val unfrozen = recurringIncomes.unfreezeRecurringIncome(income.id)
+                _uiState.update { state ->
+                    state.copy(
+                        incomes = sortByNextDue(
+                            state.incomes.map { if (it.id == unfrozen.id) unfrozen else it },
+                        ),
+                        modal = null,
+                    )
+                }
+            } catch (error: ApiException) {
+                updateModal {
+                    it.copy(
+                        freezing = false,
+                        error = apiErrorMessage(
+                            error.status,
+                            CONFLICT_MESSAGE,
+                            "Could not unfreeze the recurring income.",
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateModal {
+                    it.copy(
+                        freezing = false,
+                        error = "Could not unfreeze the recurring income.",
                     )
                 }
             }

@@ -31,7 +31,8 @@ interface RecurringIncomeGateway {
     suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto>
     suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto
     suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto
-    suspend fun deleteRecurringIncome(id: Int)
+    suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto
+    suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto
 
     /** The Occurrences section's read (web ADR-0026), the mirror of the
      * Costs side: every non-Paid Occurrence with its skipped state,
@@ -84,9 +85,11 @@ class ApiRecurringIncomeRepository(private val api: RecurringIncomeApi) : Recurr
             )
         }
 
-    override suspend fun deleteRecurringIncome(id: Int) {
-        call { api.delete(id) }
-    }
+    override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto =
+        call { api.freeze(id) }
+
+    override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto =
+        call { api.unfreeze(id) }
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
         call { api.occurrences(id) }

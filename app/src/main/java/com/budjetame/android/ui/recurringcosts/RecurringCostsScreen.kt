@@ -108,7 +108,8 @@ fun RecurringCostsScreen(
             onStartDateChange = viewModel::onStartDateChange,
             onToggleOccurrence = viewModel::toggleOccurrence,
             onSubmit = viewModel::submit,
-            onDelete = viewModel::onDeleteTap,
+            onFreeze = viewModel::onFreezeTap,
+            onUnfreeze = viewModel::onUnfreezeTap,
             onClose = viewModel::closeModal,
         )
     }
@@ -212,7 +213,7 @@ private fun RecurringCostRow(
                     )
                     Text(
                         text = "${intervalText(cost.interval_value, cost.interval_unit)} · " +
-                            "next due ${cost.next_due_date}",
+                            "next due ${cost.next_due_date ?: "—"}",
                         // The web subtitle type: text-xs text-slate-500 (ticket #44).
                         fontSize = 12.sp,
                         color = Slate500,

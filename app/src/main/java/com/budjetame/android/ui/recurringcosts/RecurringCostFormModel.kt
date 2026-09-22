@@ -65,5 +65,5 @@ fun parseIntervalValue(raw: String): Int? = raw.trim().toIntOrNull()
  */
 fun <T : RecurringDefinition> sortByNextDue(definitions: List<T>): List<T> =
     definitions.sortedWith(
-        compareBy<RecurringDefinition> { it.next_due_date }.thenBy { it.name.lowercase() },
+        compareBy<RecurringDefinition> { it.next_due_date ?: "" }.thenBy { it.name.lowercase() },
     )

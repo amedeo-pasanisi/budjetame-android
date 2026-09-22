@@ -54,9 +54,6 @@ import com.budjetame.android.util.Dates
 import java.time.Instant
 
 // The web app's Tailwind palette, ported for the delete confirmation.
-private val RED_200 = Color(0xFFFECACA)
-private val RED_600 = Color(0xFFDC2626)
-
 /**
  * The create/edit/delete Recurring Income form inside an AlertDialog (web
  * issue #60), mirroring the Recurring Cost form (ADR-0011). Create and edit
@@ -88,7 +85,8 @@ fun RecurringIncomesModal(
     onStartDateChange: (String) -> Unit,
     onToggleOccurrence: (RecurringOccurrenceDto) -> Unit,
     onSubmit: () -> Unit,
-    onDelete: () -> Unit,
+    onFreeze: () -> Unit,
+    onUnfreeze: () -> Unit,
     onClose: () -> Unit,
 ) {
     val editing = modal.editing
@@ -186,7 +184,11 @@ fun RecurringIncomesModal(
                 }
 
                 if (editing) {
-                    DeleteSection(modal = modal, onDelete = onDelete)
+                    if (modal.income?.frozen == true) {
+                        UnfreezeSection(modal = modal, onUnfreeze = onUnfreeze)
+                    } else {
+                        FreezeSection(modal = modal, onFreeze = onFreeze)
+                    }
                 }
             }
         },
@@ -339,43 +341,83 @@ private fun StartDateField(
 }
 
 @Composable
-private fun DeleteSection(
+private fun FreezeSection(
     modal: RecurringIncomeModalState,
-    onDelete: () -> Unit,
+    onFreeze: () -> Unit,
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Delete recurring income",
+        text = "Freeze recurring income",
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "Its linked incomes stay — as ordinary incomes.",
+        text = "Its linked incomes stay linked. Freezing stops all new occurrences.",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
     )
     Button(
-        onClick = onDelete,
+        onClick = onFreeze,
         enabled = !modal.busy,
-        colors = if (modal.confirmingDelete) {
+        colors = if (modal.confirmingFreeze) {
             ButtonDefaults.buttonColors(containerColor = RED_600, contentColor = Color.White)
         } else {
             ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = RED_600)
         },
-        border = if (modal.confirmingDelete) null else BorderStroke(1.dp, RED_200),
+        border = if (modal.confirmingFreeze) null else BorderStroke(1.dp, RED_200),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
             when {
-                modal.deleting -> "Deleting…"
-                modal.confirmingDelete -> "Tap again to confirm"
-                else -> "Delete recurring income"
+                modal.freezing -> "Freezing…"
+                modal.confirmingFreeze -> "Tap again to confirm freeze"
+                else -> "Freeze recurring income"
             },
         )
     }
 }
+
+@Composable
+private fun UnfreezeSection(
+    modal: RecurringIncomeModalState,
+    onUnfreeze: () -> Unit,
+) {
+    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+    Text(
+        text = "Unfreeze recurring income",
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Medium,
+    )
+    Text(
+        text = "Restore this definition: new occurrences will resume.",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+    Button(
+        onClick = onUnfreeze,
+        enabled = !modal.busy,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = INDIGO_600,
+        ),
+        border = BorderStroke(1.dp, INDIGO_200),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+    shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+        Text(
+            if (modal.freezing) "Unfreezing…" else "Unfreeze recurring income",
+        )
+    }
+}
+
+private val RED_200 = Color(0xFFFECACA)
+private val RED_600 = Color(0xFFDC2626)
+private val INDIGO_200 = Color(0xFFC7D2FE)
+private val INDIGO_600 = Color(0xFF4F46E5)
 
 private const val MILLIS_PER_DAY = 86_400_000L

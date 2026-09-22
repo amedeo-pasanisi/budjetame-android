@@ -40,9 +40,10 @@ data class RecurringIncomeDto(
     val interval_value: Int,
     val interval_unit: IntervalUnit,
     val start_date: String,
-    override val next_due_date: String,
-    val next_unpaid_occurrence_date: String,
+    override val next_due_date: String?,
+    val next_unpaid_occurrence_date: String?,
     val backlog_count: Int = 0,
+    val frozen: Boolean = false,
     val created_at: String,
 ) : RecurringDefinition
 
@@ -106,11 +107,19 @@ interface RecurringIncomeApi {
     @PATCH("recurring-incomes/{id}")
     suspend fun update(@Path("id") id: Int, @Body body: RecurringIncomeUpdateRequest): RecurringIncomeDto
 
-    /** 204: the definition is gone, its links severed, its skips dropped. */
-    @DELETE("recurring-incomes/{id}")
-    suspend fun delete(@Path("id") id: Int)
+    /** Freeze a Recurring Income (ADR-0028): clean up unpaid/skipped
+     * Occurrences, stop generating new ones. All links to Transactions
+     * survive intact. Returns the frozen definition. */
+    @POST("recurring-incomes/{id}/freeze")
+    suspend fun freeze(@Path("id") id: Int): RecurringIncomeDto
 
-    /** The Occurrences section's read (web ADR-0026), the mirror of the
+    /** Unfreeze a frozen Recurring Income (ADR-0028): restore editability
+     * and resume Occurrence generation on the natural cycle. 409 if the
+     * name collides with an active definition. */
+    @POST("recurring-incomes/{id}/unfreeze")
+    suspend fun unfreeze(@Path("id") id: Int): RecurringIncomeDto
+
+    /** The Occu section's read (web ADR-0026), the mirror of the
      * Costs side: every non-Paid Occurrence with its skipped state —
      * newest first, the one order the edit modal renders. The response is
      * the section's whole state; the order is server-computed and
