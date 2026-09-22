@@ -35,6 +35,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.ui.common.FreezeSection
+import com.budjetame.android.ui.common.UnfreezeSection
 import com.budjetame.android.util.Money
 
 /**
@@ -152,9 +154,23 @@ fun WalletModal(
 
                 if (wallet != null) {
                     if (wallet.frozen) {
-                        UnfreezeSection(modal = modal, onUnfreeze = onUnfreeze)
+                        UnfreezeSection(
+                            isFreezing = modal.freezing,
+                            onUnfreeze = onUnfreeze,
+                            heading = "Unfreeze wallet",
+                            description = "Restore this wallet: it will accept transactions again and reappear in its type section.",
+                        )
                     } else {
-                        FreezeSection(modal = modal, wallet = wallet, onFreeze = onFreeze)
+                        FreezeSection(
+                            canFreeze = modal.canFreeze,
+                            isFreezing = modal.freezing,
+                            confirmingFreeze = modal.confirmingFreeze,
+                            freezeError = modal.freezeError,
+                            onFreeze = onFreeze,
+                            disabledLabel = if (!modal.canFreeze) "Freeze requires €0.00 balance (currently ${Money.formatEuros(wallet.balance)})" else null,
+                            heading = "Freeze wallet",
+                            description = "Hides the wallet and makes it read-only. Only possible at €0.00 balance; its transactions stay visible.",
+                        )
                     }
                 }
             }
@@ -224,103 +240,3 @@ private fun WalletTypeField(
         }
     }
 }
-
-@Composable
-private fun UnfreezeSection(
-    modal: WalletModalState,
-    onUnfreeze: () -> Unit,
-) {
-    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-    Text(
-        text = "Unfreeze wallet",
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.Medium,
-    )
-    Text(
-        text = "Restore this wallet: it will accept transactions again and reappear in its type section.",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
-    )
-    modal.freezeError?.let { error ->
-        Text(
-            text = error,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
-    Button(
-        onClick = onUnfreeze,
-        enabled = !modal.freezing && !modal.submitting,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = INDIGO_50,
-            contentColor = INDIGO_600,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp),
-    shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-        Text(
-            if (modal.freezing) "Unfreezing…" else "Unfreeze wallet",
-        )
-    }
-}
-
-@Composable
-private fun FreezeSection(
-    modal: WalletModalState,
-    wallet: WalletDto,
-    onFreeze: () -> Unit,
-) {
-    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-    Text(
-        text = "Freeze wallet",
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.Medium,
-    )
-    Text(
-        text = "Hides the wallet and makes it read-only. Only possible at €0.00 balance; its transactions stay visible.",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
-    )
-    modal.freezeError?.let { error ->
-        Text(
-            text = error,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
-    Button(
-        onClick = onFreeze,
-        enabled = modal.canFreeze && !modal.freezing && !modal.submitting,
-        colors = if (modal.confirmingFreeze) {
-            ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError,
-            )
-        } else {
-            ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-        },
-        border = if (modal.confirmingFreeze) null else BorderStroke(1.dp, RED_200),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp),
-    shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-        Text(
-            when {
-                modal.freezing -> "Freezing…"
-                !modal.canFreeze -> "Freeze requires €0.00 balance (currently ${Money.formatEuros(wallet.balance)})"
-                modal.confirmingFreeze -> "Tap again to confirm freeze"
-                else -> "Freeze wallet"
-            },
-        )
-    }
-}
-
-private val RED_200 = Color(0xFFFECACA)
-private val RED_600 = Color(0xFFDC2626)
-private val INDIGO_50 = Color(0xFFEEF2FF)
-private val INDIGO_600 = Color(0xFF4F46E5)

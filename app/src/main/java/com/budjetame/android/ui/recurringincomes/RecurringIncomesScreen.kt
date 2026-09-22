@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.ui.common.FrozenSectionToggle
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.MessageBody
@@ -260,23 +261,18 @@ private fun FrozenSection(
     onToggle: () -> Unit,
     onEdit: (RecurringIncomeDto) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(top = 12.dp)) {
-        OutlinedButton(
-            onClick = onToggle,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        ) {
-            Text("Frozen recurring incomes (${frozenIncomes.size})")
-        }
-        if (expanded) {
-            frozenIncomes.forEach { income ->
-                RecurringIncomeRow(
-                    income = income,
-                    onLedgerJump = { },
-                    onEdit = { onEdit(income) },
-                )
-            }
+    FrozenSectionToggle(
+        label = "Frozen recurring incomes",
+        count = frozenIncomes.size,
+        expanded = expanded,
+        onToggle = onToggle,
+    ) {
+        frozenIncomes.forEach { income ->
+            RecurringIncomeRow(
+                income = income,
+                onLedgerJump = { },
+                onEdit = { onEdit(income) },
+            )
         }
     }
 }
