@@ -46,6 +46,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringOccurrenceDto
+import com.budjetame.android.ui.common.FreezeSection
+import com.budjetame.android.ui.common.UnfreezeSection
 import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.util.Dates
 import java.time.Instant
@@ -203,9 +205,22 @@ fun RecurringCostsModal(
 
                 if (editing) {
                     if (modal.cost?.frozen == true) {
-                        UnfreezeSection(modal = modal, onUnfreeze = onUnfreeze)
+                        UnfreezeSection(
+                            isFreezing = modal.freezing,
+                            onUnfreeze = onUnfreeze,
+                            heading = "Unfreeze recurring cost",
+                            description = "Restore this definition: new occurrences will resume.",
+                        )
                     } else {
-                        FreezeSection(modal = modal, onFreeze = onFreeze)
+                        FreezeSection(
+                            canFreeze = true,
+                            isFreezing = modal.freezing,
+                            confirmingFreeze = modal.confirmingFreeze,
+                            freezeError = null,
+                            onFreeze = onFreeze,
+                            heading = "Freeze recurring cost",
+                            description = "Its linked expenses stay linked. Freezing stops all new occurrences.",
+                        )
                     }
                 }
             }
@@ -358,5 +373,4 @@ private fun StartDateField(
     }
 }
 
-@Composable
 private const val MILLIS_PER_DAY = 86_400_000L
