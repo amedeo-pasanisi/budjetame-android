@@ -228,10 +228,11 @@ class TransactionsViewModel(
         /** Mandatory fields gate Save: a strictly positive amount and the
          * Wallet(s) the type needs — a Transfer also needs two distinct
          * Wallets. The date defaults to today in Europe/Rome and cannot be
-         * cleared, so it is always set. */
+         * cleared, so it is always set. Save is also blocked while the GPS
+         * lookup is in flight (locating), mirroring the web form. */
         val canSubmit: Boolean
             get() {
-                if (busy || parseAmount(amount) == null) return false
+                if (busy || locating || parseAmount(amount) == null) return false
                 return if (isTransfer) {
                     sourceWalletId != null &&
                         destinationWalletId != null &&
