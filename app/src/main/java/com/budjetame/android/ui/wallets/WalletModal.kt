@@ -78,17 +78,25 @@ fun WalletModal(
                     )
                 }
 
-                OutlinedTextField(
-                    value = modal.name,
-                    onValueChange = onNameChange,
-                    label = { Text("Name") },
-                    placeholder = { Text("e.g. Intesa checking") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp)
-                        .testTag("wallet-name"),
-                )
+                if (wallet?.frozen == true) {
+                    Text(
+                        text = modal.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = modal.name,
+                        onValueChange = onNameChange,
+                        label = { Text("Name") },
+                        placeholder = { Text("e.g. Intesa checking") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .testTag("wallet-name"),
+                    )
+                }
 
                 if (!editing) {
                     WalletTypeField(
@@ -150,15 +158,20 @@ fun WalletModal(
                 }
             }
         },
-        confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text(
-                    when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Create wallet"
-                    },
-                )
+        // Frozen wallets: no Save button, only Unfreeze + Cancel (ADR-0028).
+        confirmButton = if (wallet?.frozen == true) {
+            {}
+        } else {
+            {
+                Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+                    Text(
+                        when {
+                            modal.submitting -> "Saving…"
+                            editing -> "Save"
+                            else -> "Create wallet"
+                        },
+                    )
+                }
             }
         },
         dismissButton = {

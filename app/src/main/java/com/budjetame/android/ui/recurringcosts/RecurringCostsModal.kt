@@ -96,72 +96,94 @@ fun RecurringCostsModal(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             ) {
-                OutlinedTextField(
-                    value = modal.name,
-                    onValueChange = onNameChange,
-                    label = { Text("Name") },
-                    placeholder = { Text("e.g. Rent") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("rc-name"),
-                )
-
-                OutlinedTextField(
-                    value = modal.amount,
-                    onValueChange = onAmountChange,
-                    label = { Text("Amount (€)") },
-                    placeholder = { Text("0.00") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp)
-                        .testTag("rc-amount"),
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(top = 12.dp),
-                ) {
+                if (modal.cost?.frozen == true) {
+                    Text(
+                        text = modal.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                    Text(
+                        text = "Amount: €${modal.amount}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Text(
+                        text = "Repeats every ${intervalText(
+                            parseIntervalValue(modal.intervalValue) ?: 0,
+                            modal.intervalUnit,
+                        )}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Text(
+                        text = "Start date: ${modal.startDate}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                } else {
                     OutlinedTextField(
-                        value = modal.intervalValue,
-                        onValueChange = onIntervalValueChange,
-                        label = { Text("Repeats every") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        value = modal.name,
+                        onValueChange = onNameChange,
+                        label = { Text("Name") },
+                        placeholder = { Text("e.g. Rent") },
                         singleLine = true,
                         modifier = Modifier
-                            .weight(1f)
-                            .testTag("rc-interval"),
+                            .fillMaxWidth()
+                            .testTag("rc-name"),
                     )
-                    IntervalUnitField(
-                        intervalValue = modal.intervalValue,
-                        unit = modal.intervalUnit,
-                        onSelect = onIntervalUnitChange,
-                        modifier = Modifier.weight(1.2f),
-                    )
-                }
 
-                StartDateField(
-                    value = modal.startDate,
-                    onSelect = onStartDateChange,
-                    // While editing the definition always carries a start
-                    // date (ADR-0024): it can be changed, never cleared.
-                    clearable = !editing,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                )
-                if (!editing) {
-                    Text(
-                        text = "The first occurrence. Leave empty to start today.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
+                    OutlinedTextField(
+                        value = modal.amount,
+                        onValueChange = onAmountChange,
+                        label = { Text("Amount (€)") },
+                        placeholder = { Text("0.00") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .testTag("rc-amount"),
                     )
-                }
 
-                if (editing) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(top = 12.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = modal.intervalValue,
+                            onValueChange = onIntervalValueChange,
+                            label = { Text("Repeats every") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("rc-interval"),
+                        )
+                        IntervalUnitField(
+                            intervalValue = modal.intervalValue,
+                            unit = modal.intervalUnit,
+                            onSelect = onIntervalUnitChange,
+                            modifier = Modifier.weight(1.2f),
+                        )
+                    }
+
+                    StartDateField(
+                        value = modal.startDate,
+                        onSelect = onStartDateChange,
+                        clearable = !editing,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                    )
+                    if (!editing) {
+                        Text(
+                            text = "The first occurrence. Leave empty to start today.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+
                     OccurrencesSection(
                         occurrences = modal.occurrences,
                         error = modal.occurrencesError,
