@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -303,6 +304,7 @@ private fun FreezeSection(
         } else {
             ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         },
+        border = if (modal.confirmingFreeze) null else BorderStroke(1.dp, RED_200),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
@@ -318,5 +320,7 @@ private fun FreezeSection(
     }
 }
 
+private val RED_200 = Color(0xFFFECACA)
+private val RED_600 = Color(0xFFDC2626)
 private val INDIGO_50 = Color(0xFFEEF2FF)
 private val INDIGO_600 = Color(0xFF4F46E5)

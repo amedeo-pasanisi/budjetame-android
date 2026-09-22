@@ -1,6 +1,5 @@
 package com.budjetame.android.ui.recurringincomes
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -13,9 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -260,32 +260,22 @@ private fun FrozenSection(
     onToggle: () -> Unit,
     onEdit: (RecurringIncomeDto) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onToggle)
-                .padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center,
+    Column(modifier = Modifier.padding(top = 12.dp)) {
+        OutlinedButton(
+            onClick = onToggle,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         ) {
-            Text(
-                text = "Frozen recurring incomes (${frozenIncomes.size})",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = Slate600,
-                textAlign = TextAlign.Center,
-            )
+            Text("Frozen recurring incomes (${frozenIncomes.size})")
         }
-        AnimatedVisibility(visible = expanded) {
-            Column {
-                frozenIncomes.forEach { income ->
-                    RecurringIncomeRow(
-                        income = income,
-                        onLedgerJump = { },
-                        onEdit = { onEdit(income) },
-                    )
-                }
+        if (expanded) {
+            frozenIncomes.forEach { income ->
+                RecurringIncomeRow(
+                    income = income,
+                    onLedgerJump = { },
+                    onEdit = { onEdit(income) },
+                )
             }
         }
     }
