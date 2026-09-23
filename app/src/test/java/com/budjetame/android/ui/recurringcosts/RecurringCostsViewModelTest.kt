@@ -42,7 +42,7 @@ private const val CREATION_DAY = "2026-08-01"
  * ViewModel is driven through the real repository, Retrofit, OkHttp, and a
  * MockWebServer whose dispatcher is a small stateful fake of the
  * /recurring-costs resource — the list with the derived dates, the
- * create/PATCH/delete writes with the backend's duplicate-name rule (names
+ * create/PATCH/freeze writes with the backend's duplicate-name rule (names
  * unique per Account, case-insensitively) and the web's exact 409 message,
  * and the Occurrences read with its per-Occurrence skip write (web
  * ADR-0026): the read answers the section's rows from a per-definition
@@ -67,7 +67,7 @@ class RecurringCostsViewModelTest {
     private var listStatus = 200
     private var createStatus = 201
     private var updateStatus = 200
-    private var deleteStatus = 204
+    private var freezeStatus = 200
 
     /** A raw list body served verbatim (when non-null): lets a test send a
      * definition JSON that the fixtures cannot produce — e.g. one still
@@ -101,7 +101,7 @@ class RecurringCostsViewModelTest {
         listStatus = 200
         createStatus = 201
         updateStatus = 200
-        deleteStatus = 204
+        freezeStatus = 200
         rawListBody = null
         occurrenceStore.clear()
         occurrencesStatus = 200
@@ -200,10 +200,38 @@ class RecurringCostsViewModelTest {
                 }
             }
 
-            method == "DELETE" && path.matches(Regex("/api/recurring-costs/\\d+")) -> {
-                val id = path.removePrefix("/api/recurring-costs/").toInt()
-                store.removeAll { it.id == id }
-                MockResponse().setResponseCode(deleteStatus)
+            method == "POST" && path.matches(Regex("/api/recurring-costs/\\d+/freeze")) -> {
+                val id = path.removePrefix("/api/recurring-costs/").removeSuffix("/freeze").toInt()
+                val index = store.indexOfFirst { it.id == id }
+                when {
+                    freezeStatus != 200 -> jsonResponse(freezeStatus, """{"detail":"boom"}""")
+                    index < 0 -> MockResponse().setResponseCode(404)
+                    else -> {
+                        // The backend's freeze (ADR-0028): the definition
+                        // becomes read-only and its derived state is gone.
+                        val frozen = store[index].copy(
+                            frozen = true,
+                            next_due_date = null,
+                            next_unpaid_occurrence_date = null,
+                        )
+                        store[index] = frozen
+                        jsonResponse(200, json.encodeToString(frozen))
+                    }
+                }
+            }
+
+            method == "POST" && path.matches(Regex("/api/recurring-costs/\\d+/unfreeze")) -> {
+                val id = path.removePrefix("/api/recurring-costs/").removeSuffix("/unfreeze").toInt()
+                val index = store.indexOfFirst { it.id == id }
+                when {
+                    freezeStatus != 200 -> jsonResponse(freezeStatus, """{"detail":"boom"}""")
+                    index < 0 -> MockResponse().setResponseCode(404)
+                    else -> {
+                        val unfrozen = store[index].copy(frozen = false)
+                        store[index] = unfrozen
+                        jsonResponse(200, json.encodeToString(unfrozen))
+                    }
+                }
             }
 
             method == "GET" &&
@@ -271,6 +299,7 @@ class RecurringCostsViewModelTest {
         nextDue: String = "2026-09-05",
         nextUnpaid: String = "2026-09-05",
         backlog: Int = 0,
+        frozen: Boolean = false,
     ) = RecurringCostDto(
         id = id,
         name = name,
@@ -281,6 +310,7 @@ class RecurringCostsViewModelTest {
         next_due_date = nextDue,
         next_unpaid_occurrence_date = nextUnpaid,
         backlog_count = backlog,
+        frozen = frozen,
         created_at = "2026-08-01T10:00:00Z",
     )
 
@@ -609,39 +639,73 @@ class RecurringCostsViewModelTest {
         assertEquals("Netflix", viewModel.uiState.value.costs.first { it.id == 2 }.name)
     }
 
-    // --- Delete ---
+    // --- Freeze / unfreeze (ADR-0028) ---
 
     @Test
-    fun `delete is tap-again confirmed and removes the row`() = runBlocking {
+    fun `freeze is tap-again confirmed and moves the definition into the frozen state`() = runBlocking {
         seed(costDto(1, "Rent"), costDto(2, "Netflix"))
         createViewModel()
         awaitLoaded()
 
         viewModel.openEdit(viewModel.uiState.value.costs.first { it.id == 1 })
-        viewModel.onDeleteTap()
-        assertTrue(viewModel.uiState.value.modal!!.confirmingDelete)
-        viewModel.onDeleteTap()
-        awaitState { it.modal == null && it.costs.none { c -> c.id == 1 } }
+        assertFalse(viewModel.uiState.value.modal!!.confirmingFreeze)
+        viewModel.onFreezeTap()
+        assertTrue(viewModel.uiState.value.modal!!.confirmingFreeze)
+        viewModel.onFreezeTap()
+        awaitState { it.modal == null }
 
-        assertTrue(calls.toList().any { it.method == "DELETE" && it.path == "/api/recurring-costs/1" })
-        assertEquals(listOf(2), viewModel.uiState.value.costs.map { it.id })
+        val call = calls.toList().first { it.path == "/api/recurring-costs/1/freeze" }
+        assertEquals("POST", call.method)
+        val frozen = viewModel.uiState.value.costs.first { it.id == 1 }
+        assertTrue(frozen.frozen)
+        // A frozen definition's derived state is gone (ADR-0028).
+        assertNull(frozen.next_due_date)
+        assertNull(frozen.next_unpaid_occurrence_date)
+        // Both definitions stay listed.
+        assertEquals(listOf(1, 2), viewModel.uiState.value.costs.map { it.id })
     }
 
     @Test
-    fun `a failed delete keeps the modal with the error`() = runBlocking {
+    fun `a failed freeze keeps the modal with the error`() = runBlocking {
         seed(costDto(1, "Rent"))
         createViewModel()
         awaitLoaded()
 
-        deleteStatus = 500
+        freezeStatus = 500
         viewModel.openEdit(viewModel.uiState.value.costs.first { it.id == 1 })
-        viewModel.onDeleteTap()
-        viewModel.onDeleteTap()
+        viewModel.onFreezeTap()
+        viewModel.onFreezeTap()
         awaitState { it.modal?.error != null }
 
-        assertEquals("Could not delete the recurring cost.", viewModel.uiState.value.modal?.error)
+        assertEquals("Could not freeze the recurring cost.", viewModel.uiState.value.modal?.error)
         assertEquals(1, viewModel.uiState.value.costs.size)
-        assertEquals(listOf(1), viewModel.uiState.value.costs.map { it.id })
+        assertFalse(viewModel.uiState.value.costs.first { it.id == 1 }.frozen)
+    }
+
+    @Test
+    fun `a frozen definition cannot be frozen again and unfreezes with one tap`() = runBlocking {
+        val frozen = costDto(1, "Rent", nextDue = "", nextUnpaid = "").copy(
+            frozen = true,
+            next_due_date = null,
+            next_unpaid_occurrence_date = null,
+        )
+        seed(frozen)
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.costs.first { it.id == 1 })
+        // The modal's freeze control is gone for a frozen definition: the
+        // freeze press is a no-op.
+        viewModel.onFreezeTap()
+        assertFalse(viewModel.uiState.value.modal!!.confirmingFreeze)
+        assertFalse(calls.toList().any { it.path.endsWith("/freeze") })
+
+        // Unfreeze restores editability in one tap (no confirm).
+        viewModel.onUnfreezeTap()
+        awaitState { it.modal == null }
+
+        assertTrue(calls.toList().any { it.method == "POST" && it.path == "/api/recurring-costs/1/unfreeze" })
+        assertFalse(viewModel.uiState.value.costs.first { it.id == 1 }.frozen)
     }
 
     // --- Load error + retry ---

@@ -321,7 +321,14 @@ class DashboardViewModelTest {
         withTimeout(5_000) { viewModel.uiState.first(predicate) }
     }
 
-    private fun months(): List<String> = calls.toList().mapNotNull { it.month }
+    /** The months the summary endpoint was asked for — the pie card's month
+     * picker's observable. The Budget card's own selector also sends a
+     * `month` query param now, so the summary requests are filtered by path
+     * (a budget call is not a pie-month change). */
+    private fun months(): List<String> =
+        calls.toList()
+            .filter { it.path == "/api/dashboard/summary" }
+            .mapNotNull { it.month }
 
     // --- The summary response mapping (the ticket's seam-test criterion) ---
 

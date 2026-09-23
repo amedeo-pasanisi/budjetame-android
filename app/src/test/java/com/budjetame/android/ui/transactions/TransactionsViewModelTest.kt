@@ -3067,15 +3067,20 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun `the gps prefill attaches the current position to a fresh create form`() = runBlocking {
+    fun `the gps prefill is gone - a fresh create form never prefills the location`() = runBlocking {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
         location.granted = true
         location.position = LatLng(41.9028, 12.4964)
         createViewModel()
         awaitLoaded()
 
+        // The GPS prefill was removed (web issue #25 parity): a fresh form
+        // opens with no location — a location lands only through the
+        // explicit Use-my-location / map / Remove actions, and the device
+        // is never read without one.
         viewModel.openCreate()
-        awaitState { it.modal?.location == LatLng(41.9028, 12.4964) }
+        assertNull(viewModel.uiState.value.modal?.location)
+        assertEquals(0, location.fetchCount)
     }
 
     @Test
@@ -3149,82 +3154,29 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun `the first save asks permission once and a denial saves without a location`() = runBlocking {
+    fun `a save without a location never asks for permission and saves locationless`() = runBlocking {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
         location.granted = false
         createViewModel()
         awaitLoaded()
 
+        // The save-time permission prompt was removed: saving a transaction
+        // with no location never raises the platform prompt and never reads
+        // the device — the permission dialog only ever follows an explicit
+        // Use-my-location tap.
         viewModel.openCreate()
         viewModel.onAmountChange("5.00")
         viewModel.submit()
-        awaitState { it.modal?.requestingLocationPermission == true }
-        // The modal is busy while the prompt is up: no second save can fire.
-        assertTrue(viewModel.uiState.value.modal?.submitting == true)
-        viewModel.onLocationPermissionResult(false)
         awaitState { it.modal == null }
 
-        // A denial saves without a location — exactly the web's browser
-        // prompt answered "no".
+        // The save went through without ever raising the permission flag,
+        // and the device position was never read.
+        assertEquals(0, location.fetchCount)
         val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
         assertNull(create.latitude)
         assertNull(create.longitude)
-        assertEquals(0, location.fetchCount)
     }
 
-    @Test
-    fun `the first save attaches the position when the prompt is granted`() = runBlocking {
-        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
-        location.granted = false
-        location.position = LatLng(41.9028, 12.4964)
-        createViewModel()
-        awaitLoaded()
-
-        viewModel.openCreate()
-        viewModel.onAmountChange("5.00")
-        viewModel.submit()
-        awaitState { it.modal?.requestingLocationPermission == true }
-        viewModel.onLocationPermissionResult(true)
-        awaitState { it.modal == null }
-
-        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
-        assertEquals("41.9028", create.latitude)
-        assertEquals("12.4964", create.longitude)
-    }
-
-    @Test
-    fun `a removed location opts the session out of the prefill and the first-save prompt`() = runBlocking {
-        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
-        location.granted = true
-        location.position = LatLng(41.9028, 12.4964)
-        createViewModel()
-        awaitLoaded()
-
-        // The prefill lands, the user removes it: the save must not
-        // re-attach a position the user opted out of.
-        viewModel.openCreate()
-        awaitState { it.modal?.location == LatLng(41.9028, 12.4964) }
-        viewModel.onRemoveLocation()
-        assertEquals(1, location.fetchCount)
-        viewModel.onAmountChange("5.00")
-        viewModel.submit()
-        awaitState { it.modal == null }
-        var create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
-        assertNull(create.latitude)
-        // The opt-out outlives the form: the next create form opens with no
-        // prefill and its save never prompts either.
-        assertEquals(1, location.fetchCount)
-        viewModel.openCreate()
-        assertNull(viewModel.uiState.value.modal?.location)
-        viewModel.onAmountChange("5.00")
-        viewModel.submit()
-        awaitState { it.modal == null }
-        create = json.decodeFromString<TransactionCreateRequest>(
-            calls.toList().last { it.method == "POST" && it.path == "/api/transactions" }.body,
-        )
-        assertNull(create.latitude)
-        assertEquals(1, location.fetchCount)
-    }
 
     @Test
     fun `an edit never prefills and never asks on save`() = runBlocking {
@@ -3246,7 +3198,7 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun `removing a location on an edit does not opt the session out`() = runBlocking {
+    fun `removing a location on an edit only clears this row - the next form opens locationless`() = runBlocking {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
         location.granted = true
         location.position = LatLng(41.9028, 12.4964)
@@ -3262,10 +3214,11 @@ class TransactionsViewModelTest {
         viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
         viewModel.onRemoveLocation()
         viewModel.closeModal()
-        // A fresh create form still prefills: the edit's removal was a
-        // one-off decision, not a session opt-out (web issue #25).
+        // With the prefill gone there is no session state to opt out of: a
+        // fresh form opens locationless, and the device is never read.
         viewModel.openCreate()
-        awaitState { it.modal?.location == LatLng(41.9028, 12.4964) }
+        assertNull(viewModel.uiState.value.modal?.location)
+        assertEquals(0, location.fetchCount)
     }
 
     @Test
@@ -3312,9 +3265,9 @@ class TransactionsViewModelTest {
 
         override suspend fun fetchCategories(): List<CategoryDto> = emptyList()
 
-        override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = emptyList()
+        override suspend fun fetchRecurringCosts(includeFrozen: Boolean): List<RecurringCostDto> = emptyList()
 
-        override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> = emptyList()
+        override suspend fun fetchRecurringIncomes(includeFrozen: Boolean): List<RecurringIncomeDto> = emptyList()
 
         override suspend fun createWallet(name: String, type: WalletType, openingBalance: String): WalletDto =
             error("unused in the debounce test")
@@ -3343,7 +3296,11 @@ class TransactionsViewModelTest {
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused in the debounce test")
 
-        override suspend fun deleteRecurringCost(id: Int) = error("unused in the debounce test")
+        override suspend fun freezeRecurringCost(id: Int): RecurringCostDto =
+            error("unused in the debounce test")
+
+        override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto =
+            error("unused in the debounce test")
 
         override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused in the debounce test")
@@ -3351,7 +3308,11 @@ class TransactionsViewModelTest {
         override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused in the debounce test")
 
-        override suspend fun deleteRecurringIncome(id: Int) = error("unused in the debounce test")
+        override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto =
+            error("unused in the debounce test")
+
+        override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto =
+            error("unused in the debounce test")
 
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
             error("unused in the debounce test")
