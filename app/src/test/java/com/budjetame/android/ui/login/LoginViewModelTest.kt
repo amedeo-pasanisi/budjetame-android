@@ -7,6 +7,7 @@ import com.budjetame.android.data.Session
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.AuthApi
 import com.budjetame.android.data.auth.ApiAuthRepository
+import com.budjetame.android.data.auth.AuthGateway
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -34,6 +35,7 @@ class LoginViewModelTest {
 
     private lateinit var server: MockWebServer
     private lateinit var storage: InMemoryTokenStorage
+    private lateinit var repository: AuthGateway
     private lateinit var viewModel: LoginViewModel
 
     @Before
@@ -41,8 +43,16 @@ class LoginViewModelTest {
         server = MockWebServer()
         server.start()
         storage = InMemoryTokenStorage()
+        // A non-blocking fallback dispatcher BEFORE the ViewModel exists:
+        // the config fetch its init fires can land on an empty default
+        // queue and hang forever if no dispatcher is installed yet — the
+        // per-test serve() then replaces this dispatcher.
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse().setResponseCode(404)
+        }
         val client = ApiClient(server.url("/api/").toString()) { null }
-        val repository = ApiAuthRepository(client.create(AuthApi::class.java), Session(storage))
+        repository = ApiAuthRepository(client.create(AuthApi::class.java), Session(storage))
         viewModel = LoginViewModel(repository)
     }
 
@@ -144,6 +154,9 @@ class LoginViewModelTest {
     @Test
     fun `a non-empty google client id enables the button`() = runBlocking {
         serve(mapOf("/api/auth/config" to json("""{"google_client_id":"apps.example.com"}""")))
+        // A fresh ViewModel after seeding: its init config fetch reads the
+        // seeded response instead of racing the setUp dispatcher.
+        viewModel = LoginViewModel(repository)
         withTimeout(5_000) {
             viewModel.uiState.first { it.googleClientId != null }
         }
@@ -153,6 +166,7 @@ class LoginViewModelTest {
     @Test
     fun `an empty google client id keeps the button hidden`() = runBlocking {
         serve(mapOf("/api/auth/config" to emptyConfig))
+        viewModel = LoginViewModel(repository)
         withTimeout(5_000) {
             viewModel.uiState.first { it.googleClientId != null }
         }
