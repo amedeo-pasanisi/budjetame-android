@@ -239,10 +239,12 @@ private class TrendFixtureGateway(private val amounts: List<String>) :
         return TrendDto(from_month = fromMonth, to_month = toMonth, months = months)
     }
 
-    override suspend fun fetchBudget(): BudgetDto =
+    override suspend fun fetchBudget(month: String?): BudgetDto =
         BudgetDto(
             month = Dates.currentMonthInRome().toString(),
             monthly_spendable = "61.50",
+            recurring_incomes_total = "61.50",
+            recurring_costs_total = "0.00",
             daily_allowance = "2.05",
             spendable_today = "12.30",
             remaining_monthly_spendable = "49.20",
@@ -250,13 +252,16 @@ private class TrendFixtureGateway(private val amounts: List<String>) :
 
     /** One definition is enough for the hide rule: only the lists'
      * emptiness matters. */
-    override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = listOf(costDefinition)
-    override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> = emptyList()
+    override suspend fun fetchRecurringCosts(includeFrozen: Boolean): List<RecurringCostDto> =
+        listOf(costDefinition)
+    override suspend fun fetchRecurringIncomes(includeFrozen: Boolean): List<RecurringIncomeDto> =
+        emptyList()
     override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto =
         error("unused")
     override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
         error("unused")
-    override suspend fun deleteRecurringCost(id: Int) = error("unused")
+    override suspend fun freezeRecurringCost(id: Int): RecurringCostDto = error("unused")
+    override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto = error("unused")
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
     override suspend fun setOccurrenceSkipped(
         id: Int,
@@ -267,7 +272,8 @@ private class TrendFixtureGateway(private val amounts: List<String>) :
         error("unused")
     override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
         error("unused")
-    override suspend fun deleteRecurringIncome(id: Int) = error("unused")
+    override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+    override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
 
     private val costDefinition = RecurringCostDto(
         id = 1,

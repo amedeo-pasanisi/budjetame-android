@@ -271,12 +271,13 @@ class TransactionInlineCreateTest {
     /** The picker's definitions: none exist — the Expense form's Recurring
      * Cost field stays hidden, and the transaction flows are unaffected. */
     private class FakeRecurringCostGateway : RecurringCostGateway {
-        override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = emptyList()
+        override suspend fun fetchRecurringCosts(includeFrozen: Boolean): List<RecurringCostDto> = emptyList()
         override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
-        override suspend fun deleteRecurringCost(id: Int) = error("unused")
+        override suspend fun freezeRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto = error("unused")
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
@@ -284,12 +285,13 @@ class TransactionInlineCreateTest {
     /** The Income form's Recurring Income picker: the mirror — no
      * definitions exist, so its field stays hidden too. */
     private class FakeRecurringIncomeGateway : RecurringIncomeGateway {
-        override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> = emptyList()
+        override suspend fun fetchRecurringIncomes(includeFrozen: Boolean): List<RecurringIncomeDto> = emptyList()
         override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
         override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
-        override suspend fun deleteRecurringIncome(id: Int) = error("unused")
+        override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }

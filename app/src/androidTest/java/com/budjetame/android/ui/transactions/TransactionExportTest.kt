@@ -219,8 +219,8 @@ class TransactionExportTest {
             )
         override suspend fun fetchTrend(kind: TrendKind, fromMonth: String, toMonth: String): TrendDto =
             TrendDto(from_month = fromMonth, to_month = toMonth, months = emptyList())
-        override suspend fun fetchBudget(): BudgetDto =
-            BudgetDto(month = "2026-08", monthly_spendable = "0.00", daily_allowance = "0.00", spendable_today = "0.00", remaining_monthly_spendable = "0.00")
+        override suspend fun fetchBudget(month: String?): BudgetDto =
+            BudgetDto(month = "2026-08", monthly_spendable = "0.00", recurring_incomes_total = "0.00", recurring_costs_total = "0.00", daily_allowance = "0.00", spendable_today = "0.00", remaining_monthly_spendable = "0.00")
     }
 
     /** Every export fails — the presses must surface the error line (the
@@ -252,23 +252,25 @@ class TransactionExportTest {
     }
 
     private class FakeRecurringCostGateway : RecurringCostGateway {
-        override suspend fun fetchRecurringCosts(): List<RecurringCostDto> = emptyList()
+        override suspend fun fetchRecurringCosts(includeFrozen: Boolean): List<RecurringCostDto> = emptyList()
         override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
             error("unused")
-        override suspend fun deleteRecurringCost(id: Int) = error("unused")
+        override suspend fun freezeRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto = error("unused")
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
     private class FakeRecurringIncomeGateway : RecurringIncomeGateway {
-        override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> = emptyList()
+        override suspend fun fetchRecurringIncomes(includeFrozen: Boolean): List<RecurringIncomeDto> = emptyList()
         override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
         override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
-        override suspend fun deleteRecurringIncome(id: Int) = error("unused")
+        override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }

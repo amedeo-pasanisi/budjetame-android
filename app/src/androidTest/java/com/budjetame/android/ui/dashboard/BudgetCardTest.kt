@@ -135,6 +135,8 @@ private fun budgetDto(
 ) = BudgetDto(
     month = "2026-08",
     monthly_spendable = "500.00",
+    recurring_incomes_total = "500.00",
+    recurring_costs_total = "0.00",
     daily_allowance = "16.60",
     spendable_today = spendableToday,
     remaining_monthly_spendable = remaining,
@@ -170,7 +172,7 @@ private class DashboardFixtureGateway(private val budget: BudgetDto) : Dashboard
     override suspend fun fetchTrend(kind: TrendKind, fromMonth: String, toMonth: String): TrendDto =
         TrendDto(from_month = fromMonth, to_month = toMonth, months = emptyList())
 
-    override suspend fun fetchBudget(): BudgetDto = budget
+    override suspend fun fetchBudget(month: String?): BudgetDto = budget
 }
 
 /** The Costs side of the hide rule's two lists: instant, settable, and
@@ -181,7 +183,7 @@ private class RecurringCostsFixture(
     private val gate: CompletableDeferred<Unit>? = null,
 ) : RecurringCostGateway {
 
-    override suspend fun fetchRecurringCosts(): List<RecurringCostDto> {
+    override suspend fun fetchRecurringCosts(includeFrozen: Boolean): List<RecurringCostDto> {
         gate?.await()
         if (fail) throw IllegalStateException("network down")
         return definitions
@@ -193,7 +195,9 @@ private class RecurringCostsFixture(
     override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
         error("unused")
 
-    override suspend fun deleteRecurringCost(id: Int) = error("unused")
+    override suspend fun freezeRecurringCost(id: Int): RecurringCostDto = error("unused")
+
+    override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto = error("unused")
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
 
@@ -211,7 +215,7 @@ private class RecurringIncomesFixture(
     private val gate: CompletableDeferred<Unit>? = null,
 ) : RecurringIncomeGateway {
 
-    override suspend fun fetchRecurringIncomes(): List<RecurringIncomeDto> {
+    override suspend fun fetchRecurringIncomes(includeFrozen: Boolean): List<RecurringIncomeDto> {
         gate?.await()
         if (fail) throw IllegalStateException("network down")
         return definitions
@@ -223,7 +227,9 @@ private class RecurringIncomesFixture(
     override suspend fun updateRecurringIncome(id: Int, draft: RecurringIncomeDraft): RecurringIncomeDto =
         error("unused")
 
-    override suspend fun deleteRecurringIncome(id: Int) = error("unused")
+    override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+
+    override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
 
