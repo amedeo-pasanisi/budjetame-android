@@ -11,6 +11,8 @@ import com.budjetame.android.data.api.RecurringCostUpdateRequest
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringOccurrenceUpdateRequest
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -501,20 +503,29 @@ class RecurringCostsViewModelTest {
         awaitLoaded()
 
         viewModel.openCreate()
-        // Blank name.
+        // Blank name — submit reveals NAME error, no write.
         viewModel.onAmountChange("5.00")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
         viewModel.submit()
-        // Non-numeric amount.
+        assertEquals(
+            Messages.NAME_EMPTY,
+            viewModel.uiState.value.modal!!.fieldErrors[FieldKey.NAME],
+        )
+        // Non-numeric amount — submit reveals AMOUNT error, no write.
         viewModel.onNameChange("Rent")
         viewModel.onAmountChange("abc")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
         viewModel.submit()
-        // Interval below one.
+        assertEquals(
+            Messages.AMOUNT_NOT_A_NUMBER,
+            viewModel.uiState.value.modal!!.fieldErrors[FieldKey.AMOUNT],
+        )
+        // Interval below one — submit reveals INTERVAL error, no write.
         viewModel.onAmountChange("5.00")
         viewModel.onIntervalValueChange("0")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
         viewModel.submit()
+        assertEquals(
+            Messages.INTERVAL_MIN,
+            viewModel.uiState.value.modal!!.fieldErrors[FieldKey.INTERVAL],
+        )
 
         assertTrue(calls.toList().none { it.method == "POST" })
     }
@@ -606,19 +617,22 @@ class RecurringCostsViewModelTest {
         awaitLoaded()
 
         viewModel.openEdit(viewModel.uiState.value.costs.first { it.id == 1 })
-        // The web form's edit gate (ADR-0024): the start date can be
-        // changed, never unset — an empty date blocks the save, like the
-        // web's required date input.
+        // The web form's edit rule (ADR-0024): the start date can be
+        // changed, never unset — an empty date blocks the save.
         viewModel.onStartDateChange("")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
         viewModel.submit()
-
+        assertEquals(
+            Messages.START_DATE_REQUIRED,
+            viewModel.uiState.value.modal!!.fieldErrors[FieldKey.START_DATE],
+        )
         assertTrue(calls.toList().none { it.method == "PATCH" })
         assertTrue(viewModel.uiState.value.modal != null)
 
-        // Re-picking a date unblocks the save.
+        // Re-picking a date lets the next submit through.
         viewModel.onStartDateChange("2026-01-01")
-        assertTrue(viewModel.uiState.value.modal!!.canSubmit)
+        viewModel.submit()
+        awaitState { it.modal == null }
+        assertEquals(1, calls.toList().count { it.method == "PATCH" })
     }
 
     @Test
@@ -787,10 +801,10 @@ class RecurringCostsViewModelTest {
         val modal = viewModel.uiState.value.modal!!
         assertEquals("Could not load the occurrences.", modal.occurrencesError)
         assertNull(modal.occurrences)
-        // The modal itself stays usable: the fields are still editable.
-        assertTrue(modal.canSubmit)
-        viewModel.onNameChange("Rent (home)")
-        assertTrue(viewModel.uiState.value.modal!!.canSubmit)
+        // The modal itself stays usable: not busy, fields still editable.
+        assertFalse(modal.busy)
+        assertFalse(modal.submitting)
+        assertFalse(modal.freezing)
     }
 
     @Test

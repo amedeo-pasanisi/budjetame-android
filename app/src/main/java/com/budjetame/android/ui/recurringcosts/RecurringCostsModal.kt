@@ -48,6 +48,8 @@ import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.ui.common.FreezeSection
 import com.budjetame.android.ui.common.UnfreezeSection
+import com.budjetame.android.ui.validation.FieldErrorText
+import com.budjetame.android.ui.validation.FieldKey
 import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.util.Dates
 import java.time.Instant
@@ -129,6 +131,8 @@ fun RecurringCostsModal(
                         label = { Text("Name") },
                         placeholder = { Text("e.g. Rent") },
                         singleLine = true,
+                        isError = modal.fieldErrors[FieldKey.NAME] != null,
+                        supportingText = { FieldErrorText(modal.fieldErrors[FieldKey.NAME]) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("rc-name"),
@@ -141,6 +145,8 @@ fun RecurringCostsModal(
                         placeholder = { Text("0.00") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        isError = modal.fieldErrors[FieldKey.AMOUNT] != null,
+                        supportingText = { FieldErrorText(modal.fieldErrors[FieldKey.AMOUNT]) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp)
@@ -157,6 +163,8 @@ fun RecurringCostsModal(
                             label = { Text("Repeats every") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
+                            isError = modal.fieldErrors[FieldKey.INTERVAL] != null,
+                            supportingText = { FieldErrorText(modal.fieldErrors[FieldKey.INTERVAL]) },
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("rc-interval"),
@@ -173,6 +181,7 @@ fun RecurringCostsModal(
                         value = modal.startDate,
                         onSelect = onStartDateChange,
                         clearable = !editing,
+                        error = modal.fieldErrors[FieldKey.START_DATE],
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp),
@@ -226,7 +235,7 @@ fun RecurringCostsModal(
             }
         },
         confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+            Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
                         modal.submitting -> "Saving…"
@@ -300,6 +309,7 @@ private fun StartDateField(
     value: String,
     onSelect: (String) -> Unit,
     clearable: Boolean,
+    error: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var pickerOpen by remember { mutableStateOf(false) }
@@ -312,6 +322,8 @@ private fun StartDateField(
             singleLine = true,
             label = { Text("Start date") },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
+            isError = error != null,
+            supportingText = { FieldErrorText(error) },
             colors = OutlinedTextFieldDefaults.colors(
                 // Disabled but styled like an enabled field: the tap goes to
                 // the overlay, not to the field.
