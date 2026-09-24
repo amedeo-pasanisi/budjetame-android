@@ -60,6 +60,8 @@ import com.budjetame.android.data.transaction.Place
 import com.budjetame.android.data.transaction.formatLocation
 import com.budjetame.android.data.transaction.mapLink
 import com.budjetame.android.ui.maps.MapPickerDialog
+import com.budjetame.android.ui.validation.FieldErrorText
+import com.budjetame.android.ui.validation.FieldKey
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 import java.time.Instant
@@ -163,7 +165,7 @@ fun TransactionModal(
             )
         },
         confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+            Button(onClick = onSubmit, enabled = !modal.busy && !modal.locating, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
                         modal.submitting -> "Saving…"
@@ -253,6 +255,8 @@ internal fun TransactionForm(
                 placeholder = { Text("0.00") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
+                isError = modal.fieldErrors[FieldKey.AMOUNT] != null,
+                supportingText = { FieldErrorText(modal.fieldErrors[FieldKey.AMOUNT]) },
                 modifier = Modifier
                     .weight(1f)
                     .testTag("tx-amount"),
@@ -273,6 +277,8 @@ internal fun TransactionForm(
                 onSourceChange = onSourceWalletChange,
                 onDestinationChange = onDestinationWalletChange,
                 onAddWallet = onAddWallet,
+                sourceError = modal.fieldErrors[FieldKey.SOURCE_WALLET],
+                destinationError = modal.fieldErrors[FieldKey.DESTINATION_WALLET],
                 modifier = Modifier.padding(top = 12.dp),
             )
         } else {
@@ -287,6 +293,7 @@ internal fun TransactionForm(
                 enabled = !editing,
                 onChange = onWalletChange,
                 onAdd = { onAddWallet(WalletFieldTarget.WALLET) },
+                error = modal.fieldErrors[FieldKey.WALLET],
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
@@ -442,6 +449,7 @@ private fun SingleWalletField(
     enabled: Boolean,
     onChange: (Int) -> Unit,
     onAdd: () -> Unit,
+    error: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -459,6 +467,8 @@ private fun SingleWalletField(
                 label = { Text("Wallet") },
                 placeholder = { Text("Select a wallet") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                isError = error != null,
+                supportingText = { FieldErrorText(error) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -515,6 +525,8 @@ private fun TransferWalletFields(
     onSourceChange: (Int) -> Unit,
     onDestinationChange: (Int) -> Unit,
     onAddWallet: (WalletFieldTarget) -> Unit,
+    sourceError: String? = null,
+    destinationError: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -528,6 +540,7 @@ private fun TransferWalletFields(
             enabled = enabled,
             onChange = onSourceChange,
             onAdd = { onAddWallet(WalletFieldTarget.SOURCE) },
+            error = sourceError,
             tag = "tx-source",
             modifier = Modifier.weight(1f),
         )
@@ -538,6 +551,7 @@ private fun TransferWalletFields(
             enabled = enabled,
             onChange = onDestinationChange,
             onAdd = { onAddWallet(WalletFieldTarget.DESTINATION) },
+            error = destinationError,
             tag = "tx-destination",
             modifier = Modifier.weight(1f),
         )
@@ -553,6 +567,7 @@ private fun WalletSelectField(
     enabled: Boolean,
     onChange: (Int) -> Unit,
     onAdd: () -> Unit,
+    error: String? = null,
     tag: String,
     modifier: Modifier = Modifier,
 ) {
@@ -571,6 +586,8 @@ private fun WalletSelectField(
             label = { Text(label) },
             placeholder = { Text("Select") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            isError = error != null,
+            supportingText = { FieldErrorText(error) },
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)

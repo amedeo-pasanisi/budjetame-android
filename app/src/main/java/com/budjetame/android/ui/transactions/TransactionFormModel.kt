@@ -153,18 +153,13 @@ fun transferIncomeLinkQualifies(source: WalletDto?, destination: WalletDto?): Bo
 
 /**
  * The draft's amount as a positive BigDecimal, or null when blank, not a
- * number, or not strictly positive — the mandatory-amount gate.
+ * number, or not strictly positive — the mandatory-amount gate (ADR-0009,
+ * mirrors the web's ADR-0029): delegates to the shared tolerant parser so
+ * the form accepts European-grouped amounts without re-implementing the
+ * grammar.
  */
-fun parseAmount(raw: String): BigDecimal? {
-    val trimmed = raw.trim()
-    if (trimmed.isEmpty()) return null
-    return try {
-        val value = BigDecimal(trimmed)
-        if (value > BigDecimal.ZERO) value else null
-    } catch (_: NumberFormatException) {
-        null
-    }
-}
+fun parseAmount(raw: String): BigDecimal? =
+    com.budjetame.android.ui.validation.parseAmount(raw)
 
 /** The projected Balance of one Wallet. */
 data class BalanceProjection(val before: BigDecimal, val after: BigDecimal)

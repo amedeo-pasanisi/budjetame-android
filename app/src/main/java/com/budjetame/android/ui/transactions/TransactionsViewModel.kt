@@ -29,6 +29,10 @@ import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.wallets.WalletModalState
+import com.budjetame.android.ui.validation.FieldErrors
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
+import com.budjetame.android.ui.validation.amountErrorMessage
 import com.budjetame.android.ui.wallets.normalizeOpeningBalance
 import com.budjetame.android.util.Dates
 import kotlinx.coroutines.CompletableDeferred
@@ -215,6 +219,11 @@ class TransactionsViewModel(
          * reports the answer back through `onLocationPermissionResult`. */
         val requestingLocationPermission: Boolean = false,
         val error: String? = null,
+        /** Per-field validation errors, set on a failed Save attempt
+         * (ADR-0009): a field-key → message map rendered inline beneath
+         * each field. Cleared on the next successful Save; server rejections
+         * use the form-level `error` banner instead. */
+        val fieldErrors: FieldErrors = emptyMap(),
         val submitting: Boolean = false,
         val confirmingDelete: Boolean = false,
         val deleting: Boolean = false,
@@ -224,23 +233,6 @@ class TransactionsViewModel(
         val isTransfer: Boolean get() = type == TransactionType.TRANSFER
 
         val busy: Boolean get() = submitting || deleting
-
-        /** Mandatory fields gate Save: a strictly positive amount and the
-         * Wallet(s) the type needs — a Transfer also needs two distinct
-         * Wallets. The date defaults to today in Europe/Rome and cannot be
-         * cleared, so it is always set. Save is also blocked while the GPS
-         * lookup is in flight (locating), mirroring the web form. */
-        val canSubmit: Boolean
-            get() {
-                if (busy || locating || parseAmount(amount) == null) return false
-                return if (isTransfer) {
-                    sourceWalletId != null &&
-                        destinationWalletId != null &&
-                        sourceWalletId != destinationWalletId
-                } else {
-                    walletId != null
-                }
-            }
     }
 
     /**
@@ -578,18 +570,11 @@ class TransactionsViewModel(
                         error = null,
                     )
                     TransactionType.INCOME -> {
-                        // ADR-0017: an Income never rides a stale Contact
-                        // Wallet selection to the API — reset to a spendable
-                        // Wallet, like the initial seed.
-                        val selected = modal.walletId
-                            ?.let { id -> _uiState.value.wallets.find { it.id == id } }
+                        // ADR-0017: no silent Contact-wallet reset —
+                        // validation catches it on Save instead.
                         modal.copy(
                             type = value,
-                            walletId = if (selected?.type == WalletType.CONTACT) {
-                                spendable.firstOrNull()?.id
-                            } else {
-                                modal.walletId ?: spendable.firstOrNull()?.id
-                            },
+                            walletId = modal.walletId ?: spendable.firstOrNull()?.id,
                             categoryId = null,
                             recurringCostId = null,
                             error = null,
@@ -991,7 +976,14 @@ class TransactionsViewModel(
 
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (modal.busy || modal.locating) return
+        val wallets = _uiState.value.wallets
+        val errors = validate(modal, wallets)
+        if (errors.isNotEmpty()) {
+            updateModal { it.copy(fieldErrors = errors) }
+            return
+        }
+        updateModal { it.copy(fieldErrors = emptyMap()) }
         if (modal.isEditing) update(modal) else create()
     }
 
@@ -1043,7 +1035,7 @@ class TransactionsViewModel(
 
     private fun create() {
         viewModelScope.launch {
-            updateModal { it.copy(submitting = true, error = null) }
+            updateModal { it.copy(submitting = true, error = null, fieldErrors = emptyMap()) }
             val modal = _uiState.value.modal ?: return@launch
             try {
                 val saved = transactions.createTransaction(draftOf(modal, _uiState.value.wallets))
@@ -1077,7 +1069,7 @@ class TransactionsViewModel(
     private fun update(modal: ModalState) {
         val transaction = modal.editing ?: return
         viewModelScope.launch {
-            updateModal { it.copy(submitting = true, error = null) }
+            updateModal { it.copy(submitting = true, error = null, fieldErrors = emptyMap()) }
             try {
                 val saved = transactions.updateTransaction(transaction.id, draftOf(modal, _uiState.value.wallets))
                 _uiState.update { state ->
@@ -1151,6 +1143,47 @@ class TransactionsViewModel(
             location = modal.location,
             place = modal.place.takeIf { modal.location != null },
         )
+    }
+
+    /** Per-form validation (ADR-0009): run from the submit path before any
+     * API call. Returns a field-key → message map for every broken rule;
+     * an empty map means the draft is valid and the submit proceeds.
+     * Validation never gates the Save button — Save is disabled only for
+     * in-flight work, never because of input. */
+    private fun validate(modal: ModalState, wallets: List<WalletDto>): FieldErrors {
+        val errors = mutableMapOf<String, String>()
+
+        // Amount
+        amountErrorMessage(modal.amount)?.let { errors[FieldKey.AMOUNT] = it }
+
+        // Wallet(s)
+        if (modal.isTransfer) {
+            if (modal.sourceWalletId == null) {
+                errors[FieldKey.SOURCE_WALLET] = Messages.TRANSFER_SOURCE_REQUIRED
+            }
+            if (modal.destinationWalletId == null) {
+                errors[FieldKey.DESTINATION_WALLET] = Messages.TRANSFER_DESTINATION_REQUIRED
+            }
+            if (modal.sourceWalletId != null && modal.destinationWalletId != null &&
+                modal.sourceWalletId == modal.destinationWalletId
+            ) {
+                errors[FieldKey.SOURCE_WALLET] = Messages.TRANSFER_DISTINCT
+            }
+        } else {
+            if (modal.walletId == null) {
+                errors[FieldKey.WALLET] = Messages.WALLET_REQUIRED
+            }
+            // Income on Contact wallet (ADR-0017): no silent swap — the
+            // validation catches it on Save instead.
+            if (modal.type == TransactionType.INCOME && modal.walletId != null) {
+                val wallet = wallets.find { it.id == modal.walletId }
+                if (wallet?.type == WalletType.CONTACT) {
+                    errors[FieldKey.WALLET] = Messages.INCOME_NOT_ON_CONTACT
+                }
+            }
+        }
+
+        return errors
     }
 
     /** The five panel filters reset to "all" (web issue #92's taxonomy) —

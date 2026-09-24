@@ -155,10 +155,22 @@ class AmountInputTest {
     }
 
     @Test
+    fun `parses a 4-digit plain amount with decimal`() {
+        assertEquals(BigDecimal("2500.00"), parseAmount("2500.00"))
+    }
+
+    @Test
+    fun `parses a 5-digit plain amount as integer`() {
+        assertEquals(BigDecimal("12000"), parseAmount("12000"))
+    }
+
+    @Test
     fun `a valid amount has no error message`() {
         assertNull(amountErrorMessage("17.5"))
         assertNull(amountErrorMessage("17,5"))
         assertNull(amountErrorMessage("1.000"))
         assertNull(amountErrorMessage("  5.00  "))
+        assertNull(amountErrorMessage("2500.00"))
+        assertNull(amountErrorMessage("12000"))
     }
 }

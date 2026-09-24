@@ -51,6 +51,8 @@ import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.common.LedgerJump
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
 import com.budjetame.android.util.Dates
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
@@ -1843,7 +1845,9 @@ class TransactionsViewModelTest {
         viewModel.onDestinationWalletChange(1)
         viewModel.submit()
 
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
+        // Validation catches same-source-destination on submit.
+        val errors = viewModel.uiState.value.modal!!.fieldErrors
+        assertEquals(Messages.TRANSFER_DISTINCT, errors[FieldKey.SOURCE_WALLET])
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
     }
 
@@ -1860,7 +1864,9 @@ class TransactionsViewModelTest {
         viewModel.onWalletChange(1)
         viewModel.onTypeChange(TransactionType.INCOME)
 
-        assertEquals(2, viewModel.uiState.value.modal?.walletId)
+        // ADR-0017: no silent Contact-wallet reset — validation catches it
+        // on Save instead.
+        assertEquals(1, viewModel.uiState.value.modal?.walletId)
     }
 
     @Test
@@ -2681,7 +2687,7 @@ class TransactionsViewModelTest {
         assertEquals(2, state.modal?.walletId)
         assertEquals("5.00", state.modal?.amount)
         assertEquals("Lunch", state.modal?.description)
-        assertTrue(state.modal!!.canSubmit)
+        // No gate: validation happens on submit, but the form is ready.
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
 
         // The form submits immediately against the fresh Wallet.
@@ -2741,7 +2747,6 @@ class TransactionsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(1, state.modal?.sourceWalletId)
         assertEquals(3, state.modal?.destinationWalletId)
-        assertTrue(state.modal!!.canSubmit)
     }
 
     @Test
@@ -2792,7 +2797,7 @@ class TransactionsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(1, state.modal?.categoryId)
         assertEquals("5.00", state.modal?.amount)
-        assertTrue(state.modal!!.canSubmit)
+        // No gate: validation happens on submit, but the form is ready.
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
 
         viewModel.submit()

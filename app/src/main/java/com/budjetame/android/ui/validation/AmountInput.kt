@@ -60,8 +60,10 @@ internal fun amountValue(raw: String): BigDecimal? {
 /** An integer part with valid thousands groupings: 1-3 leading digits, then
  * zero or more groups of exactly three digits, each introduced by either
  * separator (`.000` and `,420` may mix, like the web's digit+separator
- * chain). */
-private val INTEGER_PART = Regex("\\d{1,3}([.,]\\d{3})*")
+ * chain). Also accepts a plain digit sequence of any length — a 4+-digit
+ * integer typed without separators (e.g. `2500.00`) must parse as-is,
+ * not be rejected because the thousands notation expects groups of three. */
+private val INTEGER_PART = Regex("\\d{1,3}([.,]\\d{3})*|\\d+")
 
 /**
  * The Field Error message for a typed Amount, or null when it is a valid
