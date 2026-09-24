@@ -12,7 +12,10 @@ import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.ui.recurringcosts.parseIntervalValue
 import com.budjetame.android.ui.recurringcosts.sortByNextDue
-import com.budjetame.android.ui.transactions.parseAmount
+import com.budjetame.android.ui.validation.FieldErrors
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
+import com.budjetame.android.ui.validation.amountErrorMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +40,7 @@ data class RecurringIncomeModalState(
     val intervalUnit: IntervalUnit = IntervalUnit.MONTHS,
     val startDate: String = "",
     val error: String? = null,
+    val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingFreeze: Boolean = false,
     val freezing: Boolean = false,
@@ -59,20 +63,6 @@ data class RecurringIncomeModalState(
     val editing: Boolean get() = income != null
 
     val busy: Boolean get() = submitting || freezing
-
-    /** The web form's save gate (ADR-0024): a non-blank name, an amount
-     * over €0, a whole interval of at least 1, and — the start date is
-     * only optional at creation (empty = today); an existing definition
-     * always carries one, so an empty date blocks an edit's save. */
-    val canSubmit: Boolean
-        get() {
-            if (busy) return false
-            val interval = parseIntervalValue(intervalValue) ?: return false
-            if (interval < 1) return false
-            if (parseAmount(amount) == null) return false
-            if (editing && startDate.isBlank()) return false
-            return name.isNotBlank()
-        }
 }
 
 /**
@@ -170,7 +160,13 @@ class RecurringIncomesViewModel(
 
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (modal.busy) return
+        val errors = validate(modal)
+        if (errors.isNotEmpty()) {
+            updateModal { it.copy(fieldErrors = errors) }
+            return
+        }
+        updateModal { it.copy(fieldErrors = emptyMap()) }
         if (modal.editing) update(modal) else create(modal)
     }
 
@@ -434,6 +430,35 @@ class RecurringIncomesViewModel(
                 }
             }
         }
+    }
+
+    /** Validate the modal's draft: returns per-field errors if any, or an
+     * empty map when the draft is valid and the submit proceeds. Validation
+     * never gates the Save button — Save is disabled only for in-flight
+     * work, never because of input. */
+    private fun validate(modal: RecurringIncomeModalState): FieldErrors {
+        val errors = mutableMapOf<String, String>()
+
+        // Name
+        if (modal.name.isBlank()) {
+            errors[FieldKey.NAME] = Messages.NAME_EMPTY
+        }
+
+        // Amount
+        amountErrorMessage(modal.amount)?.let { errors[FieldKey.AMOUNT] = it }
+
+        // Interval
+        val interval = parseIntervalValue(modal.intervalValue)
+        if (interval == null || interval < 1) {
+            errors[FieldKey.INTERVAL] = Messages.INTERVAL_MIN
+        }
+
+        // Start date empty while editing
+        if (modal.editing && modal.startDate.isBlank()) {
+            errors[FieldKey.START_DATE] = Messages.START_DATE_REQUIRED
+        }
+
+        return errors
     }
 
     private fun updateModal(transform: (RecurringIncomeModalState) -> RecurringIncomeModalState) {
