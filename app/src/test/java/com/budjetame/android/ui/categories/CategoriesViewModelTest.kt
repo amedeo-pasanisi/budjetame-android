@@ -9,6 +9,8 @@ import com.budjetame.android.data.api.CategoryMergeRequest
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.CategoryUpdateRequest
 import com.budjetame.android.data.category.ApiCategoryRepository
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -338,7 +340,7 @@ class CategoriesViewModelTest {
     }
 
     @Test
-    fun `a blank name never submits`() = runBlocking {
+    fun `a blank name sets field error and does not submit`() = runBlocking {
         seed(category(1, "Groceries", CategoryType.EXPENSE))
         createViewModel()
         awaitLoaded()
@@ -348,7 +350,10 @@ class CategoriesViewModelTest {
         viewModel.submit()
 
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/categories" })
-        assertTrue(viewModel.uiState.value.modal?.canSubmit == false)
+        assertEquals(
+            Messages.NAME_EMPTY,
+            viewModel.uiState.value.modal?.fieldErrors?.get(FieldKey.NAME),
+        )
     }
 
     // --- Merge (ADR-0007) ---

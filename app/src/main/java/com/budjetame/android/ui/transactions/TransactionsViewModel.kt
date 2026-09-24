@@ -33,6 +33,7 @@ import com.budjetame.android.ui.validation.FieldErrors
 import com.budjetame.android.ui.validation.FieldKey
 import com.budjetame.android.ui.validation.Messages
 import com.budjetame.android.ui.validation.amountErrorMessage
+import com.budjetame.android.ui.validation.fieldErrors
 import com.budjetame.android.ui.wallets.normalizeOpeningBalance
 import com.budjetame.android.util.Dates
 import kotlinx.coroutines.CompletableDeferred
@@ -862,7 +863,7 @@ class TransactionsViewModel(
     }
 
     fun onCategoryCreateNameChange(value: String) =
-        updateCategoryCreate { it.copy(name = value, error = null) }
+        updateCategoryCreate { it.copy(name = value, error = null, fieldErrors = emptyMap()) }
 
     fun onCategoryCreateIconChange(value: String) =
         updateCategoryCreate { it.copy(icon = value, error = null) }
@@ -884,10 +885,15 @@ class TransactionsViewModel(
     fun submitCategoryCreate() {
         val create = _uiState.value.categoryCreate ?: return
         val modal = create.modal
-        if (!modal.canSubmit) return
+        if (modal.name.isBlank()) {
+            updateCategoryCreate {
+                it.copy(fieldErrors = fieldErrors(FieldKey.NAME to Messages.NAME_EMPTY))
+            }
+            return
+        }
         val lockedType = create.lockedType
         viewModelScope.launch {
-            updateCategoryCreate { it.copy(submitting = true, error = null) }
+            updateCategoryCreate { it.copy(submitting = true, error = null, fieldErrors = emptyMap()) }
             try {
                 val created = categories.createCategory(
                     modal.name.trim(),

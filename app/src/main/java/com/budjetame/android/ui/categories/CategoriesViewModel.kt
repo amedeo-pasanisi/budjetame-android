@@ -9,6 +9,10 @@ import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.category.CategoryMergeConflict
+import com.budjetame.android.ui.validation.FieldErrors
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
+import com.budjetame.android.ui.validation.fieldErrors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +51,7 @@ data class CategoryModalState(
     val icon: String = "",
     val color: String = CATEGORY_PRESET_COLORS.first(),
     val error: String? = null,
+    val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingDelete: Boolean = false,
     val deleting: Boolean = false,
@@ -57,8 +62,6 @@ data class CategoryModalState(
     val editing: Boolean get() = category != null
 
     val busy: Boolean get() = submitting || deleting || merging
-
-    val canSubmit: Boolean get() = !busy && name.isNotBlank()
 }
 
 /**
@@ -121,7 +124,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
     fun onNameChange(value: String) = updateModal {
         // A new name invalidates the offer: it was about the collision the
         // user just typed (web CategoryForm).
-        it.copy(name = value, error = null, mergeOffer = null, confirmingMerge = false)
+        it.copy(name = value, error = null, fieldErrors = emptyMap(), mergeOffer = null, confirmingMerge = false)
     }
 
     fun onTypeChange(value: CategoryType) = updateModal { it.copy(type = value, error = null) }
@@ -132,7 +135,10 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
 
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (modal.name.isBlank()) {
+            updateModal { it.copy(fieldErrors = fieldErrors(FieldKey.NAME to Messages.NAME_EMPTY)) }
+            return
+        }
         if (modal.editing) update(modal) else create(modal)
     }
 
@@ -230,7 +236,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
 
     private fun create(modal: CategoryModalState) {
         viewModelScope.launch {
-            updateModal { it.copy(submitting = true, error = null) }
+            updateModal { it.copy(submitting = true, error = null, fieldErrors = emptyMap()) }
             try {
                 val created = categories.createCategory(modal.name.trim(), modal.type, modal.icon, modal.color)
                 _uiState.update { state ->
@@ -256,7 +262,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
     private fun update(modal: CategoryModalState) {
         val category = modal.category ?: return
         viewModelScope.launch {
-            updateModal { it.copy(submitting = true, error = null) }
+            updateModal { it.copy(submitting = true, error = null, fieldErrors = emptyMap()) }
             try {
                 val saved = categories.updateCategory(category.id, modal.name.trim(), modal.icon, modal.color)
                 _uiState.update { state ->

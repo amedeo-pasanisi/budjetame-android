@@ -13,6 +13,9 @@ import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.apiErrorMessage
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
+import com.budjetame.android.ui.validation.fieldErrors
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.wallet.WalletGateway
@@ -679,7 +682,7 @@ class ImportViewModel(
     }
 
     fun onRowCategoryCreateNameChange(value: String) =
-        updateRowCategoryCreate { it.copy(name = value, error = null) }
+        updateRowCategoryCreate { it.copy(name = value, error = null, fieldErrors = emptyMap()) }
 
     fun onRowCategoryCreateIconChange(value: String) =
         updateRowCategoryCreate { it.copy(icon = value, error = null) }
@@ -703,11 +706,16 @@ class ImportViewModel(
     fun submitRowCategoryCreate() {
         val create = _uiState.value.draft?.rowCategoryCreate ?: return
         val modal = create.modal
-        if (!modal.canSubmit) return
+        if (modal.name.isBlank()) {
+            updateRowCategoryCreate {
+                it.copy(fieldErrors = fieldErrors(FieldKey.NAME to Messages.NAME_EMPTY))
+            }
+            return
+        }
         val lockedType = create.lockedType
         val gen = generation
         viewModelScope.launch {
-            updateRowCategoryCreate { it.copy(submitting = true, error = null) }
+            updateRowCategoryCreate { it.copy(submitting = true, error = null, fieldErrors = emptyMap()) }
             try {
                 val created = categories.createCategory(
                     modal.name.trim(),
