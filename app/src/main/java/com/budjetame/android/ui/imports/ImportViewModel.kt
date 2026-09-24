@@ -610,7 +610,11 @@ class ImportViewModel(
     fun submitRowWalletCreate() {
         val create = _uiState.value.draft?.rowWalletCreate ?: return
         val modal = create.modal
-        if (!modal.canSubmit) return
+        if (modal.submitting || modal.freezing) return
+        if (modal.name.isBlank()) {
+            updateRowWalletCreate { it.copy(fieldErrors = fieldErrors(FieldKey.NAME to Messages.NAME_EMPTY)) }
+            return
+        }
         val openingBalance = if (modal.type == WalletType.CONTACT) {
             "0.00"
         } else {

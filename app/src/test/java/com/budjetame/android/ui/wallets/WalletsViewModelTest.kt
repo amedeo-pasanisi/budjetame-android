@@ -241,7 +241,7 @@ class WalletsViewModelTest {
     }
 
     @Test
-    fun `create rejects a negative opening balance before calling the api`() = runBlocking {
+    fun `create with a negative opening balance shows a field error before calling the api`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
@@ -250,10 +250,64 @@ class WalletsViewModelTest {
         viewModel.onTypeChange(WalletType.CASH)
         viewModel.onOpeningBalanceChange("-1.00")
         viewModel.submit()
-        awaitState { it.modal?.error != null }
+        awaitState { it.modal?.fieldErrors?.isNotEmpty() == true }
 
-        assertEquals("Enter an amount of €0 or more.", viewModel.uiState.value.modal?.error)
+        assertEquals(
+            "Amount must be a positive number",
+            viewModel.uiState.value.modal?.fieldErrors?.get("openingBalance"),
+        )
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/wallets" })
+    }
+
+    @Test
+    fun `submit with a blank name shows a name field error`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("")
+        viewModel.onTypeChange(WalletType.CASH)
+        viewModel.onOpeningBalanceChange("100.00")
+        viewModel.submit()
+        awaitState { it.modal?.fieldErrors?.isNotEmpty() == true }
+
+        assertEquals(
+            "Enter a name",
+            viewModel.uiState.value.modal?.fieldErrors?.get("name"),
+        )
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/wallets" })
+    }
+
+    @Test
+    fun `submit with both name and opening balance errors shows both field errors`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("")
+        viewModel.onOpeningBalanceChange("-1.00")
+        viewModel.submit()
+        awaitState { it.modal?.fieldErrors?.size == 2 }
+
+        val errors = viewModel.uiState.value.modal?.fieldErrors ?: emptyMap()
+        assertEquals("Enter a name", errors["name"])
+        assertEquals("Amount must be a positive number", errors["openingBalance"])
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/wallets" })
+    }
+
+    @Test
+    fun `submit with a valid form clears field errors and calls the api`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Intesa")
+        viewModel.onTypeChange(WalletType.CHECKING)
+        viewModel.onOpeningBalanceChange("1000.00")
+        viewModel.submit()
+        awaitState { it.modal == null && it.wallets.any { wallet -> wallet.name == "Intesa" } }
+
+        assertTrue(calls.toList().any { it.method == "POST" && it.path == "/api/wallets" })
     }
 
     @Test

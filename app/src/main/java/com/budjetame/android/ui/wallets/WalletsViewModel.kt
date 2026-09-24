@@ -8,6 +8,11 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.validation.FieldErrors
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
+import com.budjetame.android.ui.validation.amountErrorMessage
+import com.budjetame.android.ui.validation.amountValue
 import java.math.BigDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +32,7 @@ data class WalletModalState(
     val type: WalletType = WalletType.CHECKING,
     val openingBalance: String = "",
     val error: String? = null,
+    val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingFreeze: Boolean = false,
     val freezing: Boolean = false,
@@ -34,7 +40,7 @@ data class WalletModalState(
 ) {
     val editing: Boolean get() = wallet != null
 
-    val canSubmit: Boolean get() = !submitting && !freezing && name.isNotBlank()
+    val busy: Boolean get() = submitting || freezing
 
     /** Freeze only when the balance is exactly €0 (ADR-0002). */
     val canFreeze: Boolean
@@ -45,14 +51,17 @@ data class WalletModalState(
  * The opening-balance value to send, or null when the draft is not a valid
  * non-negative amount. Blank means €0 (no Opening Balance Transaction).
  */
+/**
+ * Parse an opening-balance draft value using the tolerant Amount Input
+ * parser (ADR-0009): blank = €0, any positive or zero value the parser
+ * accepts = that value, anything invalid (negative, letters, malformed
+ * groupings) = null. The caller shows a Field Error when null, so the
+ * user never hits a dead Save button.
+ */
 fun normalizeOpeningBalance(raw: String): String? {
     val trimmed = raw.trim()
     if (trimmed.isEmpty()) return "0.00"
-    return try {
-        if (BigDecimal(trimmed) < BigDecimal.ZERO) null else trimmed
-    } catch (_: NumberFormatException) {
-        null
-    }
+    return amountValue(trimmed)?.toPlainString()
 }
 
 /**
@@ -139,7 +148,13 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
 
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (modal.busy) return
+        val errors = validate(modal)
+        if (errors.isNotEmpty()) {
+            updateModal { it.copy(fieldErrors = errors) }
+            return
+        }
+        updateModal { it.copy(fieldErrors = emptyMap()) }
         if (modal.editing) rename(modal) else create(modal)
     }
 
@@ -219,6 +234,9 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
             normalizeOpeningBalance(modal.openingBalance)
         }
         if (openingBalance == null) {
+            // Safety net: validation should have caught this, but keep the
+            // guard so a new code path that skips validation never sends an
+            // invalid balance to the API.
             updateModal { it.copy(error = "Enter an amount of €0 or more.") }
             return
         }
@@ -294,6 +312,29 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
                 }
             }
         }
+    }
+
+    /** Validate the modal's draft: returns per-field errors if any, or an
+     * empty map when the draft is valid and the submit proceeds. Validation
+     * never gates the Save button — Save is disabled only for in-flight
+     * work, never because of input. */
+    private fun validate(modal: WalletModalState): FieldErrors {
+        val errors = mutableMapOf<String, String>()
+
+        // Name
+        if (modal.name.isBlank()) {
+            errors[FieldKey.NAME] = Messages.NAME_EMPTY
+        }
+
+        // Opening balance: empty is valid (Wallet starts at €0). A
+        // non-empty value must be a valid non-negative amount.
+        if (modal.openingBalance.isNotBlank()) {
+            amountErrorMessage(modal.openingBalance)?.let {
+                errors[FieldKey.OPENING_BALANCE] = it
+            }
+        }
+
+        return errors
     }
 
     private fun updateModal(transform: (WalletModalState) -> WalletModalState) {

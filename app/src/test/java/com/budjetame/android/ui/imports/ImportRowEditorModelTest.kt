@@ -6,6 +6,7 @@ import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.transactions.WalletFieldTarget
+import com.budjetame.android.ui.validation.FieldKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -28,8 +29,8 @@ class ImportRowEditorModelTest {
     }
 
     @Test
-    fun `save needs a positive amount, a date, and the type's wallets`() {
-        val base = canSaveEditedRow(
+    fun `validate returns empty map for a valid row`() {
+        val errors = validateImportRow(
             type = TransactionType.EXPENSE,
             amount = "12.50",
             date = "2026-08-01",
@@ -37,58 +38,96 @@ class ImportRowEditorModelTest {
             sourceWallet = "",
             destinationWallet = "",
         )
-        assertTrue(base)
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.EXPENSE, "0", "2026-08-01", "Checking", "", "",
-            ),
-        )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.EXPENSE, "12.50", "", "Checking", "", "",
-            ),
-        )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.EXPENSE, "12.50", "2026-08-01", "  ", "", "",
-            ),
-        )
+        assertTrue(errors.isEmpty())
     }
 
     @Test
-    fun `a transfer needs two distinct wallets`() {
-        assertTrue(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "Cash",
-            ),
+    fun `validate returns an amount error for a blank or unparseable amount`() {
+        val blankErrors = validateImportRow(
+            TransactionType.EXPENSE, "", "2026-08-01", "Checking", "", "",
         )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "",
-            ),
+        assertEquals("Enter an amount", blankErrors[FieldKey.AMOUNT])
+
+        val lettersErrors = validateImportRow(
+            TransactionType.EXPENSE, "abc", "2026-08-01", "Checking", "", "",
         )
-        // The web's gate compares the raw names (case-sensitively): two
-        // spellings of one Wallet pass the gate and the re-validation then
-        // rejects the row — the resolution is the backend's.
-        assertTrue(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "checking",
-            ),
+        assertEquals(
+            "That doesn't look like an amount — use digits and one . or , for decimals",
+            lettersErrors[FieldKey.AMOUNT],
         )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "Checking",
-            ),
+
+        val zeroErrors = validateImportRow(
+            TransactionType.EXPENSE, "0", "2026-08-01", "Checking", "", "",
         )
+        assertEquals("Amount must be a positive number", zeroErrors[FieldKey.AMOUNT])
     }
 
     @Test
-    fun `an expense or income ignores the transfer legs on save`() {
-        assertTrue(
-            canSaveEditedRow(
-                TransactionType.INCOME, "12.50", "2026-08-01", "Checking", "Cash", "Cash",
-            ),
+    fun `validate returns a date error when date is empty`() {
+        val errors = validateImportRow(
+            TransactionType.EXPENSE, "12.50", "", "Checking", "", "",
         )
+        assertEquals("Choose a date", errors[FieldKey.DATE])
+    }
+
+    @Test
+    fun `validate returns wallet errors for an expense with no wallet`() {
+        val errors = validateImportRow(
+            TransactionType.EXPENSE, "12.50", "2026-08-01", "   ", "", "",
+        )
+        assertEquals("Choose a wallet.", errors[FieldKey.WALLET])
+    }
+
+    @Test
+    fun `validate returns both source and destination errors for a transfer with no wallets`() {
+        val errors = validateImportRow(
+            TransactionType.TRANSFER, "12.50", "2026-08-01", "", "", "",
+        )
+        assertEquals("Choose the source wallet.", errors[FieldKey.SOURCE_WALLET])
+        assertEquals("Choose the destination wallet.", errors[FieldKey.DESTINATION_WALLET])
+    }
+
+    @Test
+    fun `validate returns distinct-wallet error when source and destination are the same`() {
+        val errors = validateImportRow(
+            TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "Checking",
+        )
+        assertEquals("Source and destination must be different wallets.", errors[FieldKey.SOURCE_WALLET])
+    }
+
+    @Test
+    fun `validate returns all errors at once for a fully invalid row`() {
+        val errors = validateImportRow(
+            TransactionType.TRANSFER, "", "", "", "", "",
+        )
+        assertTrue(errors.size >= 3)
+        assertTrue(errors.containsKey(FieldKey.AMOUNT))
+        assertTrue(errors.containsKey(FieldKey.DATE))
+        assertTrue(errors.containsKey(FieldKey.SOURCE_WALLET))
+        assertTrue(errors.containsKey(FieldKey.DESTINATION_WALLET))
+    }
+
+    @Test
+    fun `validate accepts tolerant amount separators`() {
+        val dotErrors = validateImportRow(
+            TransactionType.EXPENSE, "17.5", "2026-08-01", "Checking", "", "",
+        )
+        assertTrue(dotErrors.isEmpty())
+
+        val commaErrors = validateImportRow(
+            TransactionType.EXPENSE, "17,5", "2026-08-01", "Checking", "", "",
+        )
+        assertTrue(commaErrors.isEmpty())
+
+        val groupedDotErrors = validateImportRow(
+            TransactionType.EXPENSE, "2,002.01", "2026-08-01", "Checking", "", "",
+        )
+        assertTrue(groupedDotErrors.isEmpty())
+
+        val groupedCommaErrors = validateImportRow(
+            TransactionType.EXPENSE, "1.000,00", "2026-08-01", "Checking", "", "",
+        )
+        assertTrue(groupedCommaErrors.isEmpty())
     }
 
     @Test

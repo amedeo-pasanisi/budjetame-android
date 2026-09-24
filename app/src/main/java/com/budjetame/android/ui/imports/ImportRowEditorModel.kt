@@ -6,6 +6,11 @@ import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.transactions.NON_CONTACT_WALLET_TYPES
 import com.budjetame.android.ui.transactions.WalletFieldTarget
+import com.budjetame.android.ui.validation.FieldErrors
+import com.budjetame.android.ui.validation.FieldKey
+import com.budjetame.android.ui.validation.Messages
+import com.budjetame.android.ui.validation.amountErrorMessage
+import com.budjetame.android.ui.validation.fieldErrors
 import com.budjetame.android.ui.transactions.parseAmount
 
 /**
@@ -26,28 +31,50 @@ import com.budjetame.android.ui.transactions.parseAmount
 fun cleanedImportField(value: String): String? = value.trim().ifEmpty { null }
 
 /**
- * The mandatory-fields gate on Save (the web editor's `canSave`): a
- * strictly positive amount, a date, and the Wallet(s) the type needs — a
- * Transfer needs two distinct Wallets. The row's Wallet fields are *names*,
- * so a set field may still name an unknown Wallet — that is what the
- * re-validation decides, not this gate.
+ * Validate the Import row editor's fields (ADR-0009): returns a
+ * field-key → message map for every broken rule, or an empty map when
+ * the row is valid and the Save proceeds. Validation never gates the Save
+ * button — Save is always clickable except while an operation is in
+ * flight, never because of input.
  */
-fun canSaveEditedRow(
+fun validateImportRow(
     type: TransactionType,
     amount: String,
     date: String,
     wallet: String,
     sourceWallet: String,
     destinationWallet: String,
-): Boolean {
-    if (date.isEmpty() || parseAmount(amount) == null) return false
-    return if (type == TransactionType.TRANSFER) {
-        cleanedImportField(sourceWallet) != null &&
-            cleanedImportField(destinationWallet) != null &&
-            cleanedImportField(sourceWallet) != cleanedImportField(destinationWallet)
-    } else {
-        cleanedImportField(wallet) != null
+): FieldErrors {
+    val errors = mutableMapOf<String, String>()
+
+    // Amount
+    amountErrorMessage(amount)?.let { errors[FieldKey.AMOUNT] = it }
+
+    // Date
+    if (date.isEmpty()) {
+        errors[FieldKey.DATE] = Messages.DATE_REQUIRED
     }
+
+    // Wallet(s)
+    if (type == TransactionType.TRANSFER) {
+        if (cleanedImportField(sourceWallet) == null) {
+            errors[FieldKey.SOURCE_WALLET] = Messages.TRANSFER_SOURCE_REQUIRED
+        }
+        if (cleanedImportField(destinationWallet) == null) {
+            errors[FieldKey.DESTINATION_WALLET] = Messages.TRANSFER_DESTINATION_REQUIRED
+        }
+        if (cleanedImportField(sourceWallet) != null && cleanedImportField(destinationWallet) != null &&
+            cleanedImportField(sourceWallet) == cleanedImportField(destinationWallet)
+        ) {
+            errors[FieldKey.SOURCE_WALLET] = Messages.TRANSFER_DISTINCT
+        }
+    } else {
+        if (cleanedImportField(wallet) == null) {
+            errors[FieldKey.WALLET] = Messages.WALLET_REQUIRED
+        }
+    }
+
+    return errors
 }
 
 /**
