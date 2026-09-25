@@ -1,4 +1,326 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Budjetame</string>
+
+    <!-- Common -->
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="saving">Saving…</string>
+    <string name="loading">Loading…</string>
+    <string name="retry">Retry</string>
+    <string name="clear">Clear</string>
+    <string name="ok">OK</string>
+    <string name="close">Close</string>
+    <string name="sign_out">Sign out</string>
+    <string name="settings_title">Settings</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">Dashboard</string>
+    <string name="net_worth_label">NET WORTH</string>
+    <string name="net_worth_description">The sum of every wallet balance — contact wallets included.</string>
+    <string name="spendable_today_label">SPENDABLE TODAY</string>
+    <string name="expenses">Expenses</string>
+    <string name="incomes">Incomes</string>
+    <string name="month">Month</string>
+    <string name="from">From</string>
+    <string name="to">To</string>
+    <string name="select_month">Select month</string>
+    <string name="previous_year">Previous year</string>
+    <string name="next_year">Next year</string>
+    <string name="budget_frame_line">%1$s this month (%2$s income − %3$s costs)</string>
+    <string name="budget_daily_line">%1$s per day</string>
+    <string name="budget_over_today">%1$s over today\'s budget</string>
+    <string name="budget_left_this_month">%1$s left this month</string>
+    <string name="budget_over_this_month">%1$s over this month\'s budget</string>
+    <string name="no_expenses_recorded">No %1$s recorded in %2$s.</string>
+    <string name="expenses_lower">expenses</string>
+    <string name="no_incomes_recorded">No %1$s recorded between %2$s and %3$s.</string>
+    <string name="incomes_lower">incomes</string>
+
+    <!-- Transactions -->
+    <string name="transactions_title">Transactions</string>
+    <string name="import_action">Import</string>
+    <string name="new_transaction">New transaction</string>
+    <string name="search_transactions">Search transactions…</string>
+    <string name="filters_open">Filters ▾</string>
+    <string name="filters_closed">Filters ▸</string>
+    <string name="all_wallets">All wallets</string>
+    <string name="wallet_label">Wallet</string>
+    <string name="all_categories">All categories</string>
+    <string name="category_label">Category</string>
+    <string name="all_transactions">All transactions</string>
+    <string name="recurring_label">Recurring</string>
+    <string name="recurring_costs">Recurring costs</string>
+    <string name="recurring_incomes">Recurring incomes</string>
+    <string name="any_date">Any date</string>
+    <string name="clear_all">Clear all</string>
+    <string name="clear_all_filters">Clear all filters</string>
+    <string name="export_to_excel">Export to Excel</string>
+    <string name="exporting">Exporting…</string>
+    <string name="loading_more">Loading more…</string>
+    <string name="frozen_wallet_banner">This wallet is frozen — its history is viewable but read-only.</string>
+    <string name="transaction_deleted">Transaction deleted.</string>
+    <string name="transaction_deleted_warning">Transaction deleted — this may make a Cash wallet negative.</string>
+    <string name="undo">Undo</string>
+
+    <!-- Transaction Form -->
+    <string name="edit_transaction">Edit transaction</string>
+    <string name="save_transaction">Save transaction</string>
+    <string name="expense_type">Expense</string>
+    <string name="income_type">Income</string>
+    <string name="transfer_type">Transfer</string>
+    <string name="opening_balance_type">Opening balance</string>
+    <string name="amount_eur">Amount (€)</string>
+    <string name="amount_placeholder">0.00</string>
+    <string name="select_wallet">Select a wallet</string>
+    <string name="select_label">Select</string>
+    <string name="date_label">Date</string>
+    <string name="category_none">None</string>
+    <string name="description_label">Description</string>
+    <string name="description_placeholder">Optional note</string>
+    <string name="location_label">Location</string>
+    <string name="add_location">Add location</string>
+    <string name="change_location">Change location</string>
+    <string name="locating">Locating…</string>
+    <string name="use_my_location">Use my location</string>
+    <string name="no_location">No location attached.</string>
+    <string name="open_in_google_maps">Open in Google Maps ↗</string>
+    <string name="remove">Remove</string>
+    <string name="expense_contact_note">An expense on a contact wallet means the contact paid for this.</string>
+    <string name="income_contact_note">Incomes can\'t be recorded on contact wallets.</string>
+    <string name="transfer_no_category">Transfers never carry a category.</string>
+    <string name="delete_transaction_title">Delete transaction</string>
+    <string name="delete_transaction_description">This permanently removes the transaction and updates the wallet balance.</string>
+    <string name="deleting">Deleting…</string>
+    <string name="delete_transaction_button">Delete transaction</string>
+    <string name="cash_negative_warning">⚠ This will make your Cash wallet negative.</string>
+    <string name="pays_occurrence_of">Pays the occurrence of %1$s.</string>
+    <string name="recurring_cost_label">Recurring Cost</string>
+    <string name="recurring_income_label">Recurring Income</string>
+    <string name="new_wallet_option">+ New wallet…</string>
+    <string name="new_category_option">+ New category…</string>
+
+    <!-- Wallets -->
+    <string name="wallets_title">Wallets</string>
+    <string name="new_wallet">New wallet</string>
+    <string name="loading_wallets">Loading wallets…</string>
+    <string name="no_wallets">No wallets yet. Add your first one to start tracking.</string>
+    <string name="frozen_wallets">Frozen wallets</string>
+    <string name="frozen_label">Frozen</string>
+    <string name="contacts_title">Contacts</string>
+    <string name="checking_accounts_title">Checking Accounts</string>
+    <string name="credit_cards_title">Credit Cards</string>
+    <string name="cash_title">Cash</string>
+    <string name="wallet_type_contact">Contact</string>
+    <string name="wallet_type_checking">Checking</string>
+    <string name="wallet_type_credit_card">Credit Card</string>
+    <string name="wallet_type_cash">Cash</string>
+
+    <!-- Wallet Form -->
+    <string name="edit_wallet">Edit wallet</string>
+    <string name="new_wallet_title">New wallet</string>
+    <string name="name_label">Name</string>
+    <string name="name_placeholder_checking">e.g. Intesa checking</string>
+    <string name="type_label">Type</string>
+    <string name="type_cannot_change">· type cannot be changed</string>
+    <string name="opening_balance_label">Opening balance (optional)</string>
+    <string name="opening_balance_placeholder">0.00</string>
+    <string name="contact_start_zero">Contact wallets start at €0 — money moves only through transfers.</string>
+    <string name="opening_balance_help">Money you already have. Defaults to €0.00.</string>
+    <string name="create_wallet">Create wallet</string>
+
+    <!-- Freeze / Unfreeze -->
+    <string name="freeze">Freeze</string>
+    <string name="freezing">Freezing…</string>
+    <string name="tap_again_to_confirm">Tap again to confirm freeze</string>
+    <string name="unfreeze">Unfreeze</string>
+    <string name="unfreezing">Unfreezing…</string>
+    <string name="freeze_wallet_title">Freeze wallet</string>
+    <string name="freeze_wallet_description">Hides the wallet and makes it read-only. Only possible at €0.00 balance; its transactions stay visible.</string>
+    <string name="unfreeze_wallet_title">Unfreeze wallet</string>
+    <string name="unfreeze_wallet_description">Restore this wallet: it will accept transactions again and reappear in its type section.</string>
+
+    <!-- Categories -->
+    <string name="categories_title">Categories</string>
+    <string name="new_category">New category</string>
+    <string name="loading_categories">Loading categories…</string>
+    <string name="no_categories">No categories yet. Add one to start grouping your transactions.</string>
+    <string name="search_categories">Search categories…</string>
+    <string name="no_categories_match">No categories match your search.</string>
+    <string name="category_type_expense">Expense</string>
+    <string name="category_type_income">Income</string>
+    <string name="category_section_expenses">Expenses</string>
+    <string name="category_section_incomes">Incomes</string>
+
+    <!-- Category Form -->
+    <string name="edit_category">Edit category</string>
+    <string name="create_category">Create category</string>
+    <string name="name_placeholder_category">e.g. Groceries</string>
+    <string name="type_fixed">· fixed for this form</string>
+    <string name="icon_optional">Icon (optional)</string>
+    <string name="icon_placeholder">e.g. 🛒</string>
+    <string name="color_label">Color</string>
+    <string name="delete_category_title">Delete category</string>
+    <string name="delete_category_description">Its transactions become uncategorized — no transaction is ever deleted.</string>
+    <string name="delete_category_button">Delete category</string>
+    <string name="merge_title">Merge %1$s into %2$s? %3$d transactions will move — this cannot be undone.</string>
+    <string name="merge_button">Merge</string>
+    <string name="merging">Merging…</string>
+    <string name="tap_again_confirm">Tap again to confirm</string>
+    <string name="cancel_merge">Cancel merge</string>
+
+    <!-- Recurring Costs -->
+    <string name="recurring_costs_title">Recurring Costs</string>
+    <string name="new_recurring_cost">New recurring cost</string>
+    <string name="loading_recurring_costs">Loading recurring costs…</string>
+    <string name="no_recurring_costs">No recurring costs yet. Add your first one to track what\'s due.</string>
+    <string name="frozen_recurring_costs">Frozen recurring costs</string>
+    <string name="costs_tab">Costs</string>
+    <string name="incomes_tab">Incomes</string>
+    <string name="n_unpaid">%1$d unpaid</string>
+    <string name="next_due">next due %1$s</string>
+
+    <!-- Recurring Cost Form -->
+    <string name="edit_recurring_cost">Edit recurring cost</string>
+    <string name="create_recurring_cost">Create recurring cost</string>
+    <string name="name_placeholder_cost">e.g. Rent</string>
+    <string name="repeats_every">Repeats every</string>
+    <string name="unit_label">Unit</string>
+    <string name="start_date">Start date</string>
+    <string name="start_date_help">The first occurrence. Leave empty to start today.</string>
+    <string name="freeze_recurring_cost_title">Freeze recurring cost</string>
+    <string name="freeze_recurring_cost_description">Its linked expenses stay linked. Freezing stops all new occurrences.</string>
+    <string name="unfreeze_recurring_cost_title">Unfreeze recurring cost</string>
+    <string name="unfreeze_recurring_cost_description">Restore this definition: new occurrences will resume.</string>
+
+    <!-- Recurring Incomes -->
+    <string name="recurring_incomes_title">Recurring Incomes</string>
+    <string name="new_recurring_income">New recurring income</string>
+    <string name="loading_recurring_incomes">Loading recurring incomes…</string>
+    <string name="no_recurring_incomes">No recurring incomes yet. Add your first one to track what\'s due.</string>
+    <string name="frozen_recurring_incomes">Frozen recurring incomes</string>
+
+    <!-- Recurring Income Form -->
+    <string name="edit_recurring_income">Edit recurring income</string>
+    <string name="create_recurring_income">Create recurring income</string>
+    <string name="name_placeholder_income">e.g. Salary</string>
+    <string name="freeze_recurring_income_title">Freeze recurring income</string>
+    <string name="freeze_recurring_income_description">Its linked incomes stay linked. Freezing stops all new occurrences.</string>
+    <string name="unfreeze_recurring_income_title">Unfreeze recurring income</string>
+    <string name="unfreeze_recurring_income_description">Restore this definition: new occurrences will resume.</string>
+
+    <!-- Occurrences -->
+    <string name="occurrences_title">Occurrences</string>
+    <string name="loading_occurrences">Loading occurrences…</string>
+    <string name="occurrences_help">Skip excuses an occurrence: it never counts as unpaid, and a payment covers it only after un-skipping. Paid ones live in the ledger.</string>
+    <string name="skipped_caption">Skipped — un-skip to pay it</string>
+    <string name="skip_button">Skip</string>
+    <string name="unskip_button">Un-skip</string>
+
+    <!-- Settings -->
+    <string name="language_label">Language</string>
+    <string name="language_english">English</string>
+    <string name="language_italian">Italiano</string>
+    <string name="saving_label">Saving…</string>
+    <string name="export_all_title">Export all</string>
+    <string name="export_all_description">Downloads the complete backup workbook with all your data.</string>
+    <string name="export_all_button">Export all</string>
+    <string name="restore_from_backup">Restore from backup</string>
+    <string name="restore_description">Pick a backup workbook to atomically replace all your data.</string>
+    <string name="restore_button">Restore from backup…</string>
+    <string name="delete_account_title">Delete account</string>
+    <string name="delete_account_description">Permanently deletes your Account and all its data.</string>
+    <string name="delete_account_button">Delete account</string>
+    <string name="delete_account_confirm">This permanently deletes your Account and all its data. Continue?</string>
+    <string name="delete_account_confirm_button">Delete</string>
+
+    <!-- Restore Dialog -->
+    <string name="restore_replace_warning">This will REPLACE all your Account data with the contents of the backup workbook.</string>
+    <string name="restore_file_label">File: %1$s</string>
+    <string name="restore_export_hint">You can export a fresh backup of the current data first.</string>
+    <string name="continue_to_restore">Continue to restore</string>
+    <string name="share_export">Share export</string>
+    <string name="are_you_absolutely_sure">Are you absolutely sure?</string>
+    <string name="restore_final_warning">This replaces ALL your data — all Transactions, Wallets, Categories, Recurring Costs/Incomes, and Skips — with the contents of the backup. Account email, credentials, and language are unaffected. This is irreversible.</string>
+    <string name="restoring_title">Restoring…</string>
+    <string name="restoring_message">Replacing your data from the backup…</string>
+    <string name="restored_title">Restored</string>
+    <string name="restored_message">All Account data has been replaced from the backup.</string>
+    <string name="restore_origin_warning">The backup\'s origin marker doesn\'t match your Account — it may have been created elsewhere. Data was still restored.</string>
+    <string name="done_label">Done</string>
+    <string name="restore_failed_title">Restore failed</string>
+    <string name="restore_failed_default">Could not restore from the backup file.</string>
+    <string name="could_not_export">Could not export the backup workbook.</string>
+    <string name="could_not_delete">Could not delete the Account. Please try again.</string>
+    <string name="could_not_update_language">Could not update language setting.</string>
+
+    <!-- Interval Units -->
+    <string name="interval_days">Days</string>
+    <string name="interval_day">Day</string>
+    <string name="interval_weeks">Weeks</string>
+    <string name="interval_week">Week</string>
+    <string name="interval_months">Months</string>
+    <string name="interval_month">Month</string>
+    <string name="interval_years">Years</string>
+    <string name="interval_year">Year</string>
+    <string name="every_day">Every day</string>
+    <string name="every_n_days">Every %1$d days</string>
+    <string name="every_week">Every week</string>
+    <string name="every_n_weeks">Every %1$d weeks</string>
+    <string name="every_month">Every month</string>
+    <string name="every_n_months">Every %1$d months</string>
+    <string name="every_year">Every year</string>
+    <string name="every_n_years">Every %1$d years</string>
+
+    <!-- Display helpers (TransactionDisplay) -->
+    <string name="opening_balance_display">Opening balance</string>
+    <string name="uncategorized">Uncategorized</string>
+    <string name="frozen_wallet_name">Frozen wallet</string>
+
+    <!-- Balance Preview -->
+    <string name="preview_balance_format">%1$s: %2$s → %3$s</string>
+
+    <!-- Import -->
+    <string name="import_status_ready">Ready</string>
+    <string name="import_status_duplicate">Duplicate</string>
+    <string name="import_status_problem">Problem</string>
+
+    <!-- Login -->
+    <string name="login_subtitle_forgot">We will email you a link to reset your password.</string>
+    <string name="login_subtitle_signup">Create an Account to see your money.</string>
+    <string name="login_subtitle_signin">Sign in to see your money.</string>
+    <string name="login_or">or</string>
+    <string name="login_check_inbox">Check your inbox — the link works once and expires soon.</string>
+    <string name="back_to_sign_in">Back to sign in</string>
+    <string name="email_label">Email</string>
+    <string name="email_placeholder">you@example.com</string>
+    <string name="password_label">Password</string>
+    <string name="sending_reset">Sending…</string>
+    <string name="creating_account">Creating…</string>
+    <string name="signing_in">Signing in…</string>
+    <string name="send_reset_link">Send reset link</string>
+    <string name="create_account_button">Create account</string>
+    <string name="sign_in_button">Sign in</string>
+    <string name="forgot_password">Forgot your password?</string>
+    <string name="reset_it">Reset it</string>
+    <string name="remembered_it">Remembered it?</string>
+    <string name="already_have_account">Already have an Account?</string>
+    <string name="dont_have_account">Don\'t have an Account?</string>
+    <string name="sign_up">Sign up</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="signing_you_in">Signing you in…</string>
+    <string name="could_not_connect">Could not connect to Budjetame.</string>
+    <string name="check_connection">Check your connection and try again.</string>
+
+    <!-- Tab labels -->
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_wallets">Wallets</string>
+    <string name="tab_transactions">Transactions</string>
+    <string name="tab_categories">Categories</string>
+    <string name="tab_recurring">Recurring</string>
+
+    <!-- Misc screen messages -->
+    <string name="settings_content_description">Settings</string>
+    <string name="export_error_prefix">Could not export</string>
 </resources>

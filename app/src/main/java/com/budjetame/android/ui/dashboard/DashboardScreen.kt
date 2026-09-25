@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.dashboard
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -60,6 +59,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextPainter
@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategorySliceDto
 import com.budjetame.android.data.api.MonthBucketDto
 import com.budjetame.android.data.api.TrendKind
@@ -90,6 +91,7 @@ import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.round
 import kotlin.math.roundToInt
+
 
 /** The neutral gray for the "Uncategorized" slice — the backend sends no
  * color for it, and the rendering choice stays in the frontend (the web
@@ -149,7 +151,7 @@ fun DashboardScreen(
                 modifier = Modifier.weight(1f),
             )
             state.summary == null -> MessageBody(
-                text = "Loading…",
+                text = stringResource(R.string.loading),
                 modifier = Modifier.weight(1f),
             )
             else -> DashboardContent(
@@ -164,7 +166,7 @@ fun DashboardScreen(
 @Composable
 private fun DashboardHeader() {
     Text(
-        text = "Dashboard",
+        text = stringResource(R.string.dashboard_title),
         style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurface,
@@ -225,7 +227,7 @@ private fun DashboardCard(content: @Composable ColumnScope.() -> Unit) {
 private fun NetWorthCard(netWorth: String) {
     DashboardCard {
         Text(
-            text = "NET WORTH",
+            text = stringResource(R.string.net_worth_label),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -280,7 +282,7 @@ private fun BudgetCard(
             )
 
             budget == null -> Text(
-                text = "Loading…",
+                text = stringResource(R.string.loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -306,7 +308,7 @@ private fun BudgetCard(
                     )
                 }
                 Text(
-                    text = "SPENDABLE TODAY",
+                    text = stringResource(R.string.spendable_today_label),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -368,13 +370,13 @@ private fun ExpenseIncomeToggle(
             selected = expenseSelected,
             onClick = { onSelect(true) },
             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-            label = { Text("Expenses") },
+            label = { Text(stringResource(R.string.expenses)) },
         )
         SegmentedButton(
             selected = !expenseSelected,
             onClick = { onSelect(false) },
             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-            label = { Text("Incomes") },
+            label = { Text(stringResource(R.string.incomes)) },
         )
     }
 }
@@ -433,7 +435,7 @@ private fun PieCard(
         // the month field above stay usable throughout.
         when {
             !state.monthInSync -> Text(
-                text = "Loading…",
+                text = stringResource(R.string.loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 16.dp),
@@ -621,7 +623,7 @@ private fun TrendCard(
         }
         when {
             !state.trendInSync -> Text(
-                text = "Loading…",
+                text = stringResource(R.string.loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 16.dp),
@@ -740,9 +742,9 @@ private fun MonthPickerDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
-        title = { Text("Select month") },
+        title = { Text(stringResource(R.string.select_month)) },
         text = {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {

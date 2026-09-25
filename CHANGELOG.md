@@ -31,6 +31,14 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   endpoint to atomically replace all Account data. Origin-marker mismatch
   warns but still proceeds; a malformed file fails closed (#60).
 
+- **Italian translation** — string resource files for Italian
+  (`values-it/strings.xml`) with translations for the core screens (Settings,
+  Dashboard, Transactions, Wallets, Categories, Recurring, and Transaction
+  forms). English strings extracted to `values/strings.xml`. A
+  `LocaleAwareContent` wrapper recomposes the UI when the locale changes,
+  and the Settings language picker now flips every visible string in the
+  chosen language (#62).
+
 - **Undo restores the recurring pin** — when the Undo'd Transaction
   carried a Recurring Cost or Recurring Income link, the undo restores
   the original pin (same definition id, same occurrence date). If another

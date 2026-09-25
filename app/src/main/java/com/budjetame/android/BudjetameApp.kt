@@ -1,5 +1,4 @@
 package com.budjetame.android
-
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,12 +18,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.ui.login.LoginScreen
 import com.budjetame.android.ui.shell.AppShell
 import com.budjetame.android.util.AppLocale
+import com.budjetame.android.util.LocaleAwareContent
+
 
 /** The auth state machine, mirroring the web app's App.tsx. */
 sealed interface AuthState {
@@ -93,8 +96,9 @@ fun BudjetameApp(container: AppContainer) {
             auth = container.authRepository,
             onSignedIn = { account -> authState = AuthState.SignedIn(account) },
         )
-        is AuthState.SignedIn -> AppShell(
-            account = state.account,
+        is AuthState.SignedIn -> LocaleAwareContent {
+            AppShell(
+                account = state.account,
             walletRepository = container.walletRepository,
             categoryRepository = container.categoryRepository,
             dashboardRepository = container.dashboardRepository,
@@ -116,7 +120,8 @@ fun BudjetameApp(container: AppContainer) {
                 clearSessionViewModels()
                 authState = AuthState.SignedOut
             },
-        )
+            )
+        }
     }
 }
 
@@ -148,7 +153,7 @@ private fun CheckingFailedScreen(onRetry: () -> Unit) {
             modifier = Modifier.padding(top = 4.dp),
         )
         Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
-            Text("Retry")
+            Text(stringResource(R.string.retry))
         }
     }
 }

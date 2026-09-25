@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Budjetame</string>
+
+    <!-- Comuni -->
+    <string name="cancel">Annulla</string>
+    <string name="save">Salva</string>
+    <string name="delete">Elimina</string>
+    <string name="saving">Salvataggio…</string>
+    <string name="loading">Caricamento…</string>
+    <string name="retry">Riprova</string>
+    <string name="clear">Cancella</string>
+    <string name="ok">OK</string>
+    <string name="close">Chiudi</string>
+    <string name="sign_out">Esci</string>
+    <string name="settings_title">Impostazioni</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">Dashboard</string>
+    <string name="net_worth_label">PATRIMONIO NETTO</string>
+    <string name="net_worth_description">La somma di tutti i saldi dei portafogli — inclusi i contatti.</string>
+    <string name="spendable_today_label">DISPONIBILE OGGI</string>
+    <string name="expenses">Uscite</string>
+    <string name="incomes">Entrate</string>
+    <string name="month">Mese</string>
+    <string name="from">Da</string>
+    <string name="to">A</string>
+    <string name="select_month">Seleziona mese</string>
+    <string name="previous_year">Anno precedente</string>
+    <string name="next_year">Anno successivo</string>
+    <string name="budget_frame_line">%1$s questo mese (%2$s entrate − %3$s uscite)</string>
+    <string name="budget_daily_line">%1$s al giorno</string>
+    <string name="budget_over_today">%1$s oltre il budget di oggi</string>
+    <string name="budget_left_this_month">%1$s rimasti questo mese</string>
+    <string name="budget_over_this_month">%1$s oltre il budget mensile</string>
+    <string name="no_expenses_recorded">Nessuna %1$s registrata in %2$s.</string>
+    <string name="expenses_lower">uscita</string>
+    <string name="no_incomes_recorded">Nessuna %1$s registrata tra %2$s e %3$s.</string>
+    <string name="incomes_lower">entrata</string>
+
+    <!-- Transazioni -->
+    <string name="transactions_title">Transazioni</string>
+    <string name="import_action">Importa</string>
+    <string name="new_transaction">Nuova transazione</string>
+    <string name="search_transactions">Cerca transazioni…</string>
+    <string name="filters_open">Filtri ▾</string>
+    <string name="filters_closed">Filtri ▸</string>
+    <string name="all_wallets">Tutti i portafogli</string>
+    <string name="wallet_label">Portafoglio</string>
+    <string name="all_categories">Tutte le categorie</string>
+    <string name="category_label">Categoria</string>
+    <string name="all_transactions">Tutte le transazioni</string>
+    <string name="recurring_label">Ricorrenti</string>
+    <string name="recurring_costs">Costi ricorrenti</string>
+    <string name="recurring_incomes">Entrate ricorrenti</string>
+    <string name="any_date">Qualsiasi data</string>
+    <string name="clear_all">Cancella tutto</string>
+    <string name="clear_all_filters">Cancella tutti i filtri</string>
+    <string name="export_to_excel">Esporta in Excel</string>
+    <string name="exporting">Esportazione…</string>
+    <string name="loading_more">Caricamento altri…</string>
+    <string name="frozen_wallet_banner">Questo portafoglio è congelato — la sua cronologia è visibile ma in sola lettura.</string>
+    <string name="transaction_deleted">Transazione eliminata.</string>
+    <string name="transaction_deleted_warning">Transazione eliminata — questo potrebbe rendere negativo il portafoglio Contanti.</string>
+    <string name="undo">Annulla</string>
+
+    <!-- Modulo Transazione -->
+    <string name="edit_transaction">Modifica transazione</string>
+    <string name="save_transaction">Salva transazione</string>
+    <string name="expense_type">Uscita</string>
+    <string name="income_type">Entrata</string>
+    <string name="transfer_type">Trasferimento</string>
+    <string name="opening_balance_type">Saldo iniziale</string>
+    <string name="amount_eur">Importo (€)</string>
+    <string name="amount_placeholder">0,00</string>
+    <string name="select_wallet">Seleziona un portafoglio</string>
+    <string name="select_label">Seleziona</string>
+    <string name="date_label">Data</string>
+    <string name="category_none">Nessuna</string>
+    <string name="description_label">Descrizione</string>
+    <string name="description_placeholder">Nota opzionale</string>
+    <string name="location_label">Luogo</string>
+    <string name="add_location">Aggiungi luogo</string>
+    <string name="change_location">Cambia luogo</string>
+    <string name="locating">Rilevamento…</string>
+    <string name="use_my_location">Usa la mia posizione</string>
+    <string name="no_location">Nessun luogo allegato.</string>
+    <string name="open_in_google_maps">Apri in Google Maps ↗</string>
+    <string name="remove">Rimuovi</string>
+    <string name="expense_contact_note">Una spesa su un portafoglio contatto significa che il contatto ha pagato per questo.</string>
+    <string name="income_contact_note">Le entrate non possono essere registrate su portafogli contatto.</string>
+    <string name="transfer_no_category">I trasferimenti non hanno mai una categoria.</string>
+    <string name="delete_transaction_title">Elimina transazione</string>
+    <string name="delete_transaction_description">Questo rimuove permanentemente la transazione e aggiorna il saldo del portafoglio.</string>
+    <string name="deleting">Eliminazione…</string>
+    <string name="delete_transaction_button">Elimina transazione</string>
+    <string name="cash_negative_warning">⚠ Questo renderà negativo il tuo portafoglio Contanti.</string>
+    <string name="pays_occurrence_of">Paga l\'occorrenza del %1$s.</string>
+    <string name="recurring_cost_label">Costo Ricorrente</string>
+    <string name="recurring_income_label">Entrata Ricorrente</string>
+    <string name="new_wallet_option">+ Nuovo portafoglio…</string>
+    <string name="new_category_option">+ Nuova categoria…</string>
+
+    <!-- Portafogli -->
+    <string name="wallets_title">Portafogli</string>
+    <string name="new_wallet">Nuovo portafoglio</string>
+    <string name="loading_wallets">Caricamento portafogli…</string>
+    <string name="no_wallets">Nessun portafoglio ancora. Aggiungi il primo per iniziare a tracciare.</string>
+    <string name="frozen_wallets">Portafogli congelati</string>
+    <string name="frozen_label">Congelato</string>
+    <string name="contacts_title">Contatti</string>
+    <string name="checking_accounts_title">Conti Correnti</string>
+    <string name="credit_cards_title">Carte di Credito</string>
+    <string name="cash_title">Contanti</string>
+    <string name="wallet_type_contact">Contatto</string>
+    <string name="wallet_type_checking">Conto Corrente</string>
+    <string name="wallet_type_credit_card">Carta di Credito</string>
+    <string name="wallet_type_cash">Contanti</string>
+
+    <!-- Modulo Portafoglio -->
+    <string name="edit_wallet">Modifica portafoglio</string>
+    <string name="new_wallet_title">Nuovo portafoglio</string>
+    <string name="name_label">Nome</string>
+    <string name="name_placeholder_checking">es. Intesa San Paolo</string>
+    <string name="type_label">Tipo</string>
+    <string name="type_cannot_change">· il tipo non può essere cambiato</string>
+    <string name="opening_balance_label">Saldo iniziale (opzionale)</string>
+    <string name="opening_balance_placeholder">0,00</string>
+    <string name="contact_start_zero">I portafogli contatto partono da €0 — il denaro si muove solo tramite trasferimenti.</string>
+    <string name="opening_balance_help">Denaro che già possiedi. Predefinito a €0,00.</string>
+    <string name="create_wallet">Crea portafoglio</string>
+
+    <!-- Congela / Scongela -->
+    <string name="freeze">Congela</string>
+    <string name="freezing">Congelamento…</string>
+    <string name="tap_again_to_confirm">Tocca di nuovo per confermare</string>
+    <string name="unfreeze">Scongela</string>
+    <string name="unfreezing">Scongelamento…</string>
+    <string name="freeze_wallet_title">Congela portafoglio</string>
+    <string name="freeze_wallet_description">Nasconde il portafoglio e lo rende in sola lettura. Possibile solo con saldo €0,00; le sue transazioni rimangono visibili.</string>
+    <string name="unfreeze_wallet_title">Scongela portafoglio</string>
+    <string name="unfreeze_wallet_description">Ripristina questo portafoglio: accetterà di nuovo transazioni e riapparirà nella sua sezione.</string>
+
+    <!-- Categorie -->
+    <string name="categories_title">Categorie</string>
+    <string name="new_category">Nuova categoria</string>
+    <string name="loading_categories">Caricamento categorie…</string>
+    <string name="no_categories">Nessuna categoria ancora. Aggiungine una per iniziare a raggruppare le transazioni.</string>
+    <string name="search_categories">Cerca categorie…</string>
+    <string name="no_categories_match">Nessuna categoria corrisponde alla ricerca.</string>
+    <string name="category_type_expense">Uscita</string>
+    <string name="category_type_income">Entrata</string>
+    <string name="category_section_expenses">Uscite</string>
+    <string name="category_section_incomes">Entrate</string>
+
+    <!-- Modulo Categoria -->
+    <string name="edit_category">Modifica categoria</string>
+    <string name="create_category">Crea categoria</string>
+    <string name="name_placeholder_category">es. Spesa</string>
+    <string name="type_fixed">· fisso per questo modulo</string>
+    <string name="icon_optional">Icona (opzionale)</string>
+    <string name="icon_placeholder">es. 🛒</string>
+    <string name="color_label">Colore</string>
+    <string name="delete_category_title">Elimina categoria</string>
+    <string name="delete_category_description">Le sue transazioni diventano non categorizzate — nessuna transazione viene mai eliminata.</string>
+    <string name="delete_category_button">Elimina categoria</string>
+    <string name="merge_title">Unire %1$s in %2$s? %3$d transazioni verranno spostate — non si può annullare.</string>
+    <string name="merge_button">Unisci</string>
+    <string name="merging">Unione…</string>
+    <string name="tap_again_confirm">Tocca di nuovo per confermare</string>
+    <string name="cancel_merge">Annulla unione</string>
+
+    <!-- Costi Ricorrenti -->
+    <string name="recurring_costs_title">Costi Ricorrenti</string>
+    <string name="new_recurring_cost">Nuovo costo ricorrente</string>
+    <string name="loading_recurring_costs">Caricamento costi ricorrenti…</string>
+    <string name="no_recurring_costs">Nessun costo ricorrente ancora. Aggiungine uno per tenere traccia delle scadenze.</string>
+    <string name="frozen_recurring_costs">Costi ricorrenti congelati</string>
+    <string name="costs_tab">Costi</string>
+    <string name="incomes_tab">Entrate</string>
+    <string name="n_unpaid">%1$d non pagati</string>
+    <string name="next_due">prossima scadenza %1$s</string>
+
+    <!-- Modulo Costo Ricorrente -->
+    <string name="edit_recurring_cost">Modifica costo ricorrente</string>
+    <string name="create_recurring_cost">Crea costo ricorrente</string>
+    <string name="name_placeholder_cost">es. Affitto</string>
+    <string name="repeats_every">Si ripete ogni</string>
+    <string name="unit_label">Unità</string>
+    <string name="start_date">Data d\'inizio</string>
+    <string name="start_date_help">La prima occorrenza. Lascia vuoto per iniziare oggi.</string>
+    <string name="freeze_recurring_cost_title">Congela costo ricorrente</string>
+    <string name="freeze_recurring_cost_description">Le spese collegate rimangono collegate. Il congelamento blocca tutte le nuove occorrenze.</string>
+    <string name="unfreeze_recurring_cost_title">Scongela costo ricorrente</string>
+    <string name="unfreeze_recurring_cost_description">Ripristina questa definizione: nuove occorrenze riprenderanno.</string>
+
+    <!-- Entrate Ricorrenti -->
+    <string name="recurring_incomes_title">Entrate Ricorrenti</string>
+    <string name="new_recurring_income">Nuova entrata ricorrente</string>
+    <string name="loading_recurring_incomes">Caricamento entrate ricorrenti…</string>
+    <string name="no_recurring_incomes">Nessuna entrata ricorrente ancora. Aggiungine una per tenere traccia delle scadenze.</string>
+    <string name="frozen_recurring_incomes">Entrate ricorrenti congelate</string>
+
+    <!-- Modulo Entrata Ricorrente -->
+    <string name="edit_recurring_income">Modifica entrata ricorrente</string>
+    <string name="create_recurring_income">Crea entrata ricorrente</string>
+    <string name="name_placeholder_income">es. Stipendio</string>
+    <string name="freeze_recurring_income_title">Congela entrata ricorrente</string>
+    <string name="freeze_recurring_income_description">Le entrate collegate rimangono collegate. Il congelamento blocca tutte le nuove occorrenze.</string>
+    <string name="unfreeze_recurring_income_title">Scongela entrata ricorrente</string>
+    <string name="unfreeze_recurring_income_description">Ripristina questa definizione: nuove occorrenze riprenderanno.</string>
+
+    <!-- Occorrenze -->
+    <string name="occurrences_title">Occorrenze</string>
+    <string name="loading_occurrences">Caricamento occorrenze…</string>
+    <string name="occurrences_help">Saltare un\'occorrenza la esclude: non conta come non pagata, e un pagamento la copre solo dopo aver rimosso il salto. Quelle pagate vivono nel registro.</string>
+    <string name="skipped_caption">Saltata — rimuovi il salto per pagarla</string>
+    <string name="skip_button">Salta</string>
+    <string name="unskip_button">Rimuovi salto</string>
+
+    <!-- Impostazioni -->
+    <string name="language_label">Lingua</string>
+    <string name="language_english">Inglese</string>
+    <string name="language_italian">Italiano</string>
+    <string name="saving_label">Salvataggio…</string>
+    <string name="export_all_title">Esporta tutto</string>
+    <string name="export_all_description">Scarica il workbook di backup completo con tutti i tuoi dati.</string>
+    <string name="export_all_button">Esporta tutto</string>
+    <string name="restore_from_backup">Ripristina da backup</string>
+    <string name="restore_description">Scegli un workbook di backup per sostituire atomicamente tutti i tuoi dati.</string>
+    <string name="restore_button">Ripristina da backup…</string>
+    <string name="delete_account_title">Elimina account</string>
+    <string name="delete_account_description">Elimina permanentemente il tuo Account e tutti i suoi dati.</string>
+    <string name="delete_account_button">Elimina account</string>
+    <string name="delete_account_confirm">Questo elimina permanentemente il tuo Account e tutti i suoi dati. Continuare?</string>
+    <string name="delete_account_confirm_button">Elimina</string>
+
+    <!-- Dialogo Ripristino -->
+    <string name="restore_replace_warning">Questo SOSTITUIRÀ tutti i dati del tuo Account con il contenuto del workbook di backup.</string>
+    <string name="restore_file_label">File: %1$s</string>
+    <string name="restore_export_hint">Puoi prima esportare un backup fresco dei dati correnti.</string>
+    <string name="continue_to_restore">Continua al ripristino</string>
+    <string name="share_export">Condividi esportazione</string>
+    <string name="are_you_absolutely_sure">Sei assolutamente sicuro?</string>
+    <string name="restore_final_warning">Questo SOSTITUISCE tutti i tuoi dati — tutte le Transazioni, Portafogli, Categorie, Costi/Entrate Ricorrenti e Salti — con il contenuto del backup. Email, credenziali e lingua dell\'account rimangono invariati. Questo è irreversibile.</string>
+    <string name="restoring_title">Ripristino…</string>
+    <string name="restoring_message">Sostituzione dati dal backup…</string>
+    <string name="restored_title">Ripristinato</string>
+    <string name="restored_message">Tutti i dati dell\'Account sono stati ripristinati dal backup.</string>
+    <string name="restore_origin_warning">Il marker d\'origine del backup non corrisponde al tuo Account — potrebbe essere stato creato altrove. I dati sono stati comunque ripristinati.</string>
+    <string name="done_label">Fatto</string>
+    <string name="restore_failed_title">Ripristino fallito</string>
+    <string name="restore_failed_default">Impossibile ripristinare dal file di backup.</string>
+    <string name="could_not_export">Impossibile esportare il workbook di backup.</string>
+    <string name="could_not_delete">Impossibile eliminare l\'Account. Riprova.</string>
+    <string name="could_not_update_language">Impossibile aggiornare l\'impostazione della lingua.</string>
+
+    <!-- Unità Intervallo -->
+    <string name="interval_days">Giorni</string>
+    <string name="interval_day">Giorno</string>
+    <string name="interval_weeks">Settimane</string>
+    <string name="interval_week">Settimana</string>
+    <string name="interval_months">Mesi</string>
+    <string name="interval_month">Mese</string>
+    <string name="interval_years">Anni</string>
+    <string name="interval_year">Anno</string>
+    <string name="every_day">Ogni giorno</string>
+    <string name="every_n_days">Ogni %1$d giorni</string>
+    <string name="every_week">Ogni settimana</string>
+    <string name="every_n_weeks">Ogni %1$d settimane</string>
+    <string name="every_month">Ogni mese</string>
+    <string name="every_n_months">Ogni %1$d mesi</string>
+    <string name="every_year">Ogni anno</string>
+    <string name="every_n_years">Ogni %1$d anni</string>
+
+    <!-- Helper di visualizzazione (TransactionDisplay) -->
+    <string name="opening_balance_display">Saldo iniziale</string>
+    <string name="uncategorized">Non categorizzata</string>
+    <string name="frozen_wallet_name">Portafoglio congelato</string>
+
+    <!-- Anteprima Saldo -->
+    <string name="preview_balance_format">%1$s: %2$s → %3$s</string>
+
+    <!-- Importazione -->
+    <string name="import_status_ready">Pronto</string>
+    <string name="import_status_duplicate">Duplicato</string>
+    <string name="import_status_problem">Problema</string>
+
+    <!-- Login -->
+    <string name="login_subtitle_forgot">Ti invieremo via email un link per resettare la password.</string>
+    <string name="login_subtitle_signup">Crea un Account per vedere i tuoi soldi.</string>
+    <string name="login_subtitle_signin">Accedi per vedere i tuoi soldi.</string>
+    <string name="login_or">oppure</string>
+    <string name="login_check_inbox">Controlla la tua posta — il link funziona una volta e scade presto.</string>
+    <string name="back_to_sign_in">Torna all\'accesso</string>
+    <string name="email_label">Email</string>
+    <string name="email_placeholder">tu@esempio.com</string>
+    <string name="password_label">Password</string>
+    <string name="sending_reset">Invio…</string>
+    <string name="creating_account">Creazione…</string>
+    <string name="signing_in">Accesso…</string>
+    <string name="send_reset_link">Invia link di reset</string>
+    <string name="create_account_button">Crea account</string>
+    <string name="sign_in_button">Accedi</string>
+    <string name="forgot_password">Password dimenticata?</string>
+    <string name="reset_it">Resettala</string>
+    <string name="remembered_it">Ricordata?</string>
+    <string name="already_have_account">Hai già un Account?</string>
+    <string name="dont_have_account">Non hai un Account?</string>
+    <string name="sign_up">Registrati</string>
+    <string name="sign_in_with_google">Accedi con Google</string>
+    <string name="signing_you_in">Accesso in corso…</string>
+    <string name="could_not_connect">Impossibile connettersi a Budjetame.</string>
+    <string name="check_connection">Controlla la connessione e riprova.</string>
+
+    <!-- Etichette tab -->
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_wallets">Portafogli</string>
+    <string name="tab_transactions">Transazioni</string>
+    <string name="tab_categories">Categorie</string>
+    <string name="tab_recurring">Ricorrenti</string>
+
+    <!-- Varie -->
+    <string name="settings_content_description">Impostazioni</string>
+    <string name="export_error_prefix">Impossibile esportare</string>
+</resources>

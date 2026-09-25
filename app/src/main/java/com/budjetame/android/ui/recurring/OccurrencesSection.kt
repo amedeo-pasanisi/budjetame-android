@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.recurring
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,13 +18,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.ui.theme.Slate400
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate700
+
 
 /**
  * The edit modal's Occurrences section (web ADR-0026), the port of the
@@ -54,7 +56,7 @@ fun OccurrencesSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
         Text(
-            text = "Occurrences",
+            text = stringResource(R.string.occurrences_title),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             color = Slate700,
@@ -196,3 +198,4 @@ private fun OccurrencePill(
         )
     }
 }
+

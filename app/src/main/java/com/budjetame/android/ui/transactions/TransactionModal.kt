@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.transactions
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,10 +44,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
@@ -64,6 +65,7 @@ import com.budjetame.android.ui.validation.FieldKey
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 import java.time.Instant
+
 
 private val AMBER_50 = Color(0xFFFFFBEB)
 private val AMBER_700 = Color(0xFFB45309)
@@ -176,7 +178,7 @@ fun TransactionModal(
         },
         dismissButton = {
             TextButton(onClick = onClose, enabled = !modal.busy) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
     )
@@ -250,8 +252,8 @@ internal fun TransactionForm(
             OutlinedTextField(
                 value = modal.amount,
                 onValueChange = onAmountChange,
-                label = { Text("Amount (€)") },
-                placeholder = { Text("0.00") },
+                label = { Text(stringResource(R.string.amount_eur)) },
+                placeholder = { Text(stringResource(R.string.amount_placeholder)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 isError = modal.fieldErrors[FieldKey.AMOUNT] != null,
@@ -347,8 +349,8 @@ internal fun TransactionForm(
         OutlinedTextField(
             value = modal.description,
             onValueChange = onDescriptionChange,
-            label = { Text("Description") },
-            placeholder = { Text("Optional note") },
+            label = { Text(stringResource(R.string.description_label)) },
+            placeholder = { Text(stringResource(R.string.description_placeholder)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
@@ -463,8 +465,8 @@ private fun SingleWalletField(
                 readOnly = true,
                 enabled = enabled,
                 singleLine = true,
-                label = { Text("Wallet") },
-                placeholder = { Text("Select a wallet") },
+                label = { Text(stringResource(R.string.wallet_label)) },
+                placeholder = { Text(stringResource(R.string.select_wallet)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 isError = error != null,
                 supportingText = { FieldErrorText(error) },
@@ -583,7 +585,7 @@ private fun WalletSelectField(
             enabled = enabled,
             singleLine = true,
             label = { Text(label) },
-            placeholder = { Text("Select") },
+            placeholder = { Text(stringResource(R.string.select_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             isError = error != null,
             supportingText = { FieldErrorText(error) },
@@ -642,7 +644,7 @@ private fun CategoryField(
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Category") },
+            label = { Text(stringResource(R.string.category_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -654,7 +656,7 @@ private fun CategoryField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("None") },
+                text = { Text(stringResource(R.string.category_none)) },
                 onClick = {
                     onChange(null)
                     expanded = false
@@ -715,7 +717,7 @@ private fun RecurringCostField(
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,
-                label = { Text("Recurring Cost") },
+                label = { Text(stringResource(R.string.recurring_cost_label)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -727,7 +729,7 @@ private fun RecurringCostField(
                 onDismissRequest = { expanded = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text("None") },
+                    text = { Text(stringResource(R.string.category_none)) },
                     onClick = {
                         onChange(null)
                         expanded = false
@@ -790,7 +792,7 @@ private fun RecurringIncomeField(
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,
-                label = { Text("Recurring Income") },
+                label = { Text(stringResource(R.string.recurring_income_label)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -802,7 +804,7 @@ private fun RecurringIncomeField(
                 onDismissRequest = { expanded = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text("None") },
+                    text = { Text(stringResource(R.string.category_none)) },
                     onClick = {
                         onChange(null)
                         expanded = false
@@ -981,7 +983,7 @@ private fun LocationSection(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Location",
+            text = stringResource(R.string.location_label),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
@@ -1006,7 +1008,7 @@ private fun LocationSection(
                             contentPadding = ButtonDefaults.TextButtonContentPadding,
                             modifier = Modifier.testTag("tx-location-link"),
                         ) {
-                            Text("Open in Google Maps ↗")
+                            Text(stringResource(R.string.open_in_google_maps))
                         }
                         TextButton(
                             onClick = onRemove,
@@ -1016,14 +1018,14 @@ private fun LocationSection(
                             contentPadding = ButtonDefaults.TextButtonContentPadding,
                             modifier = Modifier.testTag("tx-location-remove"),
                         ) {
-                            Text("Remove")
+                            Text(stringResource(R.string.remove))
                         }
                     }
                 }
             }
         } else {
             Text(
-                text = "No location attached.",
+                text = stringResource(R.string.no_location),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -1064,7 +1066,7 @@ private fun FormDateField(
             readOnly = true,
             enabled = false,
             singleLine = true,
-            label = { Text("Date") },
+            label = { Text(stringResource(R.string.date_label)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             colors = OutlinedTextFieldDefaults.colors(
                 disabledTextColor = MaterialTheme.colorScheme.onSurface,
@@ -1099,11 +1101,11 @@ private fun FormDateField(
                         pickerOpen = false
                     },
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+                TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.cancel)) }
             },
         ) {
             DatePicker(state = pickerState)
@@ -1118,7 +1120,7 @@ private fun DeleteSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Delete transaction",
+        text = stringResource(R.string.delete_transaction_button),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
@@ -1143,3 +1145,4 @@ private fun DeleteSection(
 }
 
 private const val MILLIS_PER_DAY = 86_400_000L
+

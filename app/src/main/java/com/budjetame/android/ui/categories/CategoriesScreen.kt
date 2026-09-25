@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.categories
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -25,23 +24,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
-import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate700
+
 
 /**
  * The Categories tab (ticket #16, ADR-0004 anatomy): two sections —
@@ -71,7 +73,7 @@ fun CategoriesScreen(
         val loadError = state.loadError
         when {
             state.loading -> MessageBody(
-                text = "Loading categories…",
+                text = stringResource(R.string.loading_categories),
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
@@ -80,7 +82,7 @@ fun CategoriesScreen(
                 modifier = Modifier.weight(1f),
             )
             state.categories.isEmpty() -> MessageBody(
-                text = "No categories yet. Add one to start grouping your transactions.",
+                text = stringResource(R.string.no_categories),
                 modifier = Modifier.weight(1f),
             )
             else -> CategoriesList(
@@ -117,7 +119,7 @@ private fun CategoriesHeader(onNewCategory: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Categories",
+            text = stringResource(R.string.categories_title),
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -128,7 +130,7 @@ private fun CategoriesHeader(onNewCategory: () -> Unit) {
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
-            Text("New category")
+            Text(stringResource(R.string.new_category))
         }
     }
 }
@@ -147,7 +149,7 @@ private fun CategoriesList(
         OutlinedTextField(
             value = state.query,
             onValueChange = viewModel::onQueryChange,
-            placeholder = { Text("Search categories…") },
+            placeholder = { Text(stringResource(R.string.search_categories)) },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Filled.Search,
@@ -166,7 +168,7 @@ private fun CategoriesList(
 
         if (state.sections.all { it.items.isEmpty() }) {
             MessageBody(
-                text = "No categories match your search.",
+                text = stringResource(R.string.no_categories_match),
                 modifier = Modifier.weight(1f),
             )
             return
@@ -269,3 +271,4 @@ private fun CategoryCard(
 
 /** Parse a "#rrggbb" hex color (the API's color vocabulary). */
 internal fun hexColor(hex: String): Color = Color(android.graphics.Color.parseColor(hex))
+

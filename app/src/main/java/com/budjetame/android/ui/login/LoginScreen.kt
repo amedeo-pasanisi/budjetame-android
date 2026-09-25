@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.login
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -34,11 +34,13 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.auth.AuthGateway
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
+
 
 /**
  * The auth screen, ported from the web app's LoginForm: the two doors
@@ -125,7 +127,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = state.email,
                         onValueChange = viewModel::onEmailChange,
-                        label = { Text("Email") },
+                        label = { Text(stringResource(R.string.email_label)) },
                         placeholder = { Text("you@example.com") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
@@ -137,7 +139,7 @@ fun LoginScreen(
                         OutlinedTextField(
                             value = state.password,
                             onValueChange = viewModel::onPasswordChange,
-                            label = { Text("Password") },
+                            label = { Text(stringResource(R.string.password_label)) },
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             singleLine = true,
@@ -287,6 +289,7 @@ private fun GoogleButton(
         },
         modifier = modifier.fillMaxWidth(),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-        Text("Sign in with Google")
+        Text(stringResource(R.string.sign_in_with_google))
     }
 }
+

@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.categories
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,14 +37,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.ui.validation.FieldErrorText
 import com.budjetame.android.ui.validation.FieldKey
+
 
 // The web app's Tailwind palette, ported for the merge offer and delete
 // confirmation (CategoryForm.tsx).
@@ -108,7 +110,7 @@ fun CategoryModal(
                 OutlinedTextField(
                     value = modal.name,
                     onValueChange = onNameChange,
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.name_label)) },
                     placeholder = { Text("e.g. Groceries") },
                     singleLine = true,
                     isError = modal.fieldErrors[FieldKey.NAME] != null,
@@ -192,7 +194,7 @@ fun CategoryModal(
         },
         dismissButton = {
             TextButton(onClick = onClose, enabled = !modal.busy) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
     )
@@ -215,7 +217,7 @@ private fun CategoryTypeField(
             value = categoryTypeLabel(value),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Type") },
+            label = { Text(stringResource(R.string.type_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -328,7 +330,7 @@ private fun MergeOfferSection(
                 enabled = !modal.busy,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Cancel merge")
+                Text(stringResource(R.string.cancel_merge))
             }
         }
     }
@@ -373,3 +375,4 @@ private fun DeleteSection(
         )
     }
 }
+

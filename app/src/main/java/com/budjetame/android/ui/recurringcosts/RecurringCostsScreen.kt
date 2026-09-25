@@ -1,8 +1,7 @@
 package com.budjetame.android.ui.recurringcosts
-
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -25,11 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.ui.common.FrozenSectionToggle
@@ -39,6 +39,7 @@ import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.util.Money
+
 
 // The web app's Tailwind red palette, ported for the Backlog badge
 // (RecurringCostsScreen.tsx, web ADR-0025 / ticket #45): the one signal
@@ -81,7 +82,7 @@ fun RecurringCostsScreen(
         val loadError = state.loadError
         when {
             state.loading -> MessageBody(
-                text = "Loading recurring costs…",
+                text = stringResource(R.string.loading_recurring_costs),
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
@@ -128,7 +129,7 @@ private fun RecurringCostsHeader(onNewRecurringCost: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
-            text = "Recurring Costs",
+            text = stringResource(R.string.recurring_costs_title),
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -139,7 +140,7 @@ private fun RecurringCostsHeader(onNewRecurringCost: () -> Unit) {
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
-            Text("New recurring cost")
+            Text(stringResource(R.string.new_recurring_cost))
         }
     }
 }
@@ -303,3 +304,4 @@ private fun Badge(
         )
     }
 }
+

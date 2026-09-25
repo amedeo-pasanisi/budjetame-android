@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.recurringcosts
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,18 +40,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.ui.common.FreezeSection
 import com.budjetame.android.ui.common.UnfreezeSection
+import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.ui.validation.FieldErrorText
 import com.budjetame.android.ui.validation.FieldKey
-import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.util.Dates
 import java.time.Instant
+
 
 // The web app's Tailwind palette, ported for the delete confirmation.
 /**
@@ -128,7 +130,7 @@ fun RecurringCostsModal(
                     OutlinedTextField(
                         value = modal.name,
                         onValueChange = onNameChange,
-                        label = { Text("Name") },
+                        label = { Text(stringResource(R.string.name_label)) },
                         placeholder = { Text("e.g. Rent") },
                         singleLine = true,
                         isError = modal.fieldErrors[FieldKey.NAME] != null,
@@ -141,8 +143,8 @@ fun RecurringCostsModal(
                     OutlinedTextField(
                         value = modal.amount,
                         onValueChange = onAmountChange,
-                        label = { Text("Amount (€)") },
-                        placeholder = { Text("0.00") },
+                        label = { Text(stringResource(R.string.amount_eur)) },
+                        placeholder = { Text(stringResource(R.string.amount_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         isError = modal.fieldErrors[FieldKey.AMOUNT] != null,
@@ -247,7 +249,7 @@ fun RecurringCostsModal(
         },
         dismissButton = {
             TextButton(onClick = onClose, enabled = !modal.busy) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
     )
@@ -361,7 +363,7 @@ private fun StartDateField(
                         pickerOpen = false
                     },
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
@@ -373,10 +375,10 @@ private fun StartDateField(
                                 pickerOpen = false
                             },
                         ) {
-                            Text("Clear")
+                            Text(stringResource(R.string.clear))
                         }
                     }
-                    TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+                    TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.cancel)) }
                 }
             },
         ) {
@@ -386,3 +388,4 @@ private fun StartDateField(
 }
 
 private const val MILLIS_PER_DAY = 86_400_000L
+

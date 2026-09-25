@@ -1,5 +1,4 @@
 package com.budjetame.android.ui.transactions
-
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -41,14 +40,14 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -68,6 +67,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
@@ -87,8 +88,8 @@ import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.ExportFile
-import com.budjetame.android.data.transaction.shareExportFile
 import com.budjetame.android.data.transaction.TransactionGateway
+import com.budjetame.android.data.transaction.shareExportFile
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.common.LedgerJump
@@ -105,6 +106,7 @@ import com.budjetame.android.util.Dates
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
 
 private val AMBER_50 = Color(0xFFFFFBEB)
 private val AMBER_200 = Color(0xFFFDE68A)
@@ -330,7 +332,7 @@ fun TransactionsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
-                text = "Transactions",
+                text = stringResource(R.string.transactions_title),
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -349,7 +351,7 @@ fun TransactionsScreen(
                 // text sits ~12 dp from the New transaction button like the
                 // web's gap-3 (ticket #44).
                 Text(
-                    text = "Import",
+                    text = stringResource(R.string.import_action),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = Slate600,
@@ -365,7 +367,7 @@ fun TransactionsScreen(
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
-                    Text("New transaction")
+                    Text(stringResource(R.string.new_transaction))
                 }
             }
         }
@@ -391,7 +393,7 @@ fun TransactionsScreen(
         val loadError = state.loadError
         when {
             state.loading -> MessageBody(
-                text = "Loading…",
+                text = stringResource(R.string.loading),
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
@@ -598,7 +600,7 @@ private fun SearchField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        placeholder = { Text("Search transactions…") },
+        placeholder = { Text(stringResource(R.string.search_transactions)) },
         leadingIcon = {
             Icon(Icons.Filled.Search, contentDescription = null, tint = Slate500)
         },
@@ -706,7 +708,7 @@ private fun FilterChipsLine(
                 scrollState.scrollTo(scrollState.maxValue)
             }
         }
-        TextLink(text = "Clear all", onClick = viewModel::clearFiltersAndSearch)
+        TextLink(text = stringResource(R.string.clear_all), onClick = viewModel::clearFiltersAndSearch)
     }
 }
 
@@ -859,7 +861,7 @@ private fun FilterBar(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (state.filtersActive) {
-                    TextLink(text = "Clear all filters", onClick = viewModel::clearPanelFilters)
+                    TextLink(text = stringResource(R.string.clear_all_filters), onClick = viewModel::clearPanelFilters)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 ExportToExcelButton(exporting = state.exporting, onExport = viewModel::export)
@@ -885,7 +887,7 @@ private fun WalletFilterField(
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Wallet") },
+            label = { Text(stringResource(R.string.wallet_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -896,7 +898,7 @@ private fun WalletFilterField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("All wallets") },
+                text = { Text(stringResource(R.string.all_wallets)) },
                 onClick = {
                     onSelect(null)
                     expanded = false
@@ -941,7 +943,7 @@ private fun RecurringFilterField(
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Recurring") },
+            label = { Text(stringResource(R.string.recurring_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -952,7 +954,7 @@ private fun RecurringFilterField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("All transactions") },
+                text = { Text(stringResource(R.string.all_transactions)) },
                 onClick = {
                     onSelect(null)
                     expanded = false
@@ -1020,7 +1022,7 @@ private fun CategoryFilterField(
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Category") },
+            label = { Text(stringResource(R.string.category_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1031,7 +1033,7 @@ private fun CategoryFilterField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("All categories") },
+                text = { Text(stringResource(R.string.all_categories)) },
                 onClick = {
                     onSelect(null)
                     expanded = false
@@ -1069,7 +1071,7 @@ private fun DateFilterField(
             enabled = false,
             singleLine = true,
             label = { Text(label) },
-            placeholder = { Text("Any date") },
+            placeholder = { Text(stringResource(R.string.any_date)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             colors = OutlinedTextFieldDefaults.colors(
                 // Disabled but styled like an enabled field: the tap goes to
@@ -1106,7 +1108,7 @@ private fun DateFilterField(
                         pickerOpen = false
                     },
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
@@ -1118,10 +1120,10 @@ private fun DateFilterField(
                                 pickerOpen = false
                             },
                         ) {
-                            Text("Clear")
+                            Text(stringResource(R.string.clear))
                         }
                     }
-                    TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+                    TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.cancel)) }
                 }
             },
         ) {
@@ -1251,7 +1253,7 @@ private fun LoadMoreSentinel(
     ) {
         when {
             loading -> Text(
-                text = "Loading more…",
+                text = stringResource(R.string.loading_more),
                 fontSize = 12.sp,
                 color = Slate500,
             )
@@ -1261,7 +1263,7 @@ private fun LoadMoreSentinel(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
-                TextButton(onClick = onRetry) { Text("Retry") }
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
             }
         }
     }

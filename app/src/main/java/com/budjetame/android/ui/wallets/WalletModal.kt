@@ -1,10 +1,9 @@
 package com.budjetame.android.ui.wallets
-
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -30,9 +29,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.FreezeSection
@@ -40,6 +41,7 @@ import com.budjetame.android.ui.common.UnfreezeSection
 import com.budjetame.android.ui.validation.FieldErrorText
 import com.budjetame.android.ui.validation.FieldKey
 import com.budjetame.android.util.Money
+
 
 /**
  * The create/edit/freeze Wallet form inside an AlertDialog (web issue #49).
@@ -93,7 +95,7 @@ fun WalletModal(
                     OutlinedTextField(
                         value = modal.name,
                         onValueChange = onNameChange,
-                        label = { Text("Name") },
+                        label = { Text(stringResource(R.string.name_label)) },
                         placeholder = { Text("e.g. Intesa checking") },
                         singleLine = true,
                         isError = modal.fieldErrors[FieldKey.NAME] != null,
@@ -127,7 +129,7 @@ fun WalletModal(
                         value = modal.openingBalance,
                         onValueChange = onOpeningBalanceChange,
                         label = { Text("Opening balance (optional)") },
-                        placeholder = { Text("0.00") },
+                        placeholder = { Text(stringResource(R.string.amount_placeholder)) },
                         enabled = modal.type != WalletType.CONTACT,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
@@ -199,7 +201,7 @@ fun WalletModal(
         },
         dismissButton = {
             TextButton(onClick = onClose, enabled = !modal.submitting && !modal.freezing) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
     )
@@ -223,7 +225,7 @@ private fun WalletTypeField(
             value = walletTypeLabel(value),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Type") },
+            label = { Text(stringResource(R.string.type_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -246,3 +248,4 @@ private fun WalletTypeField(
         }
     }
 }
+

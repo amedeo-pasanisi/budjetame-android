@@ -63,6 +63,8 @@ import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.R
+import androidx.compose.ui.res.stringResource
 import com.budjetame.android.ui.categories.CategoriesScreen
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.dashboard.DashboardScreen
@@ -282,7 +284,7 @@ private fun AppHeader(
             IconButton(onClick = onOpenSettings) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
-                    contentDescription = "Settings",
+                    contentDescription = stringResource(R.string.settings_content_description),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -296,7 +298,7 @@ private fun AppHeader(
                 contentPadding = PaddingValues(horizontal = 12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate600),
             ) {
-                Text("Sign out", fontSize = 13.sp)
+                Text(stringResource(R.string.sign_out), fontSize = 13.sp)
             }
         }
     }
@@ -386,7 +388,7 @@ private fun SettingsDialog(
 
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Settings") },
+        title = { Text(stringResource(R.string.settings_title)) },
         text = {
             Column {
                 Text(
@@ -398,7 +400,7 @@ private fun SettingsDialog(
                 // Language picker (i18n, ticket #59)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                 Text(
-                    text = "Language",
+                    text = stringResource(R.string.language_label),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
@@ -407,7 +409,7 @@ private fun SettingsDialog(
                     onExpandedChange = { localeExpanded = it },
                 ) {
                     Text(
-                        text = if (localeState.currentLocale == "it") "Italiano" else "English",
+                        text = if (localeState.currentLocale == "it") stringResource(R.string.language_italian) else stringResource(R.string.language_english),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier
                             .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -418,7 +420,7 @@ private fun SettingsDialog(
                         onDismissRequest = { localeExpanded = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("English") },
+                            text = { Text(stringResource(R.string.language_english)) },
                             onClick = {
                                 localeExpanded = false
                                 localeViewModel.selectLocale("en")
@@ -426,7 +428,7 @@ private fun SettingsDialog(
                             contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
                         )
                         DropdownMenuItem(
-                            text = { Text("Italiano") },
+                            text = { Text(stringResource(R.string.language_italian)) },
                             onClick = {
                                 localeExpanded = false
                                 localeViewModel.selectLocale("it")
@@ -437,7 +439,7 @@ private fun SettingsDialog(
                 }
                 if (localeState.updating) {
                     Text(
-                        text = "Saving…",
+                        text = stringResource(R.string.saving_label),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp),
@@ -456,12 +458,12 @@ private fun SettingsDialog(
 
                 // Export all (ticket #57)
                 Text(
-                    text = "Export all",
+                    text = stringResource(R.string.export_all_title),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = "Downloads the complete backup workbook with all your data.",
+                    text = stringResource(R.string.export_all_description),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -488,7 +490,7 @@ private fun SettingsDialog(
                     modifier = Modifier.padding(top = 4.dp),
                 ) {
                     Text(
-                        text = if (exporting) "Exporting…" else "Export all",
+                        text = if (exporting) stringResource(R.string.exporting) else stringResource(R.string.export_all_button),
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -505,12 +507,12 @@ private fun SettingsDialog(
 
                 // Restore from backup (issue #60)
                 Text(
-                    text = "Restore from backup",
+                    text = stringResource(R.string.restore_from_backup),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = "Pick a backup workbook to atomically replace all your data.",
+                    text = stringResource(R.string.restore_description),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -525,7 +527,7 @@ private fun SettingsDialog(
                     modifier = Modifier.padding(top = 4.dp),
                 ) {
                     Text(
-                        text = "Restore from backup…",
+                        text = stringResource(R.string.restore_button),
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -533,12 +535,12 @@ private fun SettingsDialog(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 Text(
-                    text = "Delete account",
+                    text = stringResource(R.string.delete_account_title),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = "Permanently deletes your Account and all its data.",
+                    text = stringResource(R.string.delete_account_description),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -549,7 +551,7 @@ private fun SettingsDialog(
                     modifier = Modifier.padding(top = 4.dp),
                 ) {
                     Text(
-                        text = if (deleting) "Deleting…" else "Delete account",
+                        text = if (deleting) stringResource(R.string.deleting) else stringResource(R.string.delete_account_button),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -571,8 +573,8 @@ private fun SettingsDialog(
     if (confirmOpen) {
         AlertDialog(
             onDismissRequest = { if (!deleting) confirmOpen = false },
-            title = { Text("Delete account") },
-            text = { Text("This permanently deletes your Account and all its data. Continue?") },
+            title = { Text(stringResource(R.string.delete_account_title)) },
+            text = { Text(stringResource(R.string.delete_account_confirm)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -640,7 +642,7 @@ private fun RestoreDialog(
         RestorePhase.PICKED -> {
             AlertDialog(
                 onDismissRequest = onDismiss,
-                title = { Text("Restore from backup") },
+                title = { Text(stringResource(R.string.restore_from_backup)) },
                 text = {
                     Column {
                         Text(
@@ -674,14 +676,14 @@ private fun RestoreDialog(
                     TextButton(
                         onClick = { viewModel.onFirstConfirm() },
                     ) {
-                        Text("Continue to restore")
+                        Text(stringResource(R.string.continue_to_restore))
                     }
                 },
                 dismissButton = {
                     Row {
                         if (state.exporting) {
                             Text(
-                                text = "Exporting…",
+                                text = stringResource(R.string.exporting),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.align(Alignment.CenterVertically),
@@ -699,14 +701,14 @@ private fun RestoreDialog(
                             TextButton(
                                 onClick = onExportHandled,
                             ) {
-                                Text("Share export")
+                                Text(stringResource(R.string.share_export))
                             }
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         TextButton(
                             onClick = onDismiss,
                         ) {
-                            Text("Cancel", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 },
@@ -715,24 +717,22 @@ private fun RestoreDialog(
         RestorePhase.FIRST_CONFIRMED -> {
             AlertDialog(
                 onDismissRequest = { viewModel.cancelSecondConfirm() },
-                title = { Text("Are you absolutely sure?") },
+                title = { Text(stringResource(R.string.are_you_absolutely_sure)) },
                 text = {
                     Text(
-                        text = "This replaces ALL your data — all Transactions, Wallets, Categories, " +
-                            "Recurring Costs/Incomes, and Skips — with the contents of the backup. " +
-                            "Account email, credentials, and language are unaffected. This is irreversible.",
+                        text = stringResource(R.string.restore_final_warning),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 },
                 confirmButton = {
                     TextButton(onClick = { viewModel.onSecondConfirm() }) {
-                        Text("Restore", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.restore_from_backup), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { viewModel.cancelSecondConfirm() }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                 },
             )
@@ -740,11 +740,11 @@ private fun RestoreDialog(
         RestorePhase.RESTORING -> {
             AlertDialog(
                 onDismissRequest = {}, // Can't dismiss while in flight
-                title = { Text("Restoring…") },
+                title = { Text(stringResource(R.string.restoring_title)) },
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Replacing your data from the backup…",
+                            text = stringResource(R.string.restoring_message),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -756,19 +756,18 @@ private fun RestoreDialog(
         RestorePhase.SUCCESS -> {
             AlertDialog(
                 onDismissRequest = onSuccess,
-                title = { Text("Restored") },
+                title = { Text(stringResource(R.string.restored_title)) },
                 text = {
                     Column {
                         Text(
-                            text = "All Account data has been replaced from the backup.",
+                            text = stringResource(R.string.restored_message),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         if (state.originWarning) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "The backup's origin marker doesn't match your Account — " +
-                                    "it may have been created elsewhere. Data was still restored.",
+                                text = stringResource(R.string.restore_origin_warning),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
@@ -777,7 +776,7 @@ private fun RestoreDialog(
                 },
                 confirmButton = {
                     TextButton(onClick = onSuccess) {
-                        Text("Done")
+                        Text(stringResource(R.string.done_label))
                     }
                 },
             )
@@ -785,17 +784,17 @@ private fun RestoreDialog(
         RestorePhase.ERROR -> {
             AlertDialog(
                 onDismissRequest = onDismiss,
-                title = { Text("Restore failed") },
+                title = { Text(stringResource(R.string.restore_failed_title)) },
                 text = {
                     Text(
-                        text = state.error ?: "Could not restore from the backup file.",
+                        text = state.error ?: stringResource(R.string.restore_failed_default),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
                 },
                 confirmButton = {
                     TextButton(onClick = onDismiss) {
-                        Text("Close")
+                        Text(stringResource(R.string.close))
                     }
                 },
             )
