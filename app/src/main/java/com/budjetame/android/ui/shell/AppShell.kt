@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.data.auth.LocaleGateway
 import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
@@ -70,6 +71,15 @@ import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
 import com.budjetame.android.ui.wallets.WalletsScreen
 import com.budjetame.android.data.transaction.shareExportFile
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 
 /** The five tabs in bottom-nav order, mirroring the web app's AppShell. The
@@ -101,6 +111,8 @@ fun AppShell(
     /** The backup export (ticket #57): downloads the complete multi-sheet
      * backup workbook and shares it via the system share sheet. */
     backupRepository: BackupGateway,
+    /** The locale gateway (i18n, ticket #59): reads and updates the Account locale. */
+    localeRepository: LocaleGateway,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -213,6 +225,7 @@ fun AppShell(
             onClose = { showSettings = false },
             onDeleteAccount = onDeleteAccount,
             backupRepository = backupRepository,
+            localeRepository = localeRepository,
         )
     }
 }
@@ -313,19 +326,27 @@ private fun BottomTabs(pagerState: PagerState) {
  * surfaces it via the system share sheet.
  */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun SettingsDialog(
     email: String,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
     backupRepository: BackupGateway,
+    localeRepository: LocaleGateway,
 ) {
     var confirmOpen by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var exporting by remember { mutableStateOf(false) }
     var exportError by remember { mutableStateOf<String?>(null) }
+    var localeExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    val localeViewModel: SettingsLocaleViewModel = viewModel {
+        SettingsLocaleViewModel(localeRepository)
+    }
+    val localeState by localeViewModel.state.collectAsStateWithLifecycle()
 
     AlertDialog(
         onDismissRequest = onClose,
@@ -337,7 +358,65 @@ private fun SettingsDialog(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                // Language picker (i18n, ticket #59)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                Text(
+                    text = "Language",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                ExposedDropdownMenuBox(
+                    expanded = localeExpanded,
+                    onExpandedChange = { localeExpanded = it },
+                ) {
+                    Text(
+                        text = if (localeState.currentLocale == "it") "Italiano" else "English",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                            .padding(top = 4.dp),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = localeExpanded,
+                        onDismissRequest = { localeExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("English") },
+                            onClick = {
+                                localeExpanded = false
+                                localeViewModel.selectLocale("en")
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Italiano") },
+                            onClick = {
+                                localeExpanded = false
+                                localeViewModel.selectLocale("it")
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                        )
+                    }
+                }
+                if (localeState.updating) {
+                    Text(
+                        text = "Saving…",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                localeState.error?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                 // Export all (ticket #57)
                 Text(

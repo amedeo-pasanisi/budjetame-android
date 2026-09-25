@@ -14,6 +14,7 @@ import com.budjetame.android.data.api.BackupApi
 import com.budjetame.android.data.api.TransactionApi
 import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.auth.ApiAuthRepository
+import com.budjetame.android.data.auth.LocaleGateway
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.imports.ApiImportRepository
@@ -39,6 +40,8 @@ class AppContainer(context: Context) {
     private val api = ApiClient(BuildConfig.API_BASE_URL) { session.token }
 
     val authRepository = ApiAuthRepository(api.create(AuthApi::class.java), session)
+
+    val localeRepository: LocaleGateway = authRepository
 
     val walletRepository = ApiWalletRepository(api.create(WalletApi::class.java))
 

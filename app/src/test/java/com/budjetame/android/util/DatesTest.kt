@@ -3,10 +3,22 @@ package com.budjetame.android.util
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 class DatesTest {
+
+    @Before
+    fun setUp() {
+        AppLocale.current = Locale.US
+    }
+
+    @After
+    fun tearDown() {
+        AppLocale.current = Locale.US
+    }
 
     @Test
     fun `the single fixed timezone is Europe-Rome`() {
@@ -30,18 +42,37 @@ class DatesTest {
     }
 
     @Test
-    fun `month labels render the abbreviated month and the year`() {
-        assertEquals("Aug 2026", Dates.monthLabel("2026-08", Locale.ENGLISH))
+    fun `monthLabel is wired to AppLocale US`() {
+        assertEquals("Aug 2026", Dates.monthLabel("2026-08"))
     }
 
     @Test
-    fun `compact month labels render the short month and the year`() {
-        assertEquals("Aug 2026", Dates.monthLabelCompact("2026-08", Locale.ENGLISH))
+    fun `monthLabel is wired to AppLocale IT`() {
+        AppLocale.current = Locale.ITALY
+        assertEquals("ago 2026", Dates.monthLabel("2026-08"))
     }
 
     @Test
-    fun `short bar labels render the month and January carries the year`() {
-        assertEquals("Aug", Dates.shortMonthLabel("2026-08", Locale.ENGLISH))
-        assertEquals("Jan '26", Dates.shortMonthLabel("2026-01", Locale.ENGLISH))
+    fun `monthLabelCompact is wired to AppLocale US`() {
+        assertEquals("Aug 2026", Dates.monthLabelCompact("2026-08"))
+    }
+
+    @Test
+    fun `monthLabelCompact is wired to AppLocale IT`() {
+        AppLocale.current = Locale.ITALY
+        assertEquals("ago 2026", Dates.monthLabelCompact("2026-08"))
+    }
+
+    @Test
+    fun `shortMonthLabel is wired to AppLocale US`() {
+        assertEquals("Aug", Dates.shortMonthLabel("2026-08"))
+        assertEquals("Jan '26", Dates.shortMonthLabel("2026-01"))
+    }
+
+    @Test
+    fun `shortMonthLabel is wired to AppLocale IT`() {
+        AppLocale.current = Locale.ITALY
+        assertEquals("ago", Dates.shortMonthLabel("2026-08"))
+        assertEquals("gen '26", Dates.shortMonthLabel("2026-01"))
     }
 }

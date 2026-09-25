@@ -32,7 +32,7 @@ object Dates {
      * ("Aug 2026") — always uses abbreviated English month names.
      * i18n will come in the future, so English is the default.
      */
-    fun monthLabel(isoMonth: String): String = monthLabel(isoMonth, Locale.US)
+    fun monthLabel(isoMonth: String): String = monthLabel(isoMonth, AppLocale.current)
 
     internal fun monthLabel(isoMonth: String, locale: Locale): String =
         YearMonth.parse(isoMonth).format(DateTimeFormatter.ofPattern("MMM yyyy", locale))
@@ -41,7 +41,7 @@ object Dates {
      * An API month string ("2026-08") in the compact field form
      * ("Aug 2026") — always abbreviated English. i18n will come later.
      */
-    fun monthLabelCompact(isoMonth: String): String = monthLabelCompact(isoMonth, Locale.US)
+    fun monthLabelCompact(isoMonth: String): String = monthLabelCompact(isoMonth, AppLocale.current)
 
     internal fun monthLabelCompact(isoMonth: String, locale: Locale): String =
         YearMonth.parse(isoMonth).format(DateTimeFormatter.ofPattern("MMM yyyy", locale))
@@ -51,7 +51,7 @@ object Dates {
      * the year ("Jan '26") so long ranges stay readable — the web app's
      * `shortMonthLabel`, always abbreviated English. i18n will come later.
      */
-    fun shortMonthLabel(isoMonth: String): String = shortMonthLabel(isoMonth, Locale.US)
+    fun shortMonthLabel(isoMonth: String): String = shortMonthLabel(isoMonth, AppLocale.current)
 
     internal fun shortMonthLabel(isoMonth: String, locale: Locale): String {
         val month = YearMonth.parse(isoMonth)

@@ -6,6 +6,7 @@ import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.AuthApi
 import com.budjetame.android.data.api.AuthConfigDto
 import com.budjetame.android.data.api.CredentialsRequest
+import com.budjetame.android.data.api.LocaleRequest
 import com.budjetame.android.data.api.EmailRequest
 import com.budjetame.android.data.api.GoogleTokenRequest
 import com.budjetame.android.data.api.toApiException
@@ -24,13 +25,24 @@ interface AuthGateway {
 }
 
 /**
+ * The locale operations the Settings screen calls (i18n, ticket #59).
+ */
+interface LocaleGateway {
+    /** The stored locale tag, or null when not yet set (gracefully degrades to en). */
+    suspend fun fetchLocale(): String?
+
+    /** Store a locale tag on the Account. */
+    suspend fun updateLocale(tag: String)
+}
+
+/**
  * The API-backed AuthGateway: a successful sign-in stores the JWT in the
  * session, then fetches the Account the token belongs to.
  */
 class ApiAuthRepository(
     private val api: AuthApi,
     private val session: Session,
-) : AuthGateway {
+) : AuthGateway, LocaleGateway {
 
     override suspend fun signIn(email: String, password: String): AccountDto =
         call { api.login(CredentialsRequest(email, password)) }.let { token ->
@@ -80,6 +92,15 @@ class ApiAuthRepository(
     }
 
     fun signOut() = session.clear()
+
+    /** The stored locale from the Account, or null when absent. */
+    override suspend fun fetchLocale(): String? =
+        call { api.me() }.locale
+
+    /** Update the Account locale. */
+    override suspend fun updateLocale(tag: String) {
+        call { api.setLocale(LocaleRequest(tag)) }
+    }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

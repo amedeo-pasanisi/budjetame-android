@@ -45,7 +45,7 @@ class BudgetDisplayTest {
         assertEquals("49.80", text.spendableToday)
         assertNull(text.bucketNote)
         assertEquals(
-            "€500.00 this month (€2100.00 income − €850.00 costs)",
+            "€500.00 this month (€2,100.00 income − €850.00 costs)",
             text.frameLine,
         )
         assertEquals("€16.60 per day", text.dailyLine)

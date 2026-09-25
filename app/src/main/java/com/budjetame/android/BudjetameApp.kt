@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.ui.login.LoginScreen
 import com.budjetame.android.ui.shell.AppShell
+import com.budjetame.android.util.AppLocale
 
 /** The auth state machine, mirroring the web app's App.tsx. */
 sealed interface AuthState {
@@ -46,7 +47,29 @@ fun BudjetameApp(container: AppContainer) {
         authState = AuthState.Checking
         authState = try {
             val account = container.authRepository.fetchCurrentAccount()
-            if (account == null) AuthState.SignedOut else AuthState.SignedIn(account)
+            if (account == null) {
+                AuthState.SignedOut
+            } else {
+                // i18n (ticket #59): initialise the app-wide locale from
+                // the stored Account value. On first load when no Locale is
+                // stored, auto-detect the device locale, persist it via the
+                // API (best-effort — gracefully degrade to en on failure),
+                // and set the app-wide locale.
+                val stored = account.locale
+                if (stored != null && stored in listOf("en", "it")) {
+                    AppLocale.setFromTag(stored)
+                } else {
+                    val detected = AppLocale.detectDeviceTag()
+                    try {
+                        container.authRepository.updateLocale(detected)
+                    } catch (_: Exception) {
+                        // Graceful degradation: the language endpoint is not
+                        // yet available on the shared backend.
+                    }
+                    AppLocale.setFromTag(detected)
+                }
+                AuthState.SignedIn(account)
+            }
         } catch (_: Exception) {
             AuthState.CheckingFailed
         }
@@ -81,6 +104,7 @@ fun BudjetameApp(container: AppContainer) {
             recurringIncomeRepository = container.recurringIncomeRepository,
             backupRepository = container.backupRepository,
             location = container.deviceLocation,
+            localeRepository = container.localeRepository,
             onSignOut = {
                 container.authRepository.signOut()
                 clearSessionViewModels()

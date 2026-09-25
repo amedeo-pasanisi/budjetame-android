@@ -4,13 +4,17 @@ import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PUT
 import retrofit2.http.POST
 
-/** The single login identity (CONTEXT.md: Account). */
+/** The single login identity (CONTEXT.md: Account). locale is absent
+ * before the i18n endpoint lands or on first registration (gracefully
+ * degraded to en by the client). */
 @Serializable
 data class AccountDto(
     val id: Int,
     val email: String,
+    val locale: String? = null,
 )
 
 /** Public sign-in options: an empty client id means no Google button. */
@@ -47,6 +51,12 @@ data class ResetPasswordRequest(
     val new_password: String,
 )
 
+/** The locale to store on the Account (i18n, ticket #59). */
+@Serializable
+data class LocaleRequest(
+    val locale: String,
+)
+
 /**
  * Auth resource: login, registration, Google sign-in, password reset, and
  * the current Account (web issues #17, #81, #82, #83, #84).
@@ -81,4 +91,8 @@ interface AuthApi {
 
     @GET("auth/me")
     suspend fun me(): AccountDto
+
+    /** Update the Account locale (i18n, ticket #59). */
+    @PUT("auth/me/locale")
+    suspend fun setLocale(@Body body: LocaleRequest)
 }
