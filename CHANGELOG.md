@@ -25,7 +25,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   newest first. The in-memory buffer keeps the deleted row for client replay
   via the new `POST /transactions/undo` endpoint (#58).
 
-- **Dashboard** — the Budget card now supports a **month selector**
+- **Restore from backup** — a new flow in Settings: pick a backup
+  workbook via the system file picker, two-step confirmation with a fresh
+  Export all offered before the commit, upload to the shared restore
+  endpoint to atomically replace all Account data. Origin-marker mismatch
+  warns but still proceeds; a malformed file fails closed (#60).
 
 ### Fixed
 
