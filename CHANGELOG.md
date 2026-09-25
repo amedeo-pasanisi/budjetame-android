@@ -17,9 +17,21 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 - **Dashboard** — the Budget card's frame line now reads "€500.00 this month (€16.60 per day)" (Monthly Spendable, then Daily Allowance) and gains the month's bottom line below it: a muted "€333.40 left this month" (the Remaining Monthly Spendable: the Monthly Spendable minus the Discretionary Expenses dated from the 1st through today, so a future-dated Expense reduces it only once its date arrives). A negative bucket keeps its red "€12.34 over today's budget" note; when the whole frame is spent, that note gives way to the month's bottom line — a red "€100.00 over this month's budget", never two over-notes at once. The card also hides entirely when your account has no Recurring definitions at all — and a failed definitions check never hides it (#48).
 
-## [Unreleased]
+## [v1.8.0] — 2026-09-25
 
 ### Added
+
+- **Settings Export all** — a new "Export all" button in Settings downloads the
+  complete multi-sheet backup workbook from the shared backend and shares it
+  via the system share sheet. The file carries the Account's whole state:
+  Transactions including Opening Balances, Wallets, Categories, Recurring
+  Costs and Recurring Incomes, and skips (#57).
+
+- **Account Locale with Italian formatting** — the Account carries a stored
+  Locale (en/it), auto-detected once from the device locale on first load,
+  changeable in Settings. Under it, amounts render with Italian notation
+  (1.000,42 €) through NumberFormat.getCurrencyInstance; rendered dates
+  localize. Wire formats and stored amounts stay US-canonical (#59).
 
 - **Single-tap delete with Undo** — the two-tap delete confirmation is
   removed; a single tap deletes immediately. An Undo Snackbar (10-second
@@ -33,6 +45,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   endpoint to atomically replace all Account data. Origin-marker mismatch
   warns but still proceeds; a malformed file fails closed (#60).
 
+- **Undo restores the recurring pin** — when the Undo'd Transaction
+  carried a Recurring Cost or Recurring Income link, the undo restores
+  the original pin (same definition id, same occurrence date). If another
+  Transaction already paid that Occurrence, the undo fails and the
+  Snackbar shows the backend's failure message — it never silently
+  re-links to a different Occurrence (#61).
+
 - **Italian translation** — string resource files for Italian
   (`values-it/strings.xml`) with translations for the core screens (Settings,
   Dashboard, Transactions, Wallets, Categories, Recurring, and Transaction
@@ -41,12 +60,11 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   and the Settings language picker now flips every visible string in the
   chosen language (#62).
 
-- **Undo restores the recurring pin** — when the Undo'd Transaction
-  carried a Recurring Cost or Recurring Income link, the undo restores
-  the original pin (same definition id, same occurrence date). If another
-  Transaction already paid that Occurrence, the undo fails and the
-  Snackbar shows the backend's failure message — it never silently
-  re-links to a different Occurrence (#61).
+- **i18n: remaining screens + error catalogue** — every remaining visible string
+  extracted into values-it/strings.xml (Recurring, Categories, Import, auth,
+  validation errors, empty states, Snackbar messages). A new ErrorCatalogue
+  maps known server error messages to Italian string resource keys; unknown
+  errors fall back to the original API text (#63).
 
 ### Fixed
 
