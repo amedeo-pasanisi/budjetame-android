@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -81,6 +82,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.budjetame.android.ui.imports.readPickedFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** The five tabs in bottom-nav order, mirroring the web app's AppShell. The
  * enum's name is the pager page's stable identity: it keys the per-tab
@@ -117,6 +123,11 @@ fun AppShell(
     onDeleteAccount: suspend () -> Unit,
 ) {
     var showSettings by remember { mutableStateOf(false) }
+
+    // The pending restore-complete flag (issue #60): when set, the
+    // Transactions screen's undo snackbar stack is cleared. Consumed
+    // by the Transactions screen on first mount after restore.
+    var restorePending by remember { mutableStateOf(false) }
 
     // The pending ledger jump (ADR-0004, ticket #44, extended to the
     // Recurring cards by web ADR-0026 / ticket #46): a Wallet, Category,
@@ -204,6 +215,8 @@ fun AppShell(
                         location = location,
                         pendingLedgerJump = pendingLedgerJump,
                         onLedgerJumpConsumed = { pendingLedgerJump = null },
+                        restorePending = restorePending,
+                        onRestoreConsumed = { restorePending = false },
                     )
                     Tab.Categories -> CategoriesScreen(
                         categoryRepository,
@@ -226,6 +239,7 @@ fun AppShell(
             onDeleteAccount = onDeleteAccount,
             backupRepository = backupRepository,
             localeRepository = localeRepository,
+            onRestoreSuccess = { restorePending = true },
         )
     }
 }
@@ -333,6 +347,7 @@ private fun SettingsDialog(
     onDeleteAccount: suspend () -> Unit,
     backupRepository: BackupGateway,
     localeRepository: LocaleGateway,
+    onRestoreSuccess: () -> Unit,
 ) {
     var confirmOpen by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -347,6 +362,27 @@ private fun SettingsDialog(
         SettingsLocaleViewModel(localeRepository)
     }
     val localeState by localeViewModel.state.collectAsStateWithLifecycle()
+
+    // Restore from backup (issue #60)
+    val restoreViewModel: RestoreViewModel = viewModel {
+        RestoreViewModel(backupRepository)
+    }
+    val restoreState by restoreViewModel.state.collectAsStateWithLifecycle()
+
+    // The SAF document picker for backup workbooks (.xlsx files), reusing
+    // the same OpenDocument pattern from ImportScreen.
+    val restoreFilePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val picked = withContext(Dispatchers.IO) {
+                    readPickedFile(context.contentResolver, uri)
+                }
+                restoreViewModel.onFilePicked(picked?.first, picked?.second)
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onClose,
@@ -467,6 +503,35 @@ private fun SettingsDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                // Restore from backup (issue #60)
+                Text(
+                    text = "Restore from backup",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = "Pick a backup workbook to atomically replace all your data.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                TextButton(
+                    onClick = {
+                        restoreViewModel.reset()
+                        restoreFilePicker.launch(RESTORE_MIME_TYPES)
+                    },
+                    enabled = restoreState.phase == RestorePhase.IDLE ||
+                        restoreState.phase == RestorePhase.ERROR,
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    Text(
+                        text = "Restore from backup…",
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
                 Text(
                     text = "Delete account",
                     style = MaterialTheme.typography.bodyMedium,
@@ -532,4 +597,217 @@ private fun SettingsDialog(
             },
         )
     }
+
+    // Restore flow (issue #60)
+    if (restoreState.phase != RestorePhase.IDLE) {
+        RestoreDialog(
+            state = restoreState,
+            viewModel = restoreViewModel,
+            onExportHandled = {
+                val export = restoreState.exportFile ?: return@RestoreDialog
+                val errorMsg = shareExportFile(context, export)
+                if (errorMsg != null) {
+                    restoreViewModel.onExportErrorHandled(errorMsg)
+                } else {
+                    restoreViewModel.onExportHandled()
+                }
+            },
+            onDismiss = {
+                restoreViewModel.dismiss()
+            },
+            onSuccess = {
+                restoreViewModel.dismiss()
+                onRestoreSuccess()
+            },
+        )
+    }
 }
+
+/**
+ * The restore flow's dialog (issue #60): shows the two-step confirmation
+ * with an optional fresh Export all before the commit, the in-flight
+ * progress, and the success or error result.
+ */
+@Composable
+private fun RestoreDialog(
+    state: RestoreState,
+    viewModel: RestoreViewModel,
+    onExportHandled: () -> Unit,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit,
+) {
+    when (state.phase) {
+        RestorePhase.PICKED -> {
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("Restore from backup") },
+                text = {
+                    Column {
+                        Text(
+                            text = "This will REPLACE all your Account data with the contents of the backup workbook.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "File: ${state.fileName}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (state.exportError != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = state.exportError,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "You can export a fresh backup of the current data first.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { viewModel.onFirstConfirm() },
+                    ) {
+                        Text("Continue to restore")
+                    }
+                },
+                dismissButton = {
+                    Row {
+                        if (state.exporting) {
+                            Text(
+                                text = "Exporting…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.CenterVertically),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        TextButton(
+                            onClick = { viewModel.onOfferExport() },
+                            enabled = !state.exporting && state.exportFile == null,
+                        ) {
+                            Text("Export all")
+                        }
+                        // Show share button when a fresh export is ready
+                        if (state.exportFile != null) {
+                            TextButton(
+                                onClick = onExportHandled,
+                            ) {
+                                Text("Share export")
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(
+                            onClick = onDismiss,
+                        ) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                },
+            )
+        }
+        RestorePhase.FIRST_CONFIRMED -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.cancelSecondConfirm() },
+                title = { Text("Are you absolutely sure?") },
+                text = {
+                    Text(
+                        text = "This replaces ALL your data — all Transactions, Wallets, Categories, " +
+                            "Recurring Costs/Incomes, and Skips — with the contents of the backup. " +
+                            "Account email, credentials, and language are unaffected. This is irreversible.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.onSecondConfirm() }) {
+                        Text("Restore", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.cancelSecondConfirm() }) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        }
+        RestorePhase.RESTORING -> {
+            AlertDialog(
+                onDismissRequest = {}, // Can't dismiss while in flight
+                title = { Text("Restoring…") },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Replacing your data from the backup…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                confirmButton = {},
+            )
+        }
+        RestorePhase.SUCCESS -> {
+            AlertDialog(
+                onDismissRequest = onSuccess,
+                title = { Text("Restored") },
+                text = {
+                    Column {
+                        Text(
+                            text = "All Account data has been replaced from the backup.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (state.originWarning) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "The backup's origin marker doesn't match your Account — " +
+                                    "it may have been created elsewhere. Data was still restored.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = onSuccess) {
+                        Text("Done")
+                    }
+                },
+            )
+        }
+        RestorePhase.ERROR -> {
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("Restore failed") },
+                text = {
+                    Text(
+                        text = state.error ?: "Could not restore from the backup file.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = onDismiss) {
+                        Text("Close")
+                    }
+                },
+            )
+        }
+        RestorePhase.IDLE -> { /* no dialog shown */ }
+    }
+}
+
+/** The backup workbook MIME types the restore file picker accepts (issue
+ * #60): .xlsx workbooks — reuses the same OpenDocument pattern from
+ * ImportScreen. */
+private val RESTORE_MIME_TYPES = arrayOf(
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/octet-stream",
+)

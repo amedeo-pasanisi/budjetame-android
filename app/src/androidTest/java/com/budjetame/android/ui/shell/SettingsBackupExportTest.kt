@@ -17,13 +17,14 @@ import com.budjetame.android.data.api.ImportRowValidationDto
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringIncomeDto
-import com.budjetame.android.data.api.TransactionDeleteResultDto
+import com.budjetame.android.data.api.RestoreResultDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionPageDto
 import com.budjetame.android.data.api.TrendDto
 import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.data.auth.LocaleGateway
 import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
@@ -71,6 +72,7 @@ class SettingsBackupExportTest {
                 recurringCostRepository = FakeRecurringCostGateway(),
                 recurringIncomeRepository = FakeRecurringIncomeGateway(),
                 backupRepository = backup,
+                localeRepository = FakeLocaleGateway(),
                 location = SilentLocation(),
                 onSignOut = {},
                 onDeleteAccount = {},
@@ -120,6 +122,7 @@ class SettingsBackupExportTest {
 
     private class FakeBackupGateway : BackupGateway {
         override suspend fun exportBackup(): ExportFile = error("boom")
+        override suspend fun restoreBackup(fileName: String, content: ByteArray): RestoreResultDto = error("boom")
     }
 
     private class FakeWalletGateway : WalletGateway {
@@ -179,7 +182,8 @@ class SettingsBackupExportTest {
         )
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto = error("unused")
-        override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto = error("unused")
+        override suspend fun deleteTransaction(id: Int): TransactionDto = error("unused")
+        override suspend fun undoTransaction(transaction: TransactionDto): TransactionDto = error("unused")
         override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
     }
 
@@ -228,4 +232,9 @@ class SettingsBackupExportTest {
 private class SilentLocation : DeviceLocation {
     override fun permissionGranted(): Boolean = true
     override suspend fun currentPosition(): LatLng? = null
+}
+
+private class FakeLocaleGateway : LocaleGateway {
+    override suspend fun fetchLocale(): String = "en"
+    override suspend fun updateLocale(tag: String) {}
 }

@@ -155,6 +155,15 @@ fun TransactionsScreen(
     /** The consume side of the jump: call once the pending request has been
      * applied, so the shell clears it and no later render can reapply it. */
     onLedgerJumpConsumed: () -> Unit = {},
+    /**
+     * A pending restore-complete flag (issue #60): when true (set after a
+     * successful restore from backup), the ViewModel clears its in-memory
+     * undo snackbar stack. Consumed by this screen once applied.
+     */
+    restorePending: Boolean = false,
+    /** The consume side of the restore: call once the buffer has been
+     * cleared, so the shell clears the flag. */
+    onRestoreConsumed: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val viewModel: TransactionsViewModel = viewModel {
@@ -188,6 +197,16 @@ fun TransactionsScreen(
         if (pendingLedgerJump != null) {
             viewModel.applyLedgerJump(pendingLedgerJump)
             onLedgerJumpConsumed()
+        }
+    }
+
+    // The restore-complete flag (issue #60): when the shell reports that a
+    // successful restore happened, clear the in-memory undo snackbar stack
+    // and consume the flag — the next render must not reapply.
+    LaunchedEffect(restorePending) {
+        if (restorePending) {
+            viewModel.clearUndoBuffer()
+            onRestoreConsumed()
         }
     }
 

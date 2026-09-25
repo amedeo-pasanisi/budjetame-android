@@ -293,6 +293,16 @@ class TransactionsViewModel(
      * newest first. Dropped on overflow. */
     private val undoBuffer = UndoBuffer()
 
+    /**
+     * Clear the in-memory undo buffer (issue #60): a successful restore
+     * from backup replaces all Account data, so any buffered deleted
+     * Transactions are no longer meaningful.
+     */
+    fun clearUndoBuffer() {
+        undoBuffer.clear()
+        _uiState.update { it.copy(deletedTransactions = emptyList()) }
+    }
+
     /** Events emitted after every successful delete so the screen can show
      * a Snackbar. The buffer holds up to 3, matching the undo buffer. */
     private val _deleteEvents = MutableSharedFlow<DeleteEvent>(extraBufferCapacity = 3)
