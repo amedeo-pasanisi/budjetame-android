@@ -69,7 +69,7 @@ fun LoginScreen(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Budjetame",
+                    text = stringResource(R.string.app_name),
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
@@ -110,7 +110,7 @@ fun LoginScreen(
                 if (state.resetSent) {
                     Column {
                         Text(
-                            text = "Check your inbox — the link works once and expires soon.",
+                            text = stringResource(R.string.login_check_inbox),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
@@ -120,7 +120,7 @@ fun LoginScreen(
                                 .fillMaxWidth()
                                 .padding(top = 16.dp),
                         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                            Text("Back to sign in")
+                            Text(stringResource(R.string.back_to_sign_in))
                         }
                     }
                 } else {
@@ -128,7 +128,7 @@ fun LoginScreen(
                         value = state.email,
                         onValueChange = viewModel::onEmailChange,
                         label = { Text(stringResource(R.string.email_label)) },
-                        placeholder = { Text("you@example.com") },
+                        placeholder = { Text(stringResource(R.string.email_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
                         modifier = Modifier

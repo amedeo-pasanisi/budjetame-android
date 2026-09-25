@@ -108,7 +108,7 @@ fun RecurringIncomesModal(
                     value = modal.name,
                     onValueChange = onNameChange,
                     label = { Text(stringResource(R.string.name_label)) },
-                    placeholder = { Text("e.g. Salary") },
+                    placeholder = { Text(stringResource(R.string.name_placeholder_income)) },
                     singleLine = true,
                     isError = modal.fieldErrors[FieldKey.NAME] != null,
                     supportingText = { FieldErrorText(modal.fieldErrors[FieldKey.NAME]) },
@@ -139,7 +139,7 @@ fun RecurringIncomesModal(
                     OutlinedTextField(
                         value = modal.intervalValue,
                         onValueChange = onIntervalValueChange,
-                        label = { Text("Repeats every") },
+                        label = { Text(stringResource(R.string.repeats_every)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         isError = modal.fieldErrors[FieldKey.INTERVAL] != null,
@@ -169,7 +169,7 @@ fun RecurringIncomesModal(
                 )
                 if (!editing) {
                     Text(
-                        text = "The first occurrence. Leave empty to start today.",
+                        text = stringResource(R.string.start_date_help),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),
@@ -243,7 +243,7 @@ private fun IntervalUnitField(
             value = label,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Unit") },
+            label = { Text(stringResource(R.string.unit_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -289,7 +289,7 @@ private fun StartDateField(
             readOnly = true,
             enabled = false,
             singleLine = true,
-            label = { Text("Start date") },
+            label = { Text(stringResource(R.string.start_date)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             isError = error != null,
             supportingText = { FieldErrorText(error) },
@@ -361,7 +361,7 @@ private fun FreezeSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Freeze recurring income",
+        text = stringResource(R.string.freeze_recurring_income_title),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
@@ -401,12 +401,12 @@ private fun UnfreezeSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Unfreeze recurring income",
+        text = stringResource(R.string.unfreeze_recurring_income_title),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "Restore this definition: new occurrences will resume.",
+        text = stringResource(R.string.unfreeze_recurring_income_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),

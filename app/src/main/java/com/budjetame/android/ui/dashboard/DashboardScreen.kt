@@ -240,7 +240,7 @@ private fun NetWorthCard(netWorth: String) {
             modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            text = "The sum of every wallet balance — contact wallets included.",
+            text = stringResource(R.string.net_worth_description),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),

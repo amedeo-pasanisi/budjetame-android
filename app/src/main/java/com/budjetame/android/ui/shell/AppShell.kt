@@ -566,7 +566,7 @@ private fun SettingsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onClose) { Text("Close") }
+            TextButton(onClick = onClose) { Text(stringResource(R.string.close)) }
         },
     )
 
@@ -591,11 +591,11 @@ private fun SettingsDialog(
                         }
                     },
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmOpen = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmOpen = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
@@ -652,7 +652,7 @@ private fun RestoreDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "File: ${state.fileName}",
+                            text = stringResource(R.string.restore_file_label, state.fileName ?: ""),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -666,7 +666,7 @@ private fun RestoreDialog(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "You can export a fresh backup of the current data first.",
+                            text = stringResource(R.string.restore_export_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

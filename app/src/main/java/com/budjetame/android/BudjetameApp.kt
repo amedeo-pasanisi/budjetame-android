@@ -128,7 +128,7 @@ fun BudjetameApp(container: AppContainer) {
 @Composable
 private fun CheckingScreen() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Signing you in…", style = MaterialTheme.typography.bodyMedium)
+        Text(text = stringResource(R.string.signing_you_in), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -142,12 +142,12 @@ private fun CheckingFailedScreen(onRetry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Could not connect to Budjetame.",
+            text = stringResource(R.string.could_not_connect),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Check your connection and try again.",
+            text = stringResource(R.string.check_connection),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),

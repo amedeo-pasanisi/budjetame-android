@@ -96,7 +96,7 @@ fun WalletModal(
                         value = modal.name,
                         onValueChange = onNameChange,
                         label = { Text(stringResource(R.string.name_label)) },
-                        placeholder = { Text("e.g. Intesa checking") },
+                        placeholder = { Text(stringResource(R.string.name_placeholder_checking)) },
                         singleLine = true,
                         isError = modal.fieldErrors[FieldKey.NAME] != null,
                         supportingText = { FieldErrorText(modal.fieldErrors[FieldKey.NAME]) },
@@ -128,7 +128,7 @@ fun WalletModal(
                     OutlinedTextField(
                         value = modal.openingBalance,
                         onValueChange = onOpeningBalanceChange,
-                        label = { Text("Opening balance (optional)") },
+                        label = { Text(stringResource(R.string.opening_balance_label)) },
                         placeholder = { Text(stringResource(R.string.amount_placeholder)) },
                         enabled = modal.type != WalletType.CONTACT,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

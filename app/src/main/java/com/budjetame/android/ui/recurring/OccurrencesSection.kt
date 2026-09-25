@@ -71,7 +71,7 @@ fun OccurrencesSection(
         }
         when {
             occurrences == null && error == null -> Text(
-                text = "Loading occurrences…",
+                text = stringResource(R.string.loading_occurrences),
                 style = MaterialTheme.typography.labelSmall,
                 color = Slate500,
                 modifier = Modifier.padding(top = 4.dp),
@@ -154,7 +154,7 @@ private fun OccurrenceRow(
             )
             if (row.skipped) {
                 Text(
-                    text = "Skipped — un-skip to pay it",
+                    text = stringResource(R.string.skipped_caption),
                     // The web caption type: text-xs text-slate-400 (ticket #44).
                     fontSize = 12.sp,
                     color = Slate400,

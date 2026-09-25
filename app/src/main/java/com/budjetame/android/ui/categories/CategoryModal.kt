@@ -111,7 +111,7 @@ fun CategoryModal(
                     value = modal.name,
                     onValueChange = onNameChange,
                     label = { Text(stringResource(R.string.name_label)) },
-                    placeholder = { Text("e.g. Groceries") },
+                    placeholder = { Text(stringResource(R.string.name_placeholder_category)) },
                     singleLine = true,
                     isError = modal.fieldErrors[FieldKey.NAME] != null,
                     supportingText = { FieldErrorText(modal.fieldErrors[FieldKey.NAME]) },
@@ -149,8 +149,8 @@ fun CategoryModal(
                 OutlinedTextField(
                     value = modal.icon,
                     onValueChange = onIconChange,
-                    label = { Text("Icon (optional)") },
-                    placeholder = { Text("e.g. 🛒") },
+                    label = { Text(stringResource(R.string.icon_optional)) },
+                    placeholder = { Text(stringResource(R.string.icon_placeholder)) },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -249,7 +249,7 @@ private fun ColorPicker(
 ) {
     Column(modifier = modifier) {
         Text(
-            text = "Color",
+            text = stringResource(R.string.color_label),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
@@ -343,7 +343,7 @@ private fun DeleteSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Delete category",
+        text = stringResource(R.string.delete_category_title),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )

@@ -303,7 +303,7 @@ internal fun TransactionForm(
 
         if (modal.isTransfer) {
             Text(
-                text = "Transfers never carry a category.",
+                text = stringResource(R.string.transfer_no_category),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
@@ -898,7 +898,7 @@ private fun BalancePreviewCard(
             }
             if (warn) {
                 Text(
-                    text = "⚠ This will make your Cash wallet negative.",
+                    text = stringResource(R.string.cash_negative_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = AMBER_700,
                     modifier = Modifier.padding(top = 4.dp),
