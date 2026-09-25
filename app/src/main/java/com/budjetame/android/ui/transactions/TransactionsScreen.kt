@@ -217,12 +217,20 @@ fun TransactionsScreen(
     // platform permission ("Use my location" or the first save of a new
     // Transaction); this launcher shows the one-time system dialog and
     // reports the answer back so the flow continues.
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted -> viewModel.onLocationPermissionResult(granted) }
+    //
+    // The launcher is composed only while the prompt is up: creating it
+    // unconditionally at the top of this pager page crashes during a
+    // prefetch composition — the pager composes nearby pages detached, and
+    // rememberLauncherForActivityResult then finds no
+    // LocalActivityResultRegistryOwner ("No ActivityResultRegistryOwner was
+    // provided"). The prompt only ever rises in a visible composition, so
+    // the launcher lives safely inside this conditional.
     val askingLocationPermission = state.modal?.requestingLocationPermission == true
-    LaunchedEffect(askingLocationPermission) {
-        if (askingLocationPermission) {
+    if (askingLocationPermission) {
+        val permissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted -> viewModel.onLocationPermissionResult(granted) }
+        LaunchedEffect(askingLocationPermission) {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
