@@ -1084,6 +1084,13 @@ class TransactionsViewModel(
      * the local list (same id), removed from the buffer, and a version
      * bump triggers a background refetch. On failure the error message is
      * emitted as another delete event for the Snackbar.
+     *
+     * When the undone Transaction carried a Recurring link (issue #61), the
+     * backend restores the original pin (same recurring definition id, same
+     * occurrence date). If another Transaction already paid that Occurrence
+     * in the meantime, the restore fails and the backend's error detail
+     * message is surfaced directly in the Snackbar — it never silently
+     * re-links to a different Occurrence.
      */
     fun onUndo(transaction: TransactionDto) {
         viewModelScope.launch {
@@ -1103,11 +1110,20 @@ class TransactionsViewModel(
                     )
                 }
             } catch (error: ApiException) {
-                val msg = apiErrorMessage(
-                    error.status,
-                    "No undo — it may have been undone already.",
-                    "Could not undo the transaction.",
-                )
+                // Undo of a recurring-linked transaction (issue #61): the
+                // backend may reject the pin restore if the occurrence was
+                // already paid by another transaction. Surface the backend's
+                // failure message directly; for non-recurring transactions
+                // fall back to the generic mapping.
+                val msg = if (hasRecurringLink(transaction) && error.detail != null) {
+                    error.detail
+                } else {
+                    apiErrorMessage(
+                        error.status,
+                        "No undo — it may have been undone already.",
+                        "Could not undo the transaction.",
+                    )
+                }
                 _deleteEvents.tryEmit(
                     DeleteEvent(
                         transaction = transaction,
@@ -1126,6 +1142,11 @@ class TransactionsViewModel(
             }
         }
     }
+
+    /** True when [transaction] carried a Recurring Cost or Recurring Income
+     * link — the undo may need to restore the original pin (issue #61). */
+    private fun hasRecurringLink(transaction: TransactionDto): Boolean =
+        transaction.recurring_cost_id != null || transaction.recurring_income_id != null
 
     private fun create() {
         viewModelScope.launch {

@@ -31,6 +31,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
   endpoint to atomically replace all Account data. Origin-marker mismatch
   warns but still proceeds; a malformed file fails closed (#60).
 
+- **Undo restores the recurring pin** — when the Undo'd Transaction
+  carried a Recurring Cost or Recurring Income link, the undo restores
+  the original pin (same definition id, same occurrence date). If another
+  Transaction already paid that Occurrence, the undo fails and the
+  Snackbar shows the backend's failure message — it never silently
+  re-links to a different Occurrence (#61).
+
 ### Fixed
 
 - **Location permission no longer requested on save** — the device-location

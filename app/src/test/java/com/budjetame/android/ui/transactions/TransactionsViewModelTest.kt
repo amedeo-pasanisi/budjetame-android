@@ -132,6 +132,7 @@ class TransactionsViewModelTest {
     private var updateWarning = false
     private var deleteWarning = false
     private var undoStatus = 200
+    private var undoRecurringConflict = false
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -182,6 +183,7 @@ class TransactionsViewModelTest {
         updateWarning = false
         deleteWarning = false
         undoStatus = 200
+        undoRecurringConflict = false
         location = FakeLocation()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
@@ -646,9 +648,17 @@ class TransactionsViewModelTest {
     }
 
     /** The fake undo: re-inserts the transaction back into the store
-     * and returns it. */
+     * and returns it. When [undoRecurringConflict] is true, the backend
+     * rejects the restore because another transaction already paid the
+     * pinned recurring occurrence (issue #61). */
     private fun undoTransaction(body: String): MockResponse {
         if (undoStatus != 200) return jsonResponse(undoStatus, """{"detail":"boom"}""")
+        if (undoRecurringConflict) {
+            return jsonResponse(
+                409,
+                """{"detail":"Could not undo: the recurring occurrence was already paid by another transaction."}""",
+            )
+        }
         val tx = json.decodeFromString<TransactionDto>(body)
         if (transactionStore.any { it.id == tx.id }) {
             return jsonResponse(403, """{"detail":"Transaction already exists"}""")
@@ -2047,6 +2057,118 @@ class TransactionsViewModelTest {
         // The buffer still holds the entry (undo failed).
         assertEquals(1, viewModel.uiState.value.deletedTransactions.size)
         assertEquals(1, viewModel.uiState.value.deletedTransactions.first().id)
+        assertTrue(viewModel.uiState.value.transactions.none { it.id == 1 })
+    }
+
+    @Test
+    fun `undo of a recurring-linked expense restores the original pin`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedRecurringCosts(recurringCost(1, "Rent", nextUnpaid = "2026-08-01"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "800.00", "2026-08-01",
+                walletId = 1, recurringCostId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.deletedTransactions.size == 1 }
+
+        viewModel.onUndo(viewModel.uiState.value.deletedTransactions.first())
+        awaitState { it.deletedTransactions.isEmpty() }
+
+        // The transaction is back with the same recurring link and pin.
+        val restored = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(1, restored.recurring_cost_id)
+        assertEquals("2026-08-01", restored.occurrence_date)
+        assertFalse(viewModel.uiState.value.ledgerEmpty)
+        val undoCall = call("POST", "/api/transactions/undo")
+        val undoBody = json.decodeFromString<TransactionDto>(undoCall.body)
+        assertEquals(1, undoBody.recurring_cost_id)
+        assertEquals("2026-08-01", undoBody.occurrence_date)
+    }
+
+    @Test
+    fun `undo of a recurring-linked expense fails with recurring-pin-taken message`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedRecurringCosts(recurringCost(1, "Rent", nextUnpaid = "2026-08-01"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.EXPENSE, "800.00", "2026-08-01",
+                walletId = 1, recurringCostId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.deletedTransactions.size == 1 }
+
+        // Make the mock undo endpoint return the recurring-pin-taken error.
+        undoRecurringConflict = true
+        val deleted = viewModel.uiState.value.deletedTransactions.first()
+        viewModel.onUndo(deleted)
+
+        // Allow the undo coroutine to complete.
+        delay(100)
+
+        // The buffer still holds the entry (undo failed).
+        assertEquals(1, viewModel.uiState.value.deletedTransactions.size)
+        assertEquals(1, viewModel.uiState.value.deletedTransactions.first().id)
+        assertTrue(viewModel.uiState.value.transactions.none { it.id == 1 })
+    }
+
+    @Test
+    fun `undo of a recurring-linked income restores the original pin`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedRecurringIncomes(recurringIncome(1, "Salary", nextUnpaid = "2026-08-01"))
+        seedTransactions(
+            transaction(
+                1, TransactionType.INCOME, "2500.00", "2026-08-01",
+                walletId = 1, recurringIncomeId = 1, occurrenceDate = "2026-08-01",
+            ),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.deletedTransactions.size == 1 }
+
+        viewModel.onUndo(viewModel.uiState.value.deletedTransactions.first())
+        awaitState { it.deletedTransactions.isEmpty() }
+
+        // The transaction is back with the same recurring link and pin.
+        val restored = viewModel.uiState.value.transactions.first { it.id == 1 }
+        assertEquals(1, restored.recurring_income_id)
+        assertEquals("2026-08-01", restored.occurrence_date)
+        assertFalse(viewModel.uiState.value.ledgerEmpty)
+    }
+
+    @Test
+    fun `undo of a non-recurring failure still uses the generic message`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.deletedTransactions.size == 1 }
+
+        // Make the mock undo endpoint fail with 409 (non-recurring scenario).
+        undoStatus = 409
+        val deleted = viewModel.uiState.value.deletedTransactions.first()
+        viewModel.onUndo(deleted)
+
+        delay(100)
+
+        // The buffer still holds the entry (undo failed).
+        assertEquals(1, viewModel.uiState.value.deletedTransactions.size)
         assertTrue(viewModel.uiState.value.transactions.none { it.id == 1 })
     }
 
