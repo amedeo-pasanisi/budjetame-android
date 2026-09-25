@@ -18,7 +18,6 @@ import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.TransactionApi
 import com.budjetame.android.data.api.TransactionCreateRequest
-import com.budjetame.android.data.api.TransactionDeleteResultDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
 import com.budjetame.android.data.api.TransactionExpenseLinkUpdateRequest
@@ -132,6 +131,7 @@ class TransactionsViewModelTest {
     private var createWarning = false
     private var updateWarning = false
     private var deleteWarning = false
+    private var undoStatus = 200
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -181,6 +181,7 @@ class TransactionsViewModelTest {
         createWarning = false
         updateWarning = false
         deleteWarning = false
+        undoStatus = 200
         location = FakeLocation()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
@@ -258,6 +259,8 @@ class TransactionsViewModelTest {
             method == "PATCH" && path.matches(Regex("/api/transactions/\\d+")) -> updateTransaction(path, body)
 
             method == "DELETE" && path.matches(Regex("/api/transactions/\\d+")) -> deleteTransaction(path)
+
+            method == "POST" && path == "/api/transactions/undo" -> undoTransaction(body)
 
             else -> MockResponse().setResponseCode(404)
         }
@@ -638,7 +641,20 @@ class TransactionsViewModelTest {
         }
         if (isFrozen(current)) return jsonResponse(422, """{"detail":"Frozen Wallets are read-only"}""")
         transactionStore.removeAt(index)
-        return jsonResponse(200, """{"warning":$deleteWarning}""")
+        val deleted = current.copy(warning = deleteWarning)
+        return jsonResponse(200, json.encodeToString(deleted))
+    }
+
+    /** The fake undo: re-inserts the transaction back into the store
+     * and returns it. */
+    private fun undoTransaction(body: String): MockResponse {
+        if (undoStatus != 200) return jsonResponse(undoStatus, """{"detail":"boom"}""")
+        val tx = json.decodeFromString<TransactionDto>(body)
+        if (transactionStore.any { it.id == tx.id }) {
+            return jsonResponse(403, """{"detail":"Transaction already exists"}""")
+        }
+        transactionStore.add(tx)
+        return jsonResponse(200, body)
     }
 
     private fun isFrozen(transaction: TransactionDto): Boolean =
@@ -1933,7 +1949,7 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun `delete is tap-again confirmed and the warning flag surfaces`() = runBlocking {
+    fun `delete is immediate single-tap and buffers for undo with warning`() = runBlocking {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
         seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
         deleteWarning = true
@@ -1941,13 +1957,97 @@ class TransactionsViewModelTest {
         awaitLoaded()
 
         viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
-        viewModel.onDeleteTap()
-        assertTrue(viewModel.uiState.value.modal!!.confirmingDelete)
+        // Single tap — no confirm state.
         viewModel.onDeleteTap()
         awaitState { it.modal == null && !it.transactions.any { t -> t.id == 1 } }
 
-        assertEquals("Deleted — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning)
+        // The row is in the undo buffer.
+        assertEquals(1, viewModel.uiState.value.deletedTransactions.size)
+        assertEquals(1, viewModel.uiState.value.deletedTransactions.first().id)
+        // The deleted transaction carries the warning flag.
+        assertTrue(viewModel.uiState.value.deletedTransactions.first().warning)
         assertTrue(calls.toList().any { it.method == "DELETE" && it.path == "/api/transactions/1" })
+    }
+
+    @Test
+    fun `buffer caps at three and drops oldest on delete overflow`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(
+            transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1),
+            transaction(2, TransactionType.EXPENSE, "6.00", "2026-08-02", walletId = 1),
+            transaction(3, TransactionType.EXPENSE, "7.00", "2026-08-03", walletId = 1),
+            transaction(4, TransactionType.EXPENSE, "8.00", "2026-08-04", walletId = 1),
+        )
+        createViewModel()
+        awaitLoaded()
+
+        // Delete three — all fit.
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null }
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 2 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null }
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 3 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null }
+
+        assertEquals(3, viewModel.uiState.value.deletedTransactions.size)
+        assertEquals(listOf(3, 2, 1), viewModel.uiState.value.deletedTransactions.map { it.id })
+
+        // Delete a fourth — the oldest (1) is dropped, 4 joins at front.
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 4 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null }
+
+        assertEquals(3, viewModel.uiState.value.deletedTransactions.size)
+        assertEquals(listOf(4, 3, 2), viewModel.uiState.value.deletedTransactions.map { it.id })
+    }
+
+    @Test
+    fun `undo replays the buffered transaction and removes it from the buffer`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.deletedTransactions.size == 1 }
+
+        viewModel.onUndo(viewModel.uiState.value.deletedTransactions.first())
+        awaitState { it.deletedTransactions.isEmpty() }
+
+        // The transaction is back in the ledger.
+        assertTrue(viewModel.uiState.value.transactions.any { it.id == 1 })
+        // The undo endpoint was called.
+        val undoCall = calls.toList().firstOrNull { it.method == "POST" && it.path == "/api/transactions/undo" }
+        assertNotNull(undoCall)
+    }
+
+    @Test
+    fun `undo failure keeps the buffer entry and emits error`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.deletedTransactions.size == 1 }
+
+        // Make the mock undo endpoint fail.
+        undoStatus = 500
+        val deleted = viewModel.uiState.value.deletedTransactions.first()
+        viewModel.onUndo(deleted)
+
+        // Allow the undo coroutine to complete.
+        delay(100)
+
+        // The buffer still holds the entry (undo failed).
+        assertEquals(1, viewModel.uiState.value.deletedTransactions.size)
+        assertEquals(1, viewModel.uiState.value.deletedTransactions.first().id)
+        assertTrue(viewModel.uiState.value.transactions.none { it.id == 1 })
     }
 
     @Test
@@ -3334,7 +3434,10 @@ class TransactionsViewModelTest {
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto =
             error("unused in the debounce test")
 
-        override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
+        override suspend fun deleteTransaction(id: Int): TransactionDto =
+            error("unused in the debounce test")
+
+        override suspend fun undoTransaction(transaction: TransactionDto): TransactionDto =
             error("unused in the debounce test")
 
         override suspend fun export(filters: TransactionFilters): ExportFile =

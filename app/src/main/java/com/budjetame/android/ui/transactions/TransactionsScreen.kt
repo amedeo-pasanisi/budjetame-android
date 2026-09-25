@@ -41,6 +41,11 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -151,6 +156,7 @@ fun TransactionsScreen(
      * applied, so the shell clears it and no later render can reapply it. */
     onLedgerJumpConsumed: () -> Unit = {},
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
     val viewModel: TransactionsViewModel = viewModel {
         TransactionsViewModel(
             transactions,
@@ -245,8 +251,42 @@ fun TransactionsScreen(
         viewModel.onExportHandled()
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // The header row (web issue #92, ticket #35): the title sits on
+    // Collect delete events and show Undo Snackbars (issue #58): each
+    // event is processed sequentially — the SnackbarHostState queues
+    // them naturally, and the 10-second window allows one undo per
+    // buffered transaction. A failed undo emits another event without
+    // the Undo action.
+    LaunchedEffect(Unit) {
+        viewModel.deleteEvents.collect { event ->
+            val message = when {
+                event.errorMessage != null -> event.errorMessage
+                event.warning -> "Transaction deleted — this may make a Cash wallet negative."
+                else -> "Transaction deleted."
+            }
+            if (event.errorMessage != null) {
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    duration = SnackbarDuration.Long,
+                )
+            } else {
+                val result = snackbarHostState.showSnackbar(
+                    message = message,
+                    actionLabel = "Undo",
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.onUndo(event.transaction)
+                }
+            }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        modifier = Modifier.fillMaxSize(),
+    ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            // The header row (web issue #92, ticket #35): the title sits on
         // the left at its natural width — never squeezed behind the
         // actions, which is what used to make it wrap mid-word — and the
         // actions (Import as the web's plain text link, then the filled
@@ -346,7 +386,8 @@ fun TransactionsScreen(
                 modifier = Modifier.weight(1f),
             )
         }
-    }
+        }
+    } // Scaffold
 
     state.modal?.let { modal ->
         TransactionModal(

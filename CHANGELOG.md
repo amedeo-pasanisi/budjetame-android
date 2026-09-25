@@ -19,6 +19,12 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Added
 
+- **Single-tap delete with Undo** — the two-tap delete confirmation is
+  removed; a single tap deletes immediately. An Undo Snackbar (10-second
+  window) appears, and a stack of up to three Snackbars is queued,
+  newest first. The in-memory buffer keeps the deleted row for client replay
+  via the new `POST /transactions/undo` endpoint (#58).
+
 - **Dashboard** — the Budget card now supports a **month selector**
 
 ### Fixed

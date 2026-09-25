@@ -41,8 +41,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -152,6 +155,10 @@ class TransactionsViewModel(
         /** The inline "New category…" modal stacked on the Transaction form
          * (ADR-0013), null = closed. */
         val categoryCreate: CategoryCreateState? = null,
+        /** The in-memory buffer of deleted Transactions for undo (issue
+         * #58): max 3 entries, newest first, drop oldest on overflow. The
+         * screen shows an Undo Snackbar for each entry. */
+        val deletedTransactions: List<TransactionDto> = emptyList(),
     ) {
         /** True when any Filters-bar field is set — the search needle is
          * separate, it rides along with the bar's fields (ADR-0009). */
@@ -178,8 +185,7 @@ class TransactionsViewModel(
     /**
      * The create/edit/delete Transaction form's draft (null = modal closed).
      * Create and edit share one modal: the Type selector appears only while
-     * creating (type is immutable once recorded), and the tap-again delete
-     * confirmation only while editing. `recurringCostId` is the Recurring
+     * creating (type is immutable once recorded). `recurringCostId` is the Recurring
      * Cost link pick — an Expense's, or a Transfer-to-a-Contact-Wallet's
      * (web issue #99 / ADR-0027); null = none (web issue #57).
      * `recurringIncomeId` is the Recurring Income link pick, the mirror —
@@ -226,7 +232,6 @@ class TransactionsViewModel(
          * use the form-level `error` banner instead. */
         val fieldErrors: FieldErrors = emptyMap(),
         val submitting: Boolean = false,
-        val confirmingDelete: Boolean = false,
         val deleting: Boolean = false,
     ) {
         val isEditing: Boolean get() = editing != null
@@ -283,6 +288,24 @@ class TransactionsViewModel(
      * `requestingLocationPermission` flag is up and completes this with the
      * user's answer. */
     private var pendingLocationPermission: CompletableDeferred<Boolean>? = null
+
+    /** The in-memory buffer of deleted Transactions (issue #58): max 3,
+     * newest first. Dropped on overflow. */
+    private val undoBuffer = UndoBuffer()
+
+    /** Events emitted after every successful delete so the screen can show
+     * a Snackbar. The buffer holds up to 3, matching the undo buffer. */
+    private val _deleteEvents = MutableSharedFlow<DeleteEvent>(extraBufferCapacity = 3)
+    val deleteEvents: SharedFlow<DeleteEvent> = _deleteEvents.asSharedFlow()
+
+    /** One delete that produced a Snackbar-worthy event (issue #58).
+     * When [errorMessage] is non-null the Snackbar shows that message
+     * without an Undo action (undo itself failed). */
+    data class DeleteEvent(
+        val transaction: TransactionDto,
+        val warning: Boolean,
+        val errorMessage: String? = null,
+    )
 
     init {
         // A seed jump (ADR-0004) is applied as initial state, never through
@@ -997,32 +1020,35 @@ class TransactionsViewModel(
         if (modal.isEditing) update(modal) else create()
     }
 
+    /**
+     * Single-tap delete (issue #58): the two-tap confirm is removed.
+     * On success the Transaction is buffered for undo and the modal closes.
+     * On failure the modal shows the error banner.
+     */
     fun onDeleteTap() {
         val modal = _uiState.value.modal ?: return
         val transaction = modal.editing ?: return
         if (modal.busy) return
-        if (!modal.confirmingDelete) {
-            updateModal { it.copy(confirmingDelete = true, error = null) }
-            return
-        }
         viewModelScope.launch {
             updateModal { it.copy(deleting = true, error = null) }
             try {
                 val result = transactions.deleteTransaction(transaction.id)
+                val warning = result.warning
+                undoBuffer.insert(result)
+                val updatedList = undoBuffer.all()
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
-                        savedWarning = if (result.warning) {
-                            "Deleted — this made a Cash wallet negative."
-                        } else {
-                            null
-                        },
+                        deletedTransactions = updatedList,
+                        // The delete's saved warning is surfaced via the
+                        // Snackbar now (issue #58), not the banner.
+                        savedWarning = null,
                     )
                 }
+                _deleteEvents.tryEmit(DeleteEvent(transaction = result, warning = warning))
             } catch (error: ApiException) {
                 updateModal {
                     it.copy(
-                        confirmingDelete = false,
                         deleting = false,
                         error = apiErrorMessage(
                             error.status,
@@ -1034,11 +1060,59 @@ class TransactionsViewModel(
             } catch (_: Exception) {
                 updateModal {
                     it.copy(
-                        confirmingDelete = false,
                         deleting = false,
                         error = "Could not delete the transaction.",
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Undo a deletion (issue #58): calls the undo endpoint with the
+     * buffered Transaction. On success the Transaction is re-inserted into
+     * the local list (same id), removed from the buffer, and a version
+     * bump triggers a background refetch. On failure the error message is
+     * emitted as another delete event for the Snackbar.
+     */
+    fun onUndo(transaction: TransactionDto) {
+        viewModelScope.launch {
+            try {
+                transactions.undoTransaction(transaction)
+                val removed = undoBuffer.find(transaction.id) != null
+                if (removed) undoBuffer.remove(transaction.id)
+                _uiState.update { state ->
+                    state.copy(
+                        transactions = if (removed) {
+                            // Re-insert at the beginning — newest first.
+                            listOf(transaction) + state.transactions
+                        } else {
+                            state.transactions
+                        },
+                        deletedTransactions = undoBuffer.all(),
+                    )
+                }
+            } catch (error: ApiException) {
+                val msg = apiErrorMessage(
+                    error.status,
+                    "No undo — it may have been undone already.",
+                    "Could not undo the transaction.",
+                )
+                _deleteEvents.tryEmit(
+                    DeleteEvent(
+                        transaction = transaction,
+                        warning = false,
+                        errorMessage = msg,
+                    ),
+                )
+            } catch (_: Exception) {
+                _deleteEvents.tryEmit(
+                    DeleteEvent(
+                        transaction = transaction,
+                        warning = false,
+                        errorMessage = "Could not undo the transaction.",
+                    ),
+                )
             }
         }
     }

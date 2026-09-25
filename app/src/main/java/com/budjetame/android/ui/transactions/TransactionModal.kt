@@ -1,6 +1,5 @@
 package com.budjetame.android.ui.transactions
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1132,22 +1131,13 @@ private fun DeleteSection(
     Button(
         onClick = onDelete,
         enabled = !modal.busy,
-        colors = if (modal.confirmingDelete) {
-            ButtonDefaults.buttonColors(containerColor = RED_600, contentColor = Color.White)
-        } else {
-            ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = RED_600)
-        },
-        border = if (modal.confirmingDelete) null else BorderStroke(1.dp, RED_200),
+        colors = ButtonDefaults.buttonColors(containerColor = RED_600, contentColor = Color.White),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
-            when {
-                modal.deleting -> "Deleting…"
-                modal.confirmingDelete -> "Tap again to confirm"
-                else -> "Delete transaction"
-            },
+            if (modal.deleting) "Deleting…" else "Delete transaction",
         )
     }
 }

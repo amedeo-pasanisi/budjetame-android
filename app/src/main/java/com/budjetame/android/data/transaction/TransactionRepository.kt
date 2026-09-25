@@ -3,7 +3,7 @@ package com.budjetame.android.data.transaction
 import com.budjetame.android.data.api.TRANSACTION_PAGE_LIMIT
 import com.budjetame.android.data.api.TransactionApi
 import com.budjetame.android.data.api.TransactionCreateRequest
-import com.budjetame.android.data.api.TransactionDeleteResultDto
+
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionExpenseIncomeUpdateRequest
 import com.budjetame.android.data.api.TransactionExpenseLinkUpdateRequest
@@ -64,9 +64,15 @@ interface TransactionGateway {
     /** Edit an Expense, Income, or Transfer; type and Wallets cannot change. */
     suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto
 
-    /** Delete a Transaction; the result carries the Cash negative-balance
-     * indicator. */
-    suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto
+    /** Delete a Transaction; the result carries the full deleted row (for
+     * client undo buffering) and the Cash negative-balance indicator at
+     * `warning`. */
+    suspend fun deleteTransaction(id: Int): TransactionDto
+
+    /** Undo a deletion (issue #58 / web issue #113): client replay — the
+     * body carries the full Transaction the delete endpoint returned, and
+     * the backend restores it with the exact same id. */
+    suspend fun undoTransaction(transaction: TransactionDto): TransactionDto
 
     /** The whole filtered ledger as the import template's .xlsx (US 7.3):
      * every Transaction matching `filters` — the same filter set the
@@ -290,8 +296,11 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
         }
     }
 
-    override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
+    override suspend fun deleteTransaction(id: Int): TransactionDto =
         call { api.delete(id) }
+
+    override suspend fun undoTransaction(transaction: TransactionDto): TransactionDto =
+        call { api.undo(transaction) }
 
     override suspend fun export(filters: TransactionFilters): ExportFile {
         // A raw-body endpoint: Retrofit does not throw for a non-2xx (the

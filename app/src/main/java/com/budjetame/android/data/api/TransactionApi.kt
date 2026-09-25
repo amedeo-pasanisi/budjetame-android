@@ -256,12 +256,10 @@ data class TransactionTransferIncomeLinkUpdateRequest(
     val place_id: String?,
 )
 
-/** The result of a Transaction delete (US10/ID8): the Cash negative-balance
- * indicator — true exactly when the delete left a Cash Wallet negative. */
-@Serializable
-data class TransactionDeleteResultDto(
-    val warning: Boolean,
-)
+/** The result of a Transaction delete (issue #58): the full Transaction is
+ * returned (the backend echoes the deleted row so the client can buffer it
+ * for undo), plus the Cash negative-balance indicator at `warning` — true
+ * exactly when the delete left a Cash Wallet negative. */
 
 /**
  * Transactions resource (web issue #17): the ledger listing with cursor
@@ -364,8 +362,19 @@ interface TransactionApi {
         @Body body: TransactionTransferIncomeLinkUpdateRequest,
     ): TransactionDto
 
-    /** 200 with the Cash negative-balance indicator; 422 on a frozen Wallet
+    /** 200 with the full deleted Transaction — the backend echoes the row
+     * back for client undo buffering (issue #58). 422 on a frozen Wallet
      * or an Opening Balance (both are read-only). */
     @DELETE("transactions/{id}")
-    suspend fun delete(@Path("id") id: Int): TransactionDeleteResultDto
+    suspend fun delete(@Path("id") id: Int): TransactionDto
+
+    /**
+     * Undo a deletion (issue #58 / web issue #113): client replay — the
+     * body carries the full Transaction the delete endpoint returned, and
+     * the backend restores it with the exact same id (ADR-0031). 200 with
+     * the restored Transaction; 403 on a foreign or already-deleted
+     * Transaction. The request body mirrors the TransactionDto shape.
+     */
+    @POST("transactions/undo")
+    suspend fun undo(@Body body: TransactionDto): TransactionDto
 }
