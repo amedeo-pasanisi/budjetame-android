@@ -70,7 +70,7 @@ fun WalletModal(
 
     AlertDialog(
         onDismissRequest = { if (!modal.submitting && !modal.freezing) onClose() },
-        title = { Text(if (editing) "Edit wallet" else "New wallet") },
+        title = { Text(if (editing) stringResource(R.string.edit_wallet) else stringResource(R.string.new_wallet_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -165,8 +165,8 @@ fun WalletModal(
                         UnfreezeSection(
                             isFreezing = modal.freezing,
                             onUnfreeze = onUnfreeze,
-                            heading = "Unfreeze wallet",
-                            description = "Restore this wallet: it will accept transactions again and reappear in its type section.",
+                            heading = stringResource(R.string.unfreeze_wallet_title),
+                            description = stringResource(R.string.unfreeze_wallet_description),
                         )
                     } else {
                         FreezeSection(
@@ -176,8 +176,8 @@ fun WalletModal(
                             freezeError = modal.freezeError,
                             onFreeze = onFreeze,
                             disabledLabel = if (!modal.canFreeze) "Freeze requires €0.00 balance (currently ${Money.formatEuros(wallet.balance)})" else null,
-                            heading = "Freeze wallet",
-                            description = "Hides the wallet and makes it read-only. Only possible at €0.00 balance; its transactions stay visible.",
+                            heading = stringResource(R.string.freeze_wallet_title),
+                            description = stringResource(R.string.freeze_wallet_description),
                         )
                     }
                 }
@@ -191,9 +191,9 @@ fun WalletModal(
                 Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                     Text(
                         when {
-                            modal.submitting -> "Saving…"
-                            editing -> "Save"
-                            else -> "Create wallet"
+                            modal.submitting -> stringResource(R.string.saving)
+                            editing -> stringResource(R.string.save)
+                            else -> stringResource(R.string.create_wallet)
                         },
                     )
                 }

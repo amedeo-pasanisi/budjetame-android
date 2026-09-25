@@ -76,9 +76,9 @@ fun LoginScreen(
                 Text(
                     text = when {
                         state.mode == LoginViewModel.Mode.Forgot ->
-                            "We will email you a link to reset your password."
-                        state.signUp -> "Create an Account to see your money."
-                        else -> "Sign in to see your money."
+                            stringResource(R.string.login_subtitle_forgot)
+                        state.signUp -> stringResource(R.string.login_subtitle_signup)
+                        else -> stringResource(R.string.login_subtitle_signin)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -98,7 +98,7 @@ fun LoginScreen(
                     ) {
                         HorizontalDivider(modifier = Modifier.weight(1f))
                         Text(
-                            text = "or",
+                            text = stringResource(R.string.login_or),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 12.dp),
@@ -165,12 +165,12 @@ fun LoginScreen(
                     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                         Text(
                             when {
-                                state.submitting && state.mode == LoginViewModel.Mode.Forgot -> "Sending…"
-                                state.submitting && state.signUp -> "Creating…"
-                                state.submitting -> "Signing in…"
-                                state.mode == LoginViewModel.Mode.Forgot -> "Send reset link"
-                                state.signUp -> "Create account"
-                                else -> "Sign in"
+                                state.submitting && state.mode == LoginViewModel.Mode.Forgot -> stringResource(R.string.sending_reset)
+                                state.submitting && state.signUp -> stringResource(R.string.creating_account)
+                                state.submitting -> stringResource(R.string.signing_in)
+                                state.mode == LoginViewModel.Mode.Forgot -> stringResource(R.string.send_reset_link)
+                                state.signUp -> stringResource(R.string.create_account_button)
+                                else -> stringResource(R.string.sign_in_button)
                             },
                         )
                     }
@@ -184,26 +184,26 @@ fun LoginScreen(
                 ) {
                     when (state.mode) {
                         LoginViewModel.Mode.SignIn -> ModeLinkRow(
-                            text = "Forgot your password?",
-                            action = "Reset it",
+                            text = stringResource(R.string.forgot_password),
+                            action = stringResource(R.string.reset_it),
                             onClick = { viewModel.switchMode(LoginViewModel.Mode.Forgot) },
                         )
                         LoginViewModel.Mode.Forgot -> ModeLinkRow(
-                            text = "Remembered it?",
-                            action = "Sign in",
+                            text = stringResource(R.string.remembered_it),
+                            action = stringResource(R.string.sign_in_button),
                             onClick = { viewModel.switchMode(LoginViewModel.Mode.SignIn) },
                         )
                         LoginViewModel.Mode.SignUp -> ModeLinkRow(
-                            text = "Already have an Account?",
-                            action = "Sign in",
+                            text = stringResource(R.string.already_have_account),
+                            action = stringResource(R.string.sign_in_button),
                             onClick = { viewModel.switchMode(LoginViewModel.Mode.SignIn) },
                         )
                     }
                 }
                 if (state.mode == LoginViewModel.Mode.SignIn) {
                     ModeLinkRow(
-                        text = "Don't have an Account?",
-                        action = "Sign up",
+                        text = stringResource(R.string.dont_have_account),
+                        action = stringResource(R.string.sign_up),
                         onClick = { viewModel.switchMode(LoginViewModel.Mode.SignUp) },
                         modifier = Modifier.padding(top = 4.dp),
                     )

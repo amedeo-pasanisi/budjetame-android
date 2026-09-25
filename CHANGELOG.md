@@ -9,6 +9,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 <!-- Agents: every ticket whose work lands adds one bullet to [Unreleased].
      See docs/agents/changelog.md before editing. -->
 
+- **i18n: remaining screens + client-side error catalogue** — every remaining visible string extracted into values/strings.xml and values-it/strings.xml (Recurring screens, Categories, Import, login/auth, validation errors, empty states, Snackbar messages). A new ErrorCatalogue maps known server error messages to Italian string resource keys; unknown errors fall back to the original API text (#63).
+
 ## [v1.7.0] — 2026-09-11
 
 ### Added

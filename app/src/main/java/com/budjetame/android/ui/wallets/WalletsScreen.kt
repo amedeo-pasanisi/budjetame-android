@@ -192,7 +192,7 @@ private fun FrozenSection(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         ) {
-            Text("Frozen wallets (${frozenWallets.size})")
+            Text(stringResource(R.string.frozen_wallets) + " (" + frozenWallets.size + ")")
         }
         if (expanded) {
             frozenWallets.forEach { wallet ->

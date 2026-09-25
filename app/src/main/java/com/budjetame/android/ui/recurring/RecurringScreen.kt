@@ -20,6 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.budjetame.android.R
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.ui.common.LedgerJump
@@ -60,13 +62,13 @@ fun RecurringScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             SideButton(
-                label = "Costs",
+                label = stringResource(R.string.costs_tab),
                 selected = side == RecurringSide.COSTS,
                 onClick = { side = RecurringSide.COSTS },
                 modifier = Modifier.weight(1f),
             )
             SideButton(
-                label = "Incomes",
+                label = stringResource(R.string.incomes_tab),
                 selected = side == RecurringSide.INCOMES,
                 onClick = { side = RecurringSide.INCOMES },
                 modifier = Modifier.weight(1f),

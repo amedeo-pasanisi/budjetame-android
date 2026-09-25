@@ -97,7 +97,7 @@ fun RecurringIncomesScreen(
                 modifier = Modifier.weight(1f),
             )
             state.incomes.isEmpty() -> MessageBody(
-                text = "No recurring incomes yet. Add your first one to track what's due.",
+                text = stringResource(R.string.no_recurring_incomes),
                 modifier = Modifier.weight(1f),
             )
             else -> RecurringIncomesList(
@@ -264,7 +264,7 @@ private fun FrozenSection(
     onEdit: (RecurringIncomeDto) -> Unit,
 ) {
     FrozenSectionToggle(
-        label = "Frozen recurring incomes",
+        label = stringResource(R.string.frozen_recurring_incomes),
         count = frozenIncomes.size,
         expanded = expanded,
         onToggle = onToggle,

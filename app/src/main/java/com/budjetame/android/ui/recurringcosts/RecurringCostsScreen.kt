@@ -91,7 +91,7 @@ fun RecurringCostsScreen(
                 modifier = Modifier.weight(1f),
             )
             state.costs.isEmpty() -> MessageBody(
-                text = "No recurring costs yet. Add your first one to track what's due.",
+                text = stringResource(R.string.no_recurring_costs),
                 modifier = Modifier.weight(1f),
             )
             else -> RecurringCostsList(
@@ -268,7 +268,7 @@ private fun FrozenSection(
     onEdit: (RecurringCostDto) -> Unit,
 ) {
     FrozenSectionToggle(
-        label = "Frozen recurring costs",
+        label = stringResource(R.string.frozen_recurring_costs),
         count = frozenCosts.size,
         expanded = expanded,
         onToggle = onToggle,

@@ -285,6 +285,33 @@
     <string name="import_status_ready">Ready</string>
     <string name="import_status_duplicate">Duplicate</string>
     <string name="import_status_problem">Problem</string>
+    <string name="import_title">Import</string>
+    <string name="import_back">Back</string>
+    <string name="import_cancel">Cancel</string>
+    <string name="import_choose_file">Choose file</string>
+    <string name="import_pick_another">Pick another file</string>
+    <string name="import_no_rows">No data rows found in this file.</string>
+    <string name="import_reading_file">Reading file…</string>
+    <string name="import_read_validate">Read and validate</string>
+    <string name="import_duplicate_explanation">Already in the database or repeated in this file — this row will be skipped.</string>
+    <string name="import_confirm_nothing">Nothing to import</string>
+    <string name="import_confirm_n_rows">Import %1$d row%2$s</string>
+    <string name="import_confirm_importing">Importing…</string>
+    <string name="import_cash_warning">Imported — but the import made a Cash wallet negative.</string>
+    <string name="import_done_message">Imported %1$d transaction%2$s</string>
+    <string name="import_done_subtitle">They are now in your history; balances and the dashboard reflect them.</string>
+    <string name="import_edit_row">Edit row %1$d</string>
+    <string name="import_amount">Amount (€)</string>
+    <string name="import_from">From</string>
+    <string name="import_to">To</string>
+    <string name="import_wallet">Wallet</string>
+    <string name="import_contact_note">Contact wallets only move money through transfers.</string>
+    <string name="import_transfer_no_category">Transfers never carry a category.</string>
+    <string name="import_description">Description</string>
+    <string name="import_description_placeholder">Optional note</string>
+    <string name="import_latitude">Latitude</string>
+    <string name="import_longitude">Longitude</string>
+    <string name="import_optional">Optional</string>
 
     <!-- Login -->
     <string name="login_subtitle_forgot">We will email you a link to reset your password.</string>
@@ -320,7 +347,40 @@
     <string name="tab_categories">Categories</string>
     <string name="tab_recurring">Recurring</string>
 
+    <!-- Recurring tab -->
+    <string name="recurring_side_costs">Costs</string>
+    <string name="recurring_side_incomes">Incomes</string>
+
     <!-- Misc screen messages -->
     <string name="settings_content_description">Settings</string>
     <string name="export_error_prefix">Could not export</string>
+    <string name="load_error">Could not load your data.</string>
+    <string name="could_not_complete">Could not complete the operation. Please try again.</string>
+
+    <!-- Error catalogue — server error messages mapped to user-facing keys -->
+    <string name="error_unknown_wallet">Unknown wallet. Please check the name and try again.</string>
+    <string name="error_wallet_not_found">Wallet not found. It may have been deleted.</string>
+    <string name="error_wallet_frozen">This wallet is frozen and cannot accept transactions.</string>
+    <string name="error_wallet_balance_not_zero">The wallet balance must be €0.00 before freezing.</string>
+    <string name="error_unknown_category">Unknown category. Please check the name and try again.</string>
+    <string name="error_category_not_found">Category not found. It may have been deleted.</string>
+    <string name="error_unknown_recurring_cost">Unknown recurring cost. Please check and try again.</string>
+    <string name="error_unknown_recurring_income">Unknown recurring income. Please check and try again.</string>
+    <string name="error_recurring_not_found">Recurring definition not found. It may have been deleted.</string>
+    <string name="error_recurring_cost_not_found">Recurring cost not found. It may have been deleted.</string>
+    <string name="error_recurring_income_not_found">Recurring income not found. It may have been deleted.</string>
+    <string name="error_income_on_contact">Income cannot be recorded on a contact wallet.</string>
+    <string name="error_expense_on_checking">This type of expense cannot be recorded on this wallet.</string>
+    <string name="error_same_wallet">Source and destination wallets must be different.</string>
+    <string name="error_wallet_must_differ">The two wallets must be different.</string>
+    <string name="error_cash_negative">This transaction would make a Cash wallet negative.</string>
+    <string name="error_name_taken">A record with this name already exists.</string>
+    <string name="error_already_exists">A record with this name already exists.</string>
+    <string name="error_undo_not_available">Undo is not available for this transaction.</string>
+    <string name="error_already_undone">No undo — it may have been undone already.</string>
+    <string name="error_occurrence_already_paid">This occurrence has already been paid.</string>
+    <string name="error_cannot_restore_pin">Could not restore the recurring link — the occurrence may have been paid already.</string>
+    <string name="error_occurrence_not_found">Occurrence not found. It may have been paid or deleted.</string>
+    <string name="error_validation_failed">Check the fields and try again.</string>
+    <string name="error_field_empty">This field cannot be empty.</string>
 </resources>

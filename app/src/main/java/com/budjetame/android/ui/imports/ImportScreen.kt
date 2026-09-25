@@ -47,6 +47,8 @@ import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.transactions.descriptionText
+import androidx.compose.ui.res.stringResource
+import com.budjetame.android.R
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Money
 import kotlinx.coroutines.Dispatchers
@@ -118,7 +120,7 @@ fun ImportScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
-                text = "Import",
+                text = stringResource(R.string.import_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -127,7 +129,7 @@ fun ImportScreen(
             OutlinedButton(
                 onClick = if (draft.phase == ImportPhase.DONE) viewModel::done else viewModel::cancel,
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text(if (draft.phase == ImportPhase.DONE) "Back" else "Cancel")
+                Text(if (draft.phase == ImportPhase.DONE) stringResource(R.string.import_back) else stringResource(R.string.import_cancel))
             }
         }
 
@@ -271,7 +273,7 @@ private fun PickPhase(
                 .fillMaxWidth()
                 .padding(top = 16.dp),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-            Text("Choose file")
+            Text(stringResource(R.string.import_choose_file))
         }
         draft.fileName?.let { name ->
             Text(
@@ -296,7 +298,7 @@ private fun PickPhase(
                 .fillMaxWidth()
                 .padding(top = 16.dp),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-            Text(if (draft.busy) "Reading file…" else "Read and validate")
+            Text(if (draft.busy) stringResource(R.string.import_reading_file) else stringResource(R.string.import_read_validate))
         }
     }
 }
@@ -334,12 +336,12 @@ private fun PreviewPhase(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
         ) {
             OutlinedButton(onClick = onPickAgain, enabled = !draft.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text("Pick another file")
+                Text(stringResource(R.string.import_pick_another))
             }
         }
         if (preview.rows.isEmpty()) {
             Text(
-                text = "No data rows found in this file.",
+                text = stringResource(R.string.import_no_rows),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -481,7 +483,7 @@ private fun ImportRowCard(
                         )
                     }
                     ImportRowStatus.DUPLICATE -> Text(
-                        text = "Already in the database or repeated in this file — this row will be skipped.",
+                        text = stringResource(R.string.import_duplicate_explanation),
                         style = MaterialTheme.typography.labelSmall,
                         color = AMBER_800,
                         modifier = Modifier.padding(top = 4.dp),
@@ -567,7 +569,7 @@ private fun DonePhase(
                 border = BorderStroke(1.dp, AMBER_200),
             ) {
                 Text(
-                    text = "Imported — but the import made a Cash wallet negative.",
+                    text = stringResource(R.string.import_cash_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = AMBER_700,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -581,14 +583,13 @@ private fun DonePhase(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Imported ${draft.imported} transaction" +
-                        (if (draft.imported == 1) "." else "s."),
+                    text = stringResource(R.string.import_done_message, draft.imported, if (draft.imported == 1) "" else "s"),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = EMERALD_800,
                 )
                 Text(
-                    text = "They are now in your history; balances and the dashboard reflect them.",
+                    text = stringResource(R.string.import_done_subtitle),
                     style = MaterialTheme.typography.labelSmall,
                     color = EMERALD_700,
                     modifier = Modifier.padding(top = 4.dp),

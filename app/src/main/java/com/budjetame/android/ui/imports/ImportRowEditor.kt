@@ -60,6 +60,8 @@ import com.budjetame.android.ui.transactions.spendableWallets
 import com.budjetame.android.ui.validation.FieldErrorText
 import com.budjetame.android.ui.validation.FieldErrors
 import com.budjetame.android.ui.validation.FieldKey
+import androidx.compose.ui.res.stringResource
+import com.budjetame.android.R
 import com.budjetame.android.util.Dates
 import java.time.Instant
 
@@ -169,7 +171,7 @@ fun ImportRowEditor(
 
     AlertDialog(
         onDismissRequest = { if (!saving) onClose() },
-        title = { Text("Edit row ${row.row}", fontWeight = FontWeight.SemiBold) },
+        title = { Text(stringResource(R.string.import_edit_row, row.row), fontWeight = FontWeight.SemiBold) },
         text = {
             Column(
                 modifier = Modifier
@@ -185,8 +187,8 @@ fun ImportRowEditor(
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it },
-                        label = { Text("Amount (€)") },
-                        placeholder = { Text("0.00") },
+                        label = { Text(stringResource(R.string.import_amount)) },
+                        placeholder = { Text(stringResource(R.string.amount_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         isError = fieldErrors[FieldKey.AMOUNT] != null,
@@ -209,7 +211,7 @@ fun ImportRowEditor(
                         modifier = Modifier.padding(top = 12.dp),
                     ) {
                         NameSelectField(
-                            label = "From",
+                            label = stringResource(R.string.import_from),
                             value = sourceWallet,
                             options = transferWallets.map { it.name to it.name },
                             onChange = { sourceWallet = it },
@@ -219,7 +221,7 @@ fun ImportRowEditor(
                             modifier = Modifier.weight(1f),
                         )
                         NameSelectField(
-                            label = "To",
+                            label = stringResource(R.string.import_to),
                             value = destinationWallet,
                             options = transferWallets.map { it.name to it.name },
                             onChange = { destinationWallet = it },
@@ -232,7 +234,7 @@ fun ImportRowEditor(
                 } else {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
                         NameSelectField(
-                            label = "Wallet",
+                            label = stringResource(R.string.import_wallet),
                             value = wallet,
                             options = spendable.map { it.name to it.name },
                             onChange = { wallet = it },
@@ -242,7 +244,7 @@ fun ImportRowEditor(
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
-                            text = "Contact wallets only move money through transfers.",
+                            text = stringResource(R.string.import_contact_note),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -252,7 +254,7 @@ fun ImportRowEditor(
 
                 if (isTransfer) {
                     Text(
-                        text = "Transfers never carry a category.",
+                        text = stringResource(R.string.import_transfer_no_category),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp),
@@ -270,8 +272,8 @@ fun ImportRowEditor(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it.take(DESCRIPTION_MAX_LENGTH) },
-                    label = { Text("Description") },
-                    placeholder = { Text("Optional note") },
+                    label = { Text(stringResource(R.string.import_description)) },
+                    placeholder = { Text(stringResource(R.string.import_description_placeholder)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
@@ -284,8 +286,8 @@ fun ImportRowEditor(
                     OutlinedTextField(
                         value = latitude,
                         onValueChange = { latitude = it },
-                        label = { Text("Latitude") },
-                        placeholder = { Text("Optional") },
+                        label = { Text(stringResource(R.string.import_latitude)) },
+                        placeholder = { Text(stringResource(R.string.import_optional)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier
@@ -295,8 +297,8 @@ fun ImportRowEditor(
                     OutlinedTextField(
                         value = longitude,
                         onValueChange = { longitude = it },
-                        label = { Text("Longitude") },
-                        placeholder = { Text("Optional") },
+                        label = { Text(stringResource(R.string.import_longitude)) },
+                        placeholder = { Text(stringResource(R.string.import_optional)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier
@@ -349,12 +351,12 @@ fun ImportRowEditor(
                 },
                 enabled = !saving,
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text(if (saving) "Saving…" else "Save")
+                Text(if (saving) stringResource(R.string.saving) else stringResource(R.string.save))
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onClose, enabled = !saving, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
     )
@@ -395,7 +397,7 @@ private fun NameSelectField(
             readOnly = true,
             singleLine = true,
             label = { Text(label) },
-            placeholder = { Text("Select") },
+            placeholder = { Text(stringResource(R.string.select_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             isError = error != null,
             supportingText = { FieldErrorText(error) },
@@ -460,8 +462,8 @@ private fun CategoryNameSelectField(
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,
-                label = { Text("Category") },
-                placeholder = { Text("None") },
+                label = { Text(stringResource(R.string.category_label)) },
+                placeholder = { Text(stringResource(R.string.category_none)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -473,7 +475,7 @@ private fun CategoryNameSelectField(
                 onDismissRequest = { expanded = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text("None") },
+                    text = { Text(stringResource(R.string.category_none)) },
                     onClick = {
                         onChange("")
                         expanded = false
@@ -531,7 +533,7 @@ private fun EditorDateField(
             readOnly = true,
             enabled = false,
             singleLine = true,
-            label = { Text("Date") },
+            label = { Text(stringResource(R.string.date_label)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             isError = error != null,
             supportingText = { FieldErrorText(error) },
@@ -576,7 +578,7 @@ private fun EditorDateField(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+                TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.cancel)) }
             },
         ) {
             DatePicker(state = pickerState)

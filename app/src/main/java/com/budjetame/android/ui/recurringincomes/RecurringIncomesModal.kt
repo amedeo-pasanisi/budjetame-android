@@ -97,7 +97,7 @@ fun RecurringIncomesModal(
 
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
-        title = { Text(if (editing) "Edit recurring income" else "New recurring income") },
+        title = { Text(if (editing) stringResource(R.string.edit_recurring_income) else stringResource(R.string.create_recurring_income)) },
         text = {
             Column(
                 modifier = Modifier
@@ -207,9 +207,9 @@ fun RecurringIncomesModal(
             Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Create recurring income"
+                        modal.submitting -> stringResource(R.string.saving)
+                        editing -> stringResource(R.string.save)
+                        else -> stringResource(R.string.create_recurring_income)
                     },
                 )
             }
@@ -366,7 +366,7 @@ private fun FreezeSection(
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "Its linked incomes stay linked. Freezing stops all new occurrences.",
+        text = stringResource(R.string.freeze_recurring_income_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -386,9 +386,9 @@ private fun FreezeSection(
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
             when {
-                modal.freezing -> "Freezing…"
-                modal.confirmingFreeze -> "Tap again to confirm freeze"
-                else -> "Freeze recurring income"
+                modal.freezing -> stringResource(R.string.freezing)
+                modal.confirmingFreeze -> stringResource(R.string.tap_again_to_confirm)
+                else -> stringResource(R.string.freeze_recurring_income_title)
             },
         )
     }
@@ -424,7 +424,7 @@ private fun UnfreezeSection(
             .padding(top = 12.dp),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
-            if (modal.freezing) "Unfreezing…" else "Unfreeze recurring income",
+            if (modal.freezing) stringResource(R.string.unfreezing) else stringResource(R.string.unfreeze_recurring_income_title),
         )
     }
 }

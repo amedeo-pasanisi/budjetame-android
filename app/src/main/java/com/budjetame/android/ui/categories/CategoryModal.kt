@@ -92,7 +92,7 @@ fun CategoryModal(
 
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
-        title = { Text(if (editing) "Edit category" else "New category") },
+        title = { Text(if (editing) stringResource(R.string.edit_category) else stringResource(R.string.create_category)) },
         text = {
             Column(
                 modifier = Modifier
@@ -185,9 +185,9 @@ fun CategoryModal(
             Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Create category"
+                        modal.submitting -> stringResource(R.string.saving)
+                        editing -> stringResource(R.string.save)
+                        else -> stringResource(R.string.create_category)
                     },
                 )
             }
@@ -319,9 +319,9 @@ private fun MergeOfferSection(
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
-                        modal.merging -> "Merging…"
-                        modal.confirmingMerge -> "Tap again to confirm"
-                        else -> "Merge"
+                        modal.merging -> stringResource(R.string.merging)
+                        modal.confirmingMerge -> stringResource(R.string.tap_again_confirm)
+                        else -> stringResource(R.string.merge_button)
                     },
                 )
             }
@@ -348,7 +348,7 @@ private fun DeleteSection(
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "Its transactions become uncategorized — no transaction is ever deleted.",
+        text = stringResource(R.string.delete_category_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -368,9 +368,9 @@ private fun DeleteSection(
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
             when {
-                modal.deleting -> "Deleting…"
-                modal.confirmingDelete -> "Tap again to confirm"
-                else -> "Delete category"
+                modal.deleting -> stringResource(R.string.deleting)
+                modal.confirmingDelete -> stringResource(R.string.tap_again_confirm)
+                else -> stringResource(R.string.delete_category_button)
             },
         )
     }

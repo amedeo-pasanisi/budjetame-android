@@ -138,7 +138,7 @@ fun TransactionModal(
     val editing = modal.isEditing
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
-        title = { Text(if (editing) "Edit transaction" else "New transaction") },
+        title = { Text(if (editing) stringResource(R.string.edit_transaction) else stringResource(R.string.new_transaction)) },
         text = {
             TransactionForm(
                 modal = modal,
@@ -169,9 +169,9 @@ fun TransactionModal(
             Button(onClick = onSubmit, enabled = !modal.busy && !modal.locating, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Save transaction"
+                        modal.submitting -> stringResource(R.string.saving)
+                        editing -> stringResource(R.string.save)
+                        else -> stringResource(R.string.save_transaction)
                     },
                 )
             }
@@ -501,9 +501,9 @@ private fun SingleWalletField(
         }
         Text(
             text = if (type == TransactionType.EXPENSE) {
-                "An expense on a contact wallet means the contact paid for this."
+                stringResource(R.string.expense_contact_note)
             } else {
-                "Incomes can't be recorded on contact wallets."
+                stringResource(R.string.income_contact_note)
             },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -748,7 +748,7 @@ private fun RecurringCostField(
         }
         if (value != null && occurrenceDate != null) {
             Text(
-                text = "Pays the occurrence of $occurrenceDate.",
+                text = stringResource(R.string.pays_occurrence_of, occurrenceDate),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -823,7 +823,7 @@ private fun RecurringIncomeField(
         }
         if (value != null && occurrenceDate != null) {
             Text(
-                text = "Pays the occurrence of $occurrenceDate.",
+                text = stringResource(R.string.pays_occurrence_of, occurrenceDate),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -941,7 +941,7 @@ internal fun LocationButtons(
             modifier = Modifier.testTag("tx-location-open"),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(
-                text = if (location != null) "Change location" else "Add location",
+                text = if (location != null) stringResource(R.string.change_location) else stringResource(R.string.add_location),
                 textAlign = TextAlign.Center,
             )
         }
@@ -951,7 +951,7 @@ internal fun LocationButtons(
             modifier = Modifier.testTag("tx-location-gps"),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(
-                text = if (locating) "Locating…" else "Use my location",
+                text = if (locating) stringResource(R.string.locating) else stringResource(R.string.use_my_location),
                 textAlign = TextAlign.Center,
             )
         }
@@ -1125,7 +1125,7 @@ private fun DeleteSection(
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "This permanently removes the transaction and updates the wallet balance.",
+        text = stringResource(R.string.delete_transaction_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -1139,7 +1139,7 @@ private fun DeleteSection(
             .padding(top = 12.dp),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
-            if (modal.deleting) "Deleting…" else "Delete transaction",
+            if (modal.deleting) stringResource(R.string.deleting) else stringResource(R.string.delete_transaction_button),
         )
     }
 }

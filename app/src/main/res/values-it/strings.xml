@@ -285,6 +285,33 @@
     <string name="import_status_ready">Pronto</string>
     <string name="import_status_duplicate">Duplicato</string>
     <string name="import_status_problem">Problema</string>
+    <string name="import_title">Importa</string>
+    <string name="import_back">Indietro</string>
+    <string name="import_cancel">Annulla</string>
+    <string name="import_choose_file">Scegli file</string>
+    <string name="import_pick_another">Scegli un altro file</string>
+    <string name="import_no_rows">Nessuna riga di dati trovata in questo file.</string>
+    <string name="import_reading_file">Lettura file…</string>
+    <string name="import_read_validate">Leggi e valida</string>
+    <string name="import_duplicate_explanation">Già presente nel database o ripetuto in questo file — questa riga verrà saltata.</string>
+    <string name="import_confirm_nothing">Niente da importare</string>
+    <string name="import_confirm_n_rows">Importa %1$d riga%2$s</string>
+    <string name="import_confirm_importing">Importazione…</string>
+    <string name="import_cash_warning">Importato — ma l\'importazione ha reso negativo un portafoglio Contanti.</string>
+    <string name="import_done_message">Importata %1$d transazione%2$s</string>
+    <string name="import_done_subtitle">Ora sono nella tua cronologia; saldi e dashboard li riflettono.</string>
+    <string name="import_edit_row">Modifica riga %1$d</string>
+    <string name="import_amount">Importo (€)</string>
+    <string name="import_from">Da</string>
+    <string name="import_to">A</string>
+    <string name="import_wallet">Portafoglio</string>
+    <string name="import_contact_note">I portafogli contatto spostano denaro solo tramite trasferimenti.</string>
+    <string name="import_transfer_no_category">I trasferimenti non hanno mai una categoria.</string>
+    <string name="import_description">Descrizione</string>
+    <string name="import_description_placeholder">Nota opzionale</string>
+    <string name="import_latitude">Latitudine</string>
+    <string name="import_longitude">Longitudine</string>
+    <string name="import_optional">Opzionale</string>
 
     <!-- Login -->
     <string name="login_subtitle_forgot">Ti invieremo via email un link per resettare la password.</string>
@@ -320,7 +347,40 @@
     <string name="tab_categories">Categorie</string>
     <string name="tab_recurring">Ricorrenti</string>
 
+    <!-- Tab Ricorrenti -->
+    <string name="recurring_side_costs">Costi</string>
+    <string name="recurring_side_incomes">Entrate</string>
+
     <!-- Varie -->
     <string name="settings_content_description">Impostazioni</string>
     <string name="export_error_prefix">Impossibile esportare</string>
+    <string name="load_error">Impossibile caricare i dati.</string>
+    <string name="could_not_complete">Impossibile completare l\'operazione. Riprova.</string>
+
+    <!-- Catalogo errori — messaggi di errore del server mappati a chiavi visibili -->
+    <string name="error_unknown_wallet">Portafoglio sconosciuto. Controlla il nome e riprova.</string>
+    <string name="error_wallet_not_found">Portafoglio non trovato. Potrebbe essere stato eliminato.</string>
+    <string name="error_wallet_frozen">Questo portafoglio è congelato e non può accettare transazioni.</string>
+    <string name="error_wallet_balance_not_zero">Il saldo del portafoglio deve essere €0,00 prima di congelare.</string>
+    <string name="error_unknown_category">Categoria sconosciuta. Controlla il nome e riprova.</string>
+    <string name="error_category_not_found">Categoria non trovata. Potrebbe essere stata eliminata.</string>
+    <string name="error_unknown_recurring_cost">Costo ricorrente sconosciuto. Controlla e riprova.</string>
+    <string name="error_unknown_recurring_income">Entrata ricorrente sconosciuta. Controlla e riprova.</string>
+    <string name="error_recurring_not_found">Definizione ricorrente non trovata. Potrebbe essere stata eliminata.</string>
+    <string name="error_recurring_cost_not_found">Costo ricorrente non trovato. Potrebbe essere stato eliminato.</string>
+    <string name="error_recurring_income_not_found">Entrata ricorrente non trovata. Potrebbe essere stata eliminata.</string>
+    <string name="error_income_on_contact">L\'entrata non può essere registrata su un portafoglio contatto.</string>
+    <string name="error_expense_on_checking">Questo tipo di spesa non può essere registrata su questo portafoglio.</string>
+    <string name="error_same_wallet">I portafogli di origine e destinazione devono essere diversi.</string>
+    <string name="error_wallet_must_differ">I due portafogli devono essere diversi.</string>
+    <string name="error_cash_negative">Questa transazione renderebbe negativo un portafoglio Contanti.</string>
+    <string name="error_name_taken">Esiste già un record con questo nome.</string>
+    <string name="error_already_exists">Esiste già un record con questo nome.</string>
+    <string name="error_undo_not_available">L\'annullamento non è disponibile per questa transazione.</string>
+    <string name="error_already_undone">Nessun annullamento — potrebbe essere già stato annullato.</string>
+    <string name="error_occurrence_already_paid">Questa occorrenza è già stata pagata.</string>
+    <string name="error_cannot_restore_pin">Impossibile ripristinare il collegamento ricorrente — l\'occorrenza potrebbe essere già stata pagata.</string>
+    <string name="error_occurrence_not_found">Occorrenza non trovata. Potrebbe essere stata pagata o eliminata.</string>
+    <string name="error_validation_failed">Controlla i campi e riprova.</string>
+    <string name="error_field_empty">Questo campo non può essere vuoto.</string>
 </resources>

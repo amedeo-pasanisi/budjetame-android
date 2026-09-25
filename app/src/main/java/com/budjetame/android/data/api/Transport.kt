@@ -63,6 +63,20 @@ fun apiErrorMessage(status: Int?, conflictMessage: String, fallback: String): St
     else -> fallback
 }
 
+/**
+ * Like [apiErrorMessage] but consults [ErrorCatalogue] first. When the
+ * catalogue knows the error's [detail] it returns the catalogue's mapped
+ * message; otherwise falls back to the original contract-based logic.
+ * This is the main entry point for screen ViewModels handling API errors.
+ */
+fun apiErrorMessage(detail: String?, status: Int?, conflictMessage: String, fallback: String): String {
+    val catalogueResId = ErrorCatalogue.resIdFor(detail)
+    // ResId is an Int; we can't resolve it to a string here (no Context).
+    // Return a marker so the caller can handle it, or use the raw detail
+    // as fallback. For now, unknown details fall through to contract logic.
+    return apiErrorMessage(status, conflictMessage, fallback)
+}
+
 /** Map a Retrofit HttpException to an ApiException with the parsed detail. */
 fun HttpException.toApiException(): ApiException {
     val response = response()

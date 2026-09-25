@@ -84,8 +84,7 @@ fun OccurrencesSection(
             )
         }
         Text(
-            text = "Skip excuses an occurrence: it never counts as unpaid, " +
-                "and a payment covers it only after un-skipping. Paid ones live in the ledger.",
+            text = stringResource(R.string.occurrences_help),
             style = MaterialTheme.typography.labelSmall,
             color = Slate500,
             modifier = Modifier.padding(top = 6.dp),
@@ -162,7 +161,7 @@ private fun OccurrenceRow(
             }
         }
         OccurrencePill(
-            label = if (row.skipped) "Un-skip" else "Skip",
+            label = if (row.skipped) stringResource(R.string.unskip_button) else stringResource(R.string.skip_button),
             enabled = enabled,
             onClick = onToggle,
             modifier = Modifier.padding(start = 8.dp),

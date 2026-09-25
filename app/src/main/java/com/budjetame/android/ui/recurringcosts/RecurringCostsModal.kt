@@ -95,7 +95,7 @@ fun RecurringCostsModal(
 
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
-        title = { Text(if (editing) "Edit recurring cost" else "New recurring cost") },
+        title = { Text(if (editing) stringResource(R.string.edit_recurring_cost) else stringResource(R.string.create_recurring_cost)) },
         text = {
             Column(
                 modifier = Modifier
@@ -219,8 +219,8 @@ fun RecurringCostsModal(
                         UnfreezeSection(
                             isFreezing = modal.freezing,
                             onUnfreeze = onUnfreeze,
-                            heading = "Unfreeze recurring cost",
-                            description = "Restore this definition: new occurrences will resume.",
+                            heading = stringResource(R.string.unfreeze_recurring_cost_title),
+                            description = stringResource(R.string.unfreeze_recurring_cost_description),
                         )
                     } else {
                         FreezeSection(
@@ -229,8 +229,8 @@ fun RecurringCostsModal(
                             confirmingFreeze = modal.confirmingFreeze,
                             freezeError = null,
                             onFreeze = onFreeze,
-                            heading = "Freeze recurring cost",
-                            description = "Its linked expenses stay linked. Freezing stops all new occurrences.",
+                            heading = stringResource(R.string.freeze_recurring_cost_title),
+                            description = stringResource(R.string.freeze_recurring_cost_description),
                         )
                     }
                 }
@@ -240,9 +240,9 @@ fun RecurringCostsModal(
             Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Create recurring cost"
+                        modal.submitting -> stringResource(R.string.saving)
+                        editing -> stringResource(R.string.save)
+                        else -> stringResource(R.string.create_recurring_cost)
                     },
                 )
             }
