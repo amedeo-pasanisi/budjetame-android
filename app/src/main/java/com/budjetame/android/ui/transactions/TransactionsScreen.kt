@@ -69,7 +69,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.CategoryDto
@@ -83,6 +82,7 @@ import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.ExportFile
+import com.budjetame.android.data.transaction.shareExportFile
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
@@ -97,7 +97,6 @@ import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.theme.Slate700
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Dates
-import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -239,23 +238,9 @@ fun TransactionsScreen(
     val exportFile = state.exportFile
     LaunchedEffect(exportFile) {
         val file = exportFile ?: return@LaunchedEffect
-        val uri = withContext(Dispatchers.IO) { cacheExportFile(context, file) }
-        if (uri == null) {
-            viewModel.onExportError("Could not save the export file.")
-        } else {
-            val send = Intent(Intent.ACTION_SEND).apply {
-                type = EXPORT_MIME_TYPE
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            try {
-                context.startActivity(Intent.createChooser(send, null))
-            } catch (_: Exception) {
-                // No app on the device can take the file (a bare test
-                // harness): the error line reports it and the export is
-                // consumed, so a later press fetches afresh.
-                viewModel.onExportError("Could not share the export file.")
-            }
+        val error = withContext(Dispatchers.IO) { shareExportFile(context, file) }
+        if (error != null) {
+            viewModel.onExportError(error)
         }
         viewModel.onExportHandled()
     }
@@ -1221,24 +1206,6 @@ private fun LoadMoreSentinel(
         }
     }
 }
-
-/** Write the exported workbook to the app's cache under the name the
- * backend chose and return its FileProvider Uri for the share sheet, or
- * null when the write failed. The cache lives in the app's private
- * storage; the provider grants the receiving app one read. */
-private fun cacheExportFile(context: Context, export: ExportFile): Uri? = try {
-    val directory = File(context.cacheDir, "exports").apply { mkdirs() }
-    val file = File(directory, export.filename)
-    file.writeBytes(export.content)
-    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-} catch (_: Exception) {
-    null
-}
-
-/** The .xlsx content type: the export's MIME, like the import picker's
- * accepted set. */
-private const val EXPORT_MIME_TYPE =
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 /** Open a built maps link (ticket #29): the URL is the client-built Google
  * Maps search link (CONTEXT.md — never stored as text), handed to the

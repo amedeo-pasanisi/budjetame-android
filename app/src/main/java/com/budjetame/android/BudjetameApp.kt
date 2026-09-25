@@ -79,6 +79,7 @@ fun BudjetameApp(container: AppContainer) {
             importRepository = container.importRepository,
             recurringCostRepository = container.recurringCostRepository,
             recurringIncomeRepository = container.recurringIncomeRepository,
+            backupRepository = container.backupRepository,
             location = container.deviceLocation,
             onSignOut = {
                 container.authRepository.signOut()

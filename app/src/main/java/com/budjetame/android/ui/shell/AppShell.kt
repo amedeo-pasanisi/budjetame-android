@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.imports.ImportGateway
@@ -67,6 +69,7 @@ import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
 import com.budjetame.android.ui.wallets.WalletsScreen
+import com.budjetame.android.data.transaction.shareExportFile
 import kotlinx.coroutines.launch
 
 /** The five tabs in bottom-nav order, mirroring the web app's AppShell. The
@@ -95,6 +98,9 @@ fun AppShell(
     /** The device GPS (ticket #29): the Transaction form's location pick,
      * prefill, and first-save attach. */
     location: DeviceLocation,
+    /** The backup export (ticket #57): downloads the complete multi-sheet
+     * backup workbook and shares it via the system share sheet. */
+    backupRepository: BackupGateway,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -206,6 +212,7 @@ fun AppShell(
             email = account.email,
             onClose = { showSettings = false },
             onDeleteAccount = onDeleteAccount,
+            backupRepository = backupRepository,
         )
     }
 }
@@ -300,20 +307,25 @@ private fun BottomTabs(pagerState: PagerState) {
 }
 
 /**
- * The app's settings (web issue #84): the account email and the destructive
- * account-deletion action behind its own confirm step, with the web app's
- * exact copy.
+ * The app's settings (web issue #84, ticket #57): the account email,
+ * the destructive account-deletion action behind its own confirm step,
+ * and the Export all action that downloads the full backup workbook and
+ * surfaces it via the system share sheet.
  */
 @Composable
 private fun SettingsDialog(
     email: String,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
+    backupRepository: BackupGateway,
 ) {
     var confirmOpen by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var exporting by remember { mutableStateOf(false) }
+    var exportError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onClose,
@@ -326,6 +338,56 @@ private fun SettingsDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                // Export all (ticket #57)
+                Text(
+                    text = "Export all",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = "Downloads the complete backup workbook with all your data.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            exporting = true
+                            exportError = null
+                            try {
+                                val export = backupRepository.exportBackup()
+                                val errorMsg = shareExportFile(context, export)
+                                if (errorMsg != null) {
+                                    exportError = errorMsg
+                                }
+                            } catch (_: Exception) {
+                                exportError = "Could not export the backup workbook."
+                            } finally {
+                                exporting = false
+                            }
+                        }
+                    },
+                    enabled = !exporting,
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    Text(
+                        text = if (exporting) "Exporting…" else "Export all",
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                exportError?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
                 Text(
                     text = "Delete account",
                     style = MaterialTheme.typography.bodyMedium,

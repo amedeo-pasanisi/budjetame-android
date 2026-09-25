@@ -103,4 +103,138 @@ class ExportFileTest {
         assertTrue(!sheet.contains("recurring"))
         assertTrue(!sheet.contains("place"))
     }
+
+    // --- The backup fixture (ticket #57) ------------------------------------
+
+    /**
+     * The bytes of `src/test/resources/export/backup-export.xlsx`: the
+     * multi-sheet backup workbook exactly as the backend's exporter writes
+     * it. Carries one row per entity kind (Wallets, Categories,
+     * Transactions, Recurring Costs, Recurring Incomes, Skips) plus the
+     * header row on each sheet.
+     */
+    private val backupFixture: ByteArray by lazy {
+        checkNotNull(ExportFileTest::class.java.getResourceAsStream("/export/backup-export.xlsx")) {
+            "missing test resource export/backup-export.xlsx"
+        }.use { it.readBytes() }
+    }
+
+    @Test
+    fun `the backup fixture is a zip carrying six sheets`() {
+        val entries = ZipInputStream(backupFixture.inputStream()).use { zip ->
+            generateSequence { zip.nextEntry?.name }.toList()
+        }
+        assertEquals(
+            listOf(
+                "[Content_Types].xml",
+                "_rels/.rels",
+                "xl/workbook.xml",
+                "xl/_rels/workbook.xml.rels",
+                "xl/worksheets/sheet1.xml",
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/sheet3.xml",
+                "xl/worksheets/sheet4.xml",
+                "xl/worksheets/sheet5.xml",
+                "xl/worksheets/sheet6.xml",
+            ),
+            entries,
+        )
+    }
+
+    @Test
+    fun `the backup workbook carries named entity sheets`() {
+        val workbook = ZipInputStream(backupFixture.inputStream()).use { zip ->
+            var xml: String? = null
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (entry.name == "xl/workbook.xml") {
+                    xml = zip.readBytes().toString(Charsets.UTF_8)
+                }
+                zip.closeEntry()
+            }
+            xml
+        } ?: error("no workbook.xml in the backup fixture")
+
+        listOf("Wallets", "Categories", "Transactions", "Recurring Costs",
+            "Recurring Incomes", "Skips").forEach { sheetName ->
+            assertTrue("sheet $sheetName missing from workbook", workbook.contains("""sheet name="$sheetName""""))
+        }
+    }
+
+    @Test
+    fun `the backup fixture's Wallets sheet carries header and one row`() {
+        val sheet = readSheet(backupFixture, "xl/worksheets/sheet1.xml")
+        listOf("id", "name", "type", "balance", "currency", "frozen").forEach { header ->
+            assertTrue("Wallets header cell $header missing", sheet.contains("<t>$header</t>"))
+        }
+        assertEquals(2, Regex("<row r=\"").findAll(sheet).count())
+        assertTrue(sheet.contains("<t>Cash</t>"))
+    }
+
+    @Test
+    fun `the backup fixture's Categories sheet carries header and one row`() {
+        val sheet = readSheet(backupFixture, "xl/worksheets/sheet2.xml")
+        listOf("id", "name", "type", "icon", "color").forEach { header ->
+            assertTrue("Categories header cell $header missing", sheet.contains("<t>$header</t>"))
+        }
+        assertEquals(2, Regex("<row r=\"").findAll(sheet).count())
+        assertTrue(sheet.contains("<t>Food</t>"))
+        assertTrue(sheet.contains("<t>expense</t>"))
+    }
+
+    @Test
+    fun `the backup fixture's Transactions sheet carries header and one row`() {
+        val sheet = readSheet(backupFixture, "xl/worksheets/sheet3.xml")
+        listOf("date", "type", "amount", "wallet", "category", "description").forEach { header ->
+            assertTrue("Transactions header cell $header missing", sheet.contains("<t>$header</t>"))
+        }
+        assertEquals(2, Regex("<row r=\"").findAll(sheet).count())
+        assertTrue(sheet.contains("<t>2026-08-01</t>"))
+        assertTrue(sheet.contains("<t>expense</t>"))
+        assertTrue(sheet.contains("<t>Lunch</t>"))
+    }
+
+    @Test
+    fun `the backup fixture's Recurring Costs sheet carries header and one row`() {
+        val sheet = readSheet(backupFixture, "xl/worksheets/sheet4.xml")
+        listOf("id", "name", "amount", "day_of_month", "category_id").forEach { header ->
+            assertTrue("Recurring Costs header cell $header missing", sheet.contains("<t>$header</t>"))
+        }
+        assertEquals(2, Regex("<row r=\"").findAll(sheet).count())
+        assertTrue(sheet.contains("<t>Rent</t>"))
+    }
+
+    @Test
+    fun `the backup fixture's Recurring Incomes sheet carries header and one row`() {
+        val sheet = readSheet(backupFixture, "xl/worksheets/sheet5.xml")
+        listOf("id", "name", "amount", "day_of_month").forEach { header ->
+            assertTrue("Recurring Incomes header cell $header missing", sheet.contains("<t>$header</t>"))
+        }
+        assertEquals(2, Regex("<row r=\"").findAll(sheet).count())
+        assertTrue(sheet.contains("<t>Salary</t>"))
+    }
+
+    @Test
+    fun `the backup fixture's Skips sheet carries header and one row`() {
+        val sheet = readSheet(backupFixture, "xl/worksheets/sheet6.xml")
+        listOf("recurring_id", "kind", "date").forEach { header ->
+            assertTrue("Skips header cell $header missing", sheet.contains("<t>$header</t>"))
+        }
+        assertEquals(2, Regex("<row r=\"").findAll(sheet).count())
+        assertTrue(sheet.contains("<t>cost</t>"))
+    }
+
+    /** Read one sheet's XML from a multi-sheet .xlsx zip. */
+    private fun readSheet(bytes: ByteArray, path: String): String =
+        ZipInputStream(bytes.inputStream()).use { zip ->
+            var xml: String? = null
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (entry.name == path) {
+                    xml = zip.readBytes().toString(Charsets.UTF_8)
+                }
+                zip.closeEntry()
+            }
+            xml
+        } ?: error("no $path in the backup fixture")
 }
