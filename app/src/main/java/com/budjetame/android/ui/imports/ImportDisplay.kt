@@ -1,8 +1,10 @@
 package com.budjetame.android.ui.imports
 
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionType
-import com.budjetame.android.ui.transactions.transactionTypeLabel
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.transactions.transactionTypeLabelRes
 import com.budjetame.android.util.Dates
 import java.util.Locale
 import kotlin.math.max
@@ -14,24 +16,27 @@ import kotlin.math.roundToInt
  * (Ready/Duplicate/Problem — the Preview's vocabulary over the wire's
  * ok/duplicate/error), the row cards' derived text, the sticky confirm
  * bar's counts and button copy, and the picked-file line. These are the
- * cheap spots where porting bugs hide, so they get direct JVM tests.
+ * cheap spots where porting bugs hide, so they get direct JVM tests. The
+ * words are [UiText] in the Account's Locale (ADR-0010).
  */
 
 /** The wire status's word on the Preview: "Ready" for ok, "Duplicate" for
  * duplicate, "Problem" for error (CONTEXT.md's Preview vocabulary). */
-fun importStatusWord(status: ImportRowStatus): String = when (status) {
-    ImportRowStatus.OK -> "Ready"
-    ImportRowStatus.DUPLICATE -> "Duplicate"
-    ImportRowStatus.ERROR -> "Problem"
-}
+fun importStatusWord(status: ImportRowStatus): UiText = UiText.of(
+    when (status) {
+        ImportRowStatus.OK -> R.string.imports_status_ready
+        ImportRowStatus.DUPLICATE -> R.string.imports_status_duplicate
+        ImportRowStatus.ERROR -> R.string.imports_status_problem
+    },
+)
 
 /** A row card's identifying line: "date · Type", with the web's "—" for a
  * field the file did not yield (a parse-error row may have neither). The
  * type word is the Transaction form's own label. */
-fun importRowTitleLine(date: String?, type: TransactionType?, locale: Locale = Locale.US): String {
+fun importRowTitleLine(date: String?, type: TransactionType?, locale: Locale = Locale.US): UiText {
     val day = date?.let { Dates.ledgerDate(it, locale) } ?: "—"
-    val kind = type?.let(::transactionTypeLabel) ?: "—"
-    return "$day · $kind"
+    val kind: Any = type?.let { UiText.of(transactionTypeLabelRes(it)) } ?: "—"
+    return UiText.of(R.string.imports_joined, day, kind)
 }
 
 /** A row card's wallet line: "Source → Destination" for a Transfer with
@@ -56,19 +61,20 @@ fun importLocationSuffix(latitude: String?, longitude: String?): String =
 
 /** The sticky confirm bar's counts line (web issue #42): "3 ready · 2
  * duplicates · 1 problem", singular words for a count of one. */
-fun importCountsText(ready: Int, duplicates: Int, problems: Int): String {
-    val duplicateWord = if (duplicates == 1) "duplicate" else "duplicates"
-    val problemWord = if (problems == 1) "problem" else "problems"
-    return "$ready ready · $duplicates $duplicateWord · $problems $problemWord"
-}
+fun importCountsText(ready: Int, duplicates: Int, problems: Int): UiText = UiText.of(
+    R.string.imports_counts,
+    UiText.Plural(R.plurals.imports_count_ready, ready),
+    UiText.Plural(R.plurals.imports_count_duplicates, duplicates),
+    UiText.Plural(R.plurals.imports_count_problems, problems),
+)
 
 /** The confirm bar's Import button label (web issue #42): "Importing…"
  * while the insert is in flight, "Nothing to import" at zero rows, else
  * "Import N row(s)". */
-fun importButtonText(confirmable: Int, busy: Boolean): String = when {
-    busy -> "Importing…"
-    confirmable == 0 -> "Nothing to import"
-    else -> "Import $confirmable row${if (confirmable == 1) "" else "s"}"
+fun importButtonText(confirmable: Int, busy: Boolean): UiText = when {
+    busy -> UiText.of(R.string.imports_importing)
+    confirmable == 0 -> UiText.of(R.string.imports_nothing_to_import)
+    else -> UiText.Plural(R.plurals.imports_import_rows, confirmable)
 }
 
 /** The pick phase's file line: "name · N KB", with the web's floor of 1 KB

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recurring_side_costs">Uscite</string>
+    <string name="recurring_side_incomes">Entrate</string>
+
+    <string name="recurring_next_due">%1$s · prossima scadenza %2$s</string>
+    <plurals name="recurring_unpaid">
+        <item quantity="one">%1$d non pagata</item>
+        <item quantity="other">%1$d non pagate</item>
+    </plurals>
+
+    <plurals name="recurring_interval_days">
+        <item quantity="one">Ogni giorno</item>
+        <item quantity="other">Ogni %1$d giorni</item>
+    </plurals>
+    <plurals name="recurring_interval_weeks">
+        <item quantity="one">Ogni settimana</item>
+        <item quantity="other">Ogni %1$d settimane</item>
+    </plurals>
+    <plurals name="recurring_interval_months">
+        <item quantity="one">Ogni mese</item>
+        <item quantity="other">Ogni %1$d mesi</item>
+    </plurals>
+    <plurals name="recurring_interval_years">
+        <item quantity="one">Ogni anno</item>
+        <item quantity="other">Ogni %1$d anni</item>
+    </plurals>
+    <plurals name="recurring_unit_days">
+        <item quantity="one">giorno</item>
+        <item quantity="other">giorni</item>
+    </plurals>
+    <plurals name="recurring_unit_weeks">
+        <item quantity="one">settimana</item>
+        <item quantity="other">settimane</item>
+    </plurals>
+    <plurals name="recurring_unit_months">
+        <item quantity="one">mese</item>
+        <item quantity="other">mesi</item>
+    </plurals>
+    <plurals name="recurring_unit_years">
+        <item quantity="one">anno</item>
+        <item quantity="other">anni</item>
+    </plurals>
+
+    <string name="recurring_name">Nome</string>
+    <string name="recurring_amount">Importo (€)</string>
+    <string name="recurring_amount_placeholder">0,00</string>
+    <string name="recurring_repeats_every">Si ripete ogni</string>
+    <string name="recurring_unit">Unità</string>
+    <string name="recurring_start_date">Data inizio</string>
+    <string name="recurring_start_hint">La prima occorrenza. Lascia vuoto per iniziare da oggi.</string>
+    <string name="recurring_date_ok">OK</string>
+    <string name="recurring_date_clear">Cancella</string>
+    <string name="recurring_frozen_amount">Importo: %1$s</string>
+    <string name="recurring_frozen_start_date">Data inizio: %1$s</string>
+    <string name="recurring_unfreeze_description">Ripristina questa definizione: le nuove occorrenze riprenderanno.</string>
+
+    <string name="recurring_occurrences">Occorrenze</string>
+    <string name="recurring_occurrences_loading">Caricamento occorrenze…</string>
+    <string name="recurring_occurrences_load_error">Impossibile caricare le occorrenze.</string>
+    <string name="recurring_occurrence_update_error">Impossibile aggiornare l\'occorrenza.</string>
+    <string name="recurring_occurrences_help">Saltare un\'occorrenza la esclude: non conta come non pagata e viene coperta solo dopo averla desaltata. Quelle pagate restano nella contabilità.</string>
+    <string name="recurring_occurrence_skipped">Saltata — desalta per pagarla</string>
+    <string name="recurring_skip">Salta</string>
+    <string name="recurring_unskip">Desalta</string>
+
+    <string name="recurring_costs_title">Uscite Ricorrenti</string>
+    <string name="recurring_costs_new">Nuova uscita ricorrente</string>
+    <string name="recurring_costs_loading">Caricamento uscite ricorrenti…</string>
+    <string name="recurring_costs_empty">Ancora nessuna uscita ricorrente. Aggiungine una per tenere traccia delle scadenze.</string>
+    <string name="recurring_costs_load_error">Impossibile caricare le uscite ricorrenti.</string>
+    <string name="recurring_costs_frozen_header">Uscite ricorrenti congelate (%1$d)</string>
+    <string name="recurring_costs_title_edit">Modifica uscita ricorrente</string>
+    <string name="recurring_costs_name_placeholder">es. Affitto</string>
+    <string name="recurring_costs_create">Crea uscita ricorrente</string>
+    <string name="recurring_costs_freeze">Congela uscita ricorrente</string>
+    <string name="recurring_costs_freeze_description">Le spese collegate restano collegate. Il congelamento interrompe tutte le nuove occorrenze.</string>
+    <string name="recurring_costs_unfreeze">Scongela uscita ricorrente</string>
+
+    <string name="recurring_incomes_title">Entrate Ricorrenti</string>
+    <string name="recurring_incomes_new">Nuova entrata ricorrente</string>
+    <string name="recurring_incomes_loading">Caricamento entrate ricorrenti…</string>
+    <string name="recurring_incomes_empty">Ancora nessuna entrata ricorrente. Aggiungine una per tenere traccia delle scadenze.</string>
+    <string name="recurring_incomes_load_error">Impossibile caricare le entrate ricorrenti.</string>
+    <string name="recurring_incomes_frozen_header">Entrate ricorrenti congelate (%1$d)</string>
+    <string name="recurring_incomes_title_edit">Modifica entrata ricorrente</string>
+    <string name="recurring_incomes_name_placeholder">es. Stipendio</string>
+    <string name="recurring_incomes_create">Crea entrata ricorrente</string>
+    <string name="recurring_incomes_freeze">Congela entrata ricorrente</string>
+    <string name="recurring_incomes_freeze_description">Le entrate collegate restano collegate. Il congelamento interrompe tutte le nuove occorrenze.</string>
+    <string name="recurring_incomes_unfreeze">Scongela entrata ricorrente</string>
+</resources>

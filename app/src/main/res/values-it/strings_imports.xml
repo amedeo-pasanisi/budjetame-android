@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="imports_title">Importa</string>
+    <string name="imports_back">Indietro</string>
+
+    <string name="imports_upload_hint">Carica un file %1$s o %2$s con il modello fisso: un unico foglio piatto, colonne %3$s. Nulla viene scritto finché non confermi l\'anteprima.</string>
+    <string name="imports_choose_file">Scegli file</string>
+    <string name="imports_reading_file">Lettura del file…</string>
+    <string name="imports_read_and_validate">Leggi e verifica</string>
+
+    <string name="imports_pick_another">Scegli un altro file</string>
+    <string name="imports_no_rows">Nessuna riga di dati trovata in questo file.</string>
+    <string name="imports_status_ready">Pronta</string>
+    <string name="imports_status_duplicate">Duplicata</string>
+    <string name="imports_status_problem">Problema</string>
+    <string name="imports_duplicate_explanation">Già presente nel database o ripetuta in questo file — questa riga verrà saltata.</string>
+    <plurals name="imports_count_ready">
+        <item quantity="one">%1$d pronta</item>
+        <item quantity="other">%1$d pronte</item>
+    </plurals>
+    <plurals name="imports_count_duplicates">
+        <item quantity="one">%1$d duplicata</item>
+        <item quantity="other">%1$d duplicate</item>
+    </plurals>
+    <plurals name="imports_count_problems">
+        <item quantity="one">%1$d problema</item>
+        <item quantity="other">%1$d problemi</item>
+    </plurals>
+    <string name="imports_importing">Importazione…</string>
+    <string name="imports_nothing_to_import">Niente da importare</string>
+    <plurals name="imports_import_rows">
+        <item quantity="one">Importa %1$d riga</item>
+        <item quantity="other">Importa %1$d righe</item>
+    </plurals>
+
+    <string name="imports_cash_negative">Importato — ma l\'importazione ha reso negativo un portafoglio Contanti.</string>
+    <plurals name="imports_imported">
+        <item quantity="one">Importata %1$d transazione.</item>
+        <item quantity="other">Importate %1$d transazioni.</item>
+    </plurals>
+    <string name="imports_imported_hint">Ora sono nella tua cronologia; saldi e dashboard ne tengono conto.</string>
+
+    <string name="imports_edit_row">Modifica riga %1$d</string>
+    <string name="imports_contact_explanation">I portafogli contatto muovono denaro solo tramite trasferimenti.</string>
+    <string name="imports_latitude">Latitudine</string>
+    <string name="imports_longitude">Longitudine</string>
+    <string name="imports_optional">Opzionale</string>
+</resources>

@@ -2,6 +2,7 @@ package com.budjetame.android.ui.categories
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
@@ -10,6 +11,7 @@ import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.category.CategoryMergeConflict
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -89,7 +91,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
 
     data class UiState(
         val loading: Boolean = true,
-        val loadError: String? = null,
+        val loadError: UiText? = null,
         val categories: List<CategoryDto> = emptyList(),
         val query: String = "",
         val modal: CategoryModalState? = null,
@@ -326,7 +328,7 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
         } catch (_: Exception) {
             _uiState.update { state ->
                 if (state.categories.isEmpty()) {
-                    state.copy(loadError = "Could not load your categories.", loading = false)
+                    state.copy(loadError = UiText.of(R.string.categories_load_error), loading = false)
                 } else {
                     state.copy(loading = false)
                 }

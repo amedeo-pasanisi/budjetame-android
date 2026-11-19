@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="maps_search_place">Cerca un luogo…</string>
+    <string name="maps_loading_google">Caricamento di Google Maps…</string>
+    <string name="maps_google_load_failed">Impossibile caricare Google Maps: %1$s Puoi tornare alla mappa gratuita Leaflet con MAP_PROVIDER=leaflet.</string>
+    <string name="maps_reason_could_not_start">la mappa non si è avviata.</string>
+    <string name="maps_reason_not_ready">la mappa non è diventata pronta.</string>
+    <string name="maps_misconfigured">Provider della mappa configurato male.</string>
+</resources>

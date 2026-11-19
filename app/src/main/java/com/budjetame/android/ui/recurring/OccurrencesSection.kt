@@ -19,11 +19,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.ui.common.LocalDisplayLocale
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.theme.Slate400
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate700
@@ -50,20 +54,20 @@ import com.budjetame.android.util.Dates
 @Composable
 fun OccurrencesSection(
     occurrences: List<RecurringOccurrenceDto>?,
-    error: String?,
+    error: UiText?,
     togglingDate: String?,
     onToggle: (RecurringOccurrenceDto) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
         Text(
-            text = "Occurrences",
+            text = stringResource(R.string.recurring_occurrences),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             color = Slate700,
         )
         error?.let { message ->
             Text(
-                text = message,
+                text = message.resolve(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 4.dp),
@@ -71,7 +75,7 @@ fun OccurrencesSection(
         }
         when {
             occurrences == null && error == null -> Text(
-                text = "Loading occurrences…",
+                text = stringResource(R.string.recurring_occurrences_loading),
                 style = MaterialTheme.typography.labelSmall,
                 color = Slate500,
                 modifier = Modifier.padding(top = 4.dp),
@@ -84,8 +88,7 @@ fun OccurrencesSection(
             )
         }
         Text(
-            text = "Skip excuses an occurrence: it never counts as unpaid, " +
-                "and a payment covers it only after un-skipping. Paid ones live in the ledger.",
+            text = stringResource(R.string.recurring_occurrences_help),
             style = MaterialTheme.typography.labelSmall,
             color = Slate500,
             modifier = Modifier.padding(top = 6.dp),
@@ -155,7 +158,7 @@ private fun OccurrenceRow(
             )
             if (row.skipped) {
                 Text(
-                    text = "Skipped — un-skip to pay it",
+                    text = stringResource(R.string.recurring_occurrence_skipped),
                     // The web caption type: text-xs text-slate-400 (ticket #44).
                     fontSize = 12.sp,
                     color = Slate400,
@@ -163,7 +166,7 @@ private fun OccurrenceRow(
             }
         }
         OccurrencePill(
-            label = if (row.skipped) "Un-skip" else "Skip",
+            label = stringResource(if (row.skipped) R.string.recurring_unskip else R.string.recurring_skip),
             enabled = enabled,
             onClick = onToggle,
             modifier = Modifier.padding(start = 8.dp),

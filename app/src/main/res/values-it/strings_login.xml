@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_title_sign_in">Accedi per vedere i tuoi soldi.</string>
+    <string name="login_title_sign_up">Crea un Account per vedere i tuoi soldi.</string>
+    <string name="login_title_forgot">Ti invieremo un link via email per reimpostare la password.</string>
+    <string name="login_or">oppure</string>
+    <string name="login_reset_sent">Controlla la tua casella di posta — il link funziona una volta sola e scade presto.</string>
+    <string name="login_back_to_sign_in">Torna all\'accesso</string>
+    <string name="login_email">Email</string>
+    <string name="login_email_placeholder">tu@esempio.com</string>
+    <string name="login_password">Password</string>
+    <string name="login_sending">Invio…</string>
+    <string name="login_creating">Creazione…</string>
+    <string name="login_signing_in">Accesso in corso…</string>
+    <string name="login_send_reset">Invia link di reset</string>
+    <string name="login_create_account">Crea account</string>
+    <string name="login_sign_in">Accedi</string>
+    <string name="login_forgot_password">Password dimenticata?</string>
+    <string name="login_reset_it">Resetta</string>
+    <string name="login_remembered">Ricordata?</string>
+    <string name="login_already_account">Hai già un Account?</string>
+    <string name="login_no_account">Non hai un Account?</string>
+    <string name="login_sign_up">Registrati</string>
+    <string name="login_google">Accedi con Google</string>
+
+    <string name="login_error_password_too_short">Usa almeno %1$d caratteri per la password.</string>
+    <string name="login_error_sign_in_401">Email o password errate.</string>
+    <string name="login_error_sign_in">Impossibile accedere. Riprova.</string>
+    <string name="login_error_sign_up_409">Esiste già un Account con questa email.</string>
+    <string name="login_error_sign_up_422">Controlla i campi e riprova.</string>
+    <string name="login_error_sign_up">Impossibile registrarsi. Riprova.</string>
+    <string name="login_error_forgot">Impossibile inviare il link di reset. Riprova.</string>
+    <string name="login_error_google_rejected">Google non ha potuto verificare l\'accesso. Riprova.</string>
+    <string name="login_error_google">Impossibile accedere con Google. Riprova.</string>
+</resources>

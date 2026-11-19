@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Import screen (ADR-0010, issue #63): the pick step, the Preview with
+     its row cards and confirm bar, the done report, and the Verification row
+     editor. The editor's fields shared with the Transaction form reuse the
+     transaction_form_ keys. The template's column names are the file format
+     the backend reads, so they stay English in code. -->
+<resources>
+    <string name="imports_title">Import</string>
+    <string name="imports_back">Back</string>
+
+    <!-- The pick step: %1$s and %2$s are the file extensions, %3$s the
+         template's column list, each rendered bold. -->
+    <string name="imports_upload_hint">Upload a %1$s or %2$s file with the fixed template: one flat sheet, columns %3$s. Nothing is written until you confirm the preview.</string>
+    <string name="imports_choose_file">Choose file</string>
+    <string name="imports_reading_file">Reading file…</string>
+    <string name="imports_read_and_validate">Read and validate</string>
+
+    <!-- The Preview. -->
+    <string name="imports_pick_another">Pick another file</string>
+    <string name="imports_no_rows">No data rows found in this file.</string>
+    <string name="imports_status_ready">Ready</string>
+    <string name="imports_status_duplicate">Duplicate</string>
+    <string name="imports_status_problem">Problem</string>
+    <string name="imports_duplicate_explanation">Already in the database or repeated in this file — this row will be skipped.</string>
+    <!-- Not language: a row card's "date · Type" and the confirm bar's
+         counts, joined around words that are resources themselves. -->
+    <string name="imports_joined" translatable="false">%1$s · %2$s</string>
+    <string name="imports_counts" translatable="false">%1$s · %2$s · %3$s</string>
+    <plurals name="imports_count_ready">
+        <item quantity="one">%1$d ready</item>
+        <item quantity="other">%1$d ready</item>
+    </plurals>
+    <plurals name="imports_count_duplicates">
+        <item quantity="one">%1$d duplicate</item>
+        <item quantity="other">%1$d duplicates</item>
+    </plurals>
+    <plurals name="imports_count_problems">
+        <item quantity="one">%1$d problem</item>
+        <item quantity="other">%1$d problems</item>
+    </plurals>
+    <string name="imports_importing">Importing…</string>
+    <string name="imports_nothing_to_import">Nothing to import</string>
+    <plurals name="imports_import_rows">
+        <item quantity="one">Import %1$d row</item>
+        <item quantity="other">Import %1$d rows</item>
+    </plurals>
+
+    <!-- The done report. -->
+    <string name="imports_cash_negative">Imported — but the import made a Cash wallet negative.</string>
+    <plurals name="imports_imported">
+        <item quantity="one">Imported %1$d transaction.</item>
+        <item quantity="other">Imported %1$d transactions.</item>
+    </plurals>
+    <string name="imports_imported_hint">They are now in your history; balances and the dashboard reflect them.</string>
+
+    <!-- The Verification row editor. -->
+    <string name="imports_edit_row">Edit row %1$d</string>
+    <string name="imports_contact_explanation">Contact wallets only move money through transfers.</string>
+    <string name="imports_latitude">Latitude</string>
+    <string name="imports_longitude">Longitude</string>
+    <string name="imports_optional">Optional</string>
+</resources>

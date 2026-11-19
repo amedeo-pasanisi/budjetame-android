@@ -1,5 +1,7 @@
 package com.budjetame.android.ui.categories
 
+import androidx.annotation.StringRes
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 
@@ -15,21 +17,23 @@ private val SECTION_TYPES: List<CategoryType> = listOf(
     CategoryType.INCOME,
 )
 
-/** Singular type label (mirrors the web app). */
-fun categoryTypeLabel(type: CategoryType): String = when (type) {
-    CategoryType.EXPENSE -> "Expense"
-    CategoryType.INCOME -> "Income"
+/** Singular type label (mirrors the web app), as a string resource. */
+@StringRes
+fun categoryTypeLabel(type: CategoryType): Int = when (type) {
+    CategoryType.EXPENSE -> R.string.categories_type_expense
+    CategoryType.INCOME -> R.string.categories_type_income
 }
 
-/** Plural section header (mirrors the web app). */
-fun categorySectionLabel(type: CategoryType): String = when (type) {
-    CategoryType.EXPENSE -> "Expenses"
-    CategoryType.INCOME -> "Incomes"
+/** Plural section header (mirrors the web app), as a string resource. */
+@StringRes
+fun categorySectionLabel(type: CategoryType): Int = when (type) {
+    CategoryType.EXPENSE -> R.string.categories_section_expenses
+    CategoryType.INCOME -> R.string.categories_section_incomes
 }
 
 data class CategorySection(
     val type: CategoryType,
-    val label: String,
+    @StringRes val label: Int,
     val items: List<CategoryDto>,
 )
 

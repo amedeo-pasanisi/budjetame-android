@@ -1,6 +1,7 @@
 package com.budjetame.android
 
 import android.content.Context
+import android.content.res.Resources
 import com.budjetame.android.data.Session
 import com.budjetame.android.data.TokenStore
 import com.budjetame.android.data.api.ApiClient
@@ -29,6 +30,7 @@ import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.drafttransaction.ApiDraftTransactionRepository
 import com.budjetame.android.data.imports.ApiImportRepository
 import com.budjetame.android.data.locale.LocaleAutoDetection
+import com.budjetame.android.data.locale.PrefsLastLocaleStore
 import com.budjetame.android.data.locale.PrefsLocaleDetectionStore
 import com.budjetame.android.data.location.AndroidDeviceLocation
 import com.budjetame.android.data.location.DeviceLocation
@@ -51,7 +53,13 @@ class AppContainer(context: Context) {
     private val api = ApiClient(BuildConfig.API_BASE_URL) { session.token }
 
     /** Also the Account's Locale (issue #59): see [ApiAuthRepository.locale]. */
-    val authRepository = ApiAuthRepository(api.create(AuthApi::class.java), session)
+    val authRepository = ApiAuthRepository(
+        api.create(AuthApi::class.java),
+        session,
+        // The login screen's Locale before any Account is read (issue #63).
+        lastLocale = PrefsLastLocaleStore(context),
+        deviceLocale = Resources.getSystem().configuration.locales[0],
+    )
 
     /** The once-per-Account-per-device Locale auto-detect (issue #59). */
     val localeAutoDetection = LocaleAutoDetection(authRepository, PrefsLocaleDetectionStore(context))

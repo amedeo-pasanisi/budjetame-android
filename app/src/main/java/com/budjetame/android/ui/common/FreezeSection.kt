@@ -14,8 +14,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 
 private val RED_200 = Color(0xFFFECACA)
 private val RED_600 = Color(0xFFDC2626)
@@ -36,7 +38,7 @@ fun FreezeSection(
     freezeError: String?,
     onFreeze: () -> Unit,
     disabledLabel: String? = null,
-    heading: String = "Freeze",
+    heading: String = stringResource(R.string.components_freeze),
     description: String = "",
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -76,10 +78,10 @@ fun FreezeSection(
     ) {
         Text(
             when {
-                isFreezing -> "Freezing…"
+                isFreezing -> stringResource(R.string.components_freezing)
                 disabledLabel != null -> disabledLabel
-                confirmingFreeze -> "Tap again to confirm freeze"
-                else -> "Freeze"
+                confirmingFreeze -> stringResource(R.string.components_freeze_confirm)
+                else -> stringResource(R.string.components_freeze)
             },
         )
     }
@@ -93,7 +95,7 @@ fun FreezeSection(
 fun UnfreezeSection(
     isFreezing: Boolean,
     onUnfreeze: () -> Unit,
-    heading: String = "Unfreeze",
+    heading: String = stringResource(R.string.components_unfreeze),
     description: String = "",
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -122,7 +124,7 @@ fun UnfreezeSection(
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(horizontal = 12.dp),
     ) {
-        Text(if (isFreezing) "Unfreezing…" else "Unfreeze")
+        Text(stringResource(if (isFreezing) R.string.components_unfreezing else R.string.components_unfreeze))
     }
 }
 

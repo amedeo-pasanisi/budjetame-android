@@ -1,5 +1,7 @@
 package com.budjetame.android.ui.categories
 
+import com.budjetame.android.ui.common.EnglishStrings
+import com.budjetame.android.ui.common.english
 import com.budjetame.android.MainDispatcherRule
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.CategoryApi
@@ -232,7 +234,7 @@ class CategoriesViewModelTest {
             listOf(CategoryType.EXPENSE, CategoryType.INCOME),
             state.sections.map { it.type },
         )
-        assertEquals(listOf("Expenses", "Incomes"), state.sections.map { it.label })
+        assertEquals(listOf("Expenses", "Incomes"), state.sections.map { EnglishStrings.string(it.label) })
         assertEquals(listOf("apple", "banana", "Carrots"), state.sections[0].items.map { it.name })
         assertEquals(listOf("freelance", "Salary"), state.sections[1].items.map { it.name })
     }
@@ -528,7 +530,7 @@ class CategoriesViewModelTest {
         listStatus = 500
         createViewModel()
         awaitLoaded()
-        assertEquals("Could not load your categories.", viewModel.uiState.value.loadError)
+        assertEquals("Could not load your categories.", viewModel.uiState.value.loadError?.english())
 
         listStatus = 200
         seed(category(1, "Food", CategoryType.EXPENSE))

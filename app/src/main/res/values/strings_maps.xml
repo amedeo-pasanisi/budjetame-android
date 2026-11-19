@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The map picker (ADR-0010, issue #63): the Google adapter's search
+     button, loading and load-failure text. A misconfigured build's own
+     exception text (MapProviderConfig) is a developer message and stays
+     English in code. -->
+<resources>
+    <string name="maps_search_place">Search for a place…</string>
+    <string name="maps_loading_google">Loading Google Map…</string>
+    <!-- %1$s is one of the maps_reason_* sentences, or the SDK's own text. -->
+    <string name="maps_google_load_failed">Google Maps failed to load: %1$s You can switch the picker back to the free Leaflet map with MAP_PROVIDER=leaflet.</string>
+    <string name="maps_reason_could_not_start">the map could not start.</string>
+    <string name="maps_reason_not_ready">the map did not become ready.</string>
+    <string name="maps_misconfigured">Map provider misconfigured.</string>
+</resources>

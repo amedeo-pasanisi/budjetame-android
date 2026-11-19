@@ -41,12 +41,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringOccurrenceDto
+import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.fieldErrorSupportingText
+import com.budjetame.android.ui.common.localized
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.ui.recurringcosts.INTERVAL_UNIT_OPTIONS
 import com.budjetame.android.ui.recurringcosts.intervalUnitLabel
@@ -100,8 +105,10 @@ fun RecurringIncomesModal(
 
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
-        title = { Text(if (editing) "Edit recurring income" else "New recurring income") },
-        text = {
+        title = localized {
+            Text(stringResource(if (editing) R.string.recurring_incomes_title_edit else R.string.recurring_incomes_new))
+        },
+        text = localized {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -110,8 +117,8 @@ fun RecurringIncomesModal(
                 OutlinedTextField(
                     value = modal.name,
                     onValueChange = onNameChange,
-                    label = { Text("Name") },
-                    placeholder = { Text("e.g. Salary") },
+                    label = { Text(stringResource(R.string.recurring_name)) },
+                    placeholder = { Text(stringResource(R.string.recurring_incomes_name_placeholder)) },
                     singleLine = true,
                     isError = nameError != null,
                     supportingText = fieldErrorSupportingText(nameError),
@@ -123,8 +130,8 @@ fun RecurringIncomesModal(
                 OutlinedTextField(
                     value = modal.amount,
                     onValueChange = onAmountChange,
-                    label = { Text("Amount (€)") },
-                    placeholder = { Text("0.00") },
+                    label = { Text(stringResource(R.string.recurring_amount)) },
+                    placeholder = { Text(stringResource(R.string.recurring_amount_placeholder)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     isError = amountError != null,
@@ -142,7 +149,7 @@ fun RecurringIncomesModal(
                     OutlinedTextField(
                         value = modal.intervalValue,
                         onValueChange = onIntervalValueChange,
-                        label = { Text("Repeats every") },
+                        label = { Text(stringResource(R.string.recurring_repeats_every)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         isError = intervalError != null,
@@ -172,7 +179,7 @@ fun RecurringIncomesModal(
                 )
                 if (!editing) {
                     Text(
-                        text = "The first occurrence. Leave empty to start today.",
+                        text = stringResource(R.string.recurring_start_hint),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),
@@ -206,20 +213,22 @@ fun RecurringIncomesModal(
                 }
             }
         },
-        confirmButton = {
+        confirmButton = localized {
             Button(onClick = onSubmit, enabled = modal.canSave, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
-                    when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Create recurring income"
-                    },
+                    stringResource(
+                        when {
+                            modal.submitting -> R.string.common_saving
+                            editing -> R.string.common_save
+                            else -> R.string.recurring_incomes_create
+                        },
+                    ),
                 )
             }
         },
-        dismissButton = {
+        dismissButton = localized {
             TextButton(onClick = onClose, enabled = !modal.busy) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         },
     )
@@ -236,7 +245,7 @@ private fun IntervalUnitField(
     var expanded by remember { mutableStateOf(false) }
     // The unit reads singular when N is 1 — "Repeats every 1 month", like
     // the web form's option labels (ADR-0024).
-    val label = intervalUnitLabel(parseIntervalValue(intervalValue), unit)
+    val label = intervalUnitLabel(parseIntervalValue(intervalValue), unit).resolve()
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
@@ -246,7 +255,7 @@ private fun IntervalUnitField(
             value = label,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Unit") },
+            label = { Text(stringResource(R.string.recurring_unit)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -257,14 +266,17 @@ private fun IntervalUnitField(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            INTERVAL_UNIT_OPTIONS.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(intervalUnitLabel(parseIntervalValue(intervalValue), option)) },
-                    onClick = {
-                        onSelect(option)
-                        expanded = false
-                    },
-                )
+            // The menu is its own window: re-apply the Account Locale (ADR-0010).
+            AccountLocaleResources {
+                INTERVAL_UNIT_OPTIONS.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(intervalUnitLabel(parseIntervalValue(intervalValue), option).resolve()) },
+                        onClick = {
+                            onSelect(option)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }
@@ -292,7 +304,7 @@ private fun StartDateField(
             readOnly = true,
             enabled = false,
             singleLine = true,
-            label = { Text("Start date") },
+            label = { Text(stringResource(R.string.recurring_start_date)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             isError = error != null,
             supportingText = fieldErrorSupportingText(error),
@@ -332,7 +344,9 @@ private fun StartDateField(
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
         DatePickerDialog(
             onDismissRequest = { pickerOpen = false },
-            confirmButton = {
+            // Its own window (ADR-0010): the buttons and the picker's
+            // built-in month/day names follow the Account Locale.
+            confirmButton = localized {
                 TextButton(
                     onClick = {
                         pickerState.selectedDateMillis?.let { millis ->
@@ -342,10 +356,10 @@ private fun StartDateField(
                         pickerOpen = false
                     },
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.recurring_date_ok))
                 }
             },
-            dismissButton = {
+            dismissButton = localized {
                 Row {
                     if (clearable && value.isNotEmpty()) {
                         TextButton(
@@ -354,14 +368,14 @@ private fun StartDateField(
                                 pickerOpen = false
                             },
                         ) {
-                            Text("Clear")
+                            Text(stringResource(R.string.recurring_date_clear))
                         }
                     }
-                    TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+                    TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.common_cancel)) }
                 }
             },
         ) {
-            DatePicker(state = pickerState)
+            AccountLocaleResources { DatePicker(state = pickerState) }
         }
     }
 }
@@ -373,12 +387,12 @@ private fun FreezeSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Freeze recurring income",
+        text = stringResource(R.string.recurring_incomes_freeze),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "Its linked incomes stay linked. Freezing stops all new occurrences.",
+        text = stringResource(R.string.recurring_incomes_freeze_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -398,9 +412,9 @@ private fun FreezeSection(
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
             when {
-                modal.freezing -> "Freezing…"
-                modal.confirmingFreeze -> "Tap again to confirm freeze"
-                else -> "Freeze recurring income"
+                modal.freezing -> stringResource(R.string.components_freezing)
+                modal.confirmingFreeze -> stringResource(R.string.components_freeze_confirm)
+                else -> stringResource(R.string.recurring_incomes_freeze)
             },
         )
     }
@@ -413,12 +427,12 @@ private fun UnfreezeSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Unfreeze recurring income",
+        text = stringResource(R.string.recurring_incomes_unfreeze),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "Restore this definition: new occurrences will resume.",
+        text = stringResource(R.string.recurring_unfreeze_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -436,7 +450,7 @@ private fun UnfreezeSection(
             .padding(top = 12.dp),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
-            if (modal.freezing) "Unfreezing…" else "Unfreeze recurring income",
+            stringResource(if (modal.freezing) R.string.components_unfreezing else R.string.recurring_incomes_unfreeze),
         )
     }
 }

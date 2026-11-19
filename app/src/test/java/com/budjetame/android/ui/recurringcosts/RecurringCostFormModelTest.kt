@@ -2,6 +2,7 @@ package com.budjetame.android.ui.recurringcosts
 
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.ui.common.english
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -16,14 +17,14 @@ class RecurringCostFormModelTest {
 
     @Test
     fun `interval text is singular for one and plural otherwise`() {
-        assertEquals("Every day", intervalText(1, IntervalUnit.DAYS))
-        assertEquals("Every 5 days", intervalText(5, IntervalUnit.DAYS))
-        assertEquals("Every week", intervalText(1, IntervalUnit.WEEKS))
-        assertEquals("Every 2 weeks", intervalText(2, IntervalUnit.WEEKS))
-        assertEquals("Every month", intervalText(1, IntervalUnit.MONTHS))
-        assertEquals("Every 3 months", intervalText(3, IntervalUnit.MONTHS))
-        assertEquals("Every year", intervalText(1, IntervalUnit.YEARS))
-        assertEquals("Every 10 years", intervalText(10, IntervalUnit.YEARS))
+        assertEquals("Every day", intervalText(1, IntervalUnit.DAYS).english())
+        assertEquals("Every 5 days", intervalText(5, IntervalUnit.DAYS).english())
+        assertEquals("Every week", intervalText(1, IntervalUnit.WEEKS).english())
+        assertEquals("Every 2 weeks", intervalText(2, IntervalUnit.WEEKS).english())
+        assertEquals("Every month", intervalText(1, IntervalUnit.MONTHS).english())
+        assertEquals("Every 3 months", intervalText(3, IntervalUnit.MONTHS).english())
+        assertEquals("Every year", intervalText(1, IntervalUnit.YEARS).english())
+        assertEquals("Every 10 years", intervalText(10, IntervalUnit.YEARS).english())
     }
 
     @Test
@@ -34,16 +35,16 @@ class RecurringCostFormModelTest {
         )
         // Next to a 1 the unit reads singular, plural otherwise — the
         // interval row reads "Repeats every N months" (ADR-0024).
-        assertEquals("Day", intervalUnitLabel(1, IntervalUnit.DAYS))
-        assertEquals("Days", intervalUnitLabel(2, IntervalUnit.DAYS))
-        assertEquals("Week", intervalUnitLabel(1, IntervalUnit.WEEKS))
-        assertEquals("Weeks", intervalUnitLabel(2, IntervalUnit.WEEKS))
-        assertEquals("Month", intervalUnitLabel(1, IntervalUnit.MONTHS))
-        assertEquals("Months", intervalUnitLabel(3, IntervalUnit.MONTHS))
-        assertEquals("Year", intervalUnitLabel(1, IntervalUnit.YEARS))
-        assertEquals("Years", intervalUnitLabel(10, IntervalUnit.YEARS))
+        assertEquals("Day", intervalUnitLabel(1, IntervalUnit.DAYS).english())
+        assertEquals("Days", intervalUnitLabel(2, IntervalUnit.DAYS).english())
+        assertEquals("Week", intervalUnitLabel(1, IntervalUnit.WEEKS).english())
+        assertEquals("Weeks", intervalUnitLabel(2, IntervalUnit.WEEKS).english())
+        assertEquals("Month", intervalUnitLabel(1, IntervalUnit.MONTHS).english())
+        assertEquals("Months", intervalUnitLabel(3, IntervalUnit.MONTHS).english())
+        assertEquals("Year", intervalUnitLabel(1, IntervalUnit.YEARS).english())
+        assertEquals("Years", intervalUnitLabel(10, IntervalUnit.YEARS).english())
         // An unparseable interval reads plural, the web's fallback.
-        assertEquals("Months", intervalUnitLabel(null, IntervalUnit.MONTHS))
+        assertEquals("Months", intervalUnitLabel(null, IntervalUnit.MONTHS).english())
     }
 
     @Test

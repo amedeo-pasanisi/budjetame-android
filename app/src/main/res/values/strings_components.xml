@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shared ui/common components' own words (ADR-0010, issue #63): the
+     row ✎ button's accessibility label and the Freeze / Unfreeze sections'
+     default heading and button states. The shared verbs stay in
+     strings_common. -->
+<resources>
+    <string name="components_edit_cd">Edit %1$s</string>
+    <string name="components_freeze">Freeze</string>
+    <string name="components_freezing">Freezing…</string>
+    <string name="components_freeze_confirm">Tap again to confirm freeze</string>
+    <string name="components_unfreeze">Unfreeze</string>
+    <string name="components_unfreezing">Unfreezing…</string>
+</resources>

@@ -22,11 +22,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.budjetame.android.R
 import com.budjetame.android.data.transaction.DEFAULT_MAP_CENTER
 import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.transaction.Place
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.resolve
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
@@ -60,7 +64,9 @@ fun GoogleMapPicker(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var loadError by remember { mutableStateOf<String?>(null) }
+    // The failure's reason sentence; the full message is resolved at render
+    // time, in the Account Locale (ADR-0010).
+    var loadError by remember { mutableStateOf<UiText?>(null) }
 
     // Places.initialize is process-global and throws on a bad key; the
     // facade has already validated the key's presence, so a failure here is
@@ -124,7 +130,7 @@ fun GoogleMapPicker(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-            Text("Search for a place…")
+            Text(stringResource(R.string.maps_search_place))
         }
 
         val mapView = remember(context) {
@@ -165,7 +171,7 @@ fun GoogleMapPicker(
                     googleMap = map
                 }
             } catch (error: Exception) {
-                loadError = googleLoadMessage(error.message ?: "the map could not start.")
+                loadError = error.message?.let(UiText::Raw) ?: UiText.of(R.string.maps_reason_could_not_start)
             }
         }
         // Fail loudly when the map never becomes ready (no Google Play
@@ -174,7 +180,7 @@ fun GoogleMapPicker(
         LaunchedEffect(mapView) {
             delay(MAP_READY_TIMEOUT_MILLIS)
             if (googleMap == null && loadError == null) {
-                loadError = googleLoadMessage("the map did not become ready.")
+                loadError = UiText.of(R.string.maps_reason_not_ready)
             }
         }
 
@@ -183,7 +189,7 @@ fun GoogleMapPicker(
             when {
                 loadError != null -> {
                     Text(
-                        text = loadError!!,
+                        text = stringResource(R.string.maps_google_load_failed, loadError!!.resolve()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier
@@ -193,7 +199,7 @@ fun GoogleMapPicker(
                 }
                 googleMap == null -> {
                     Text(
-                        text = "Loading Google Map…",
+                        text = stringResource(R.string.maps_loading_google),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
@@ -205,12 +211,5 @@ fun GoogleMapPicker(
         }
     }
 }
-
-/** The web adapter's load-failure copy, adapted to the Android build switch:
- * the free picker is one Gradle property away. */
-private fun googleLoadMessage(reason: String): String =
-    "Google Maps failed to load: $reason " +
-        "You can switch the picker back to the free Leaflet map with " +
-        "MAP_PROVIDER=leaflet."
 
 private const val MAP_READY_TIMEOUT_MILLIS = 20_000L

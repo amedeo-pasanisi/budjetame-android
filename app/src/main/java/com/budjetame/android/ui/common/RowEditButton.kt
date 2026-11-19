@@ -12,7 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.ui.theme.Slate400
 
 /**
@@ -37,7 +39,7 @@ fun RowEditButton(
     ) {
         Icon(
             imageVector = Icons.Outlined.Edit,
-            contentDescription = "Edit $name",
+            contentDescription = stringResource(R.string.components_edit_cd, name),
             tint = Slate400,
             modifier = Modifier.size(20.dp),
         )

@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -34,8 +35,10 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.auth.AuthGateway
+import com.budjetame.android.ui.common.resolve
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
@@ -72,12 +75,13 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = when {
-                        state.mode == LoginViewModel.Mode.Forgot ->
-                            "We will email you a link to reset your password."
-                        state.signUp -> "Create an Account to see your money."
-                        else -> "Sign in to see your money."
-                    },
+                    text = stringResource(
+                        when {
+                            state.mode == LoginViewModel.Mode.Forgot -> R.string.login_title_forgot
+                            state.signUp -> R.string.login_title_sign_up
+                            else -> R.string.login_title_sign_in
+                        },
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -96,7 +100,7 @@ fun LoginScreen(
                     ) {
                         HorizontalDivider(modifier = Modifier.weight(1f))
                         Text(
-                            text = "or",
+                            text = stringResource(R.string.login_or),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 12.dp),
@@ -108,7 +112,7 @@ fun LoginScreen(
                 if (state.resetSent) {
                     Column {
                         Text(
-                            text = "Check your inbox — the link works once and expires soon.",
+                            text = stringResource(R.string.login_reset_sent),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
@@ -118,15 +122,15 @@ fun LoginScreen(
                                 .fillMaxWidth()
                                 .padding(top = 16.dp),
                         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                            Text("Back to sign in")
+                            Text(stringResource(R.string.login_back_to_sign_in))
                         }
                     }
                 } else {
                     OutlinedTextField(
                         value = state.email,
                         onValueChange = viewModel::onEmailChange,
-                        label = { Text("Email") },
-                        placeholder = { Text("you@example.com") },
+                        label = { Text(stringResource(R.string.login_email)) },
+                        placeholder = { Text(stringResource(R.string.login_email_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
                         modifier = Modifier
@@ -137,7 +141,7 @@ fun LoginScreen(
                         OutlinedTextField(
                             value = state.password,
                             onValueChange = viewModel::onPasswordChange,
-                            label = { Text("Password") },
+                            label = { Text(stringResource(R.string.login_password)) },
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             singleLine = true,
@@ -148,7 +152,7 @@ fun LoginScreen(
                     }
                     state.error?.let { error ->
                         Text(
-                            text = error,
+                            text = error.resolve(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(top = 12.dp),
@@ -162,14 +166,16 @@ fun LoginScreen(
                             .padding(top = 16.dp),
                     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                         Text(
-                            when {
-                                state.submitting && state.mode == LoginViewModel.Mode.Forgot -> "Sending…"
-                                state.submitting && state.signUp -> "Creating…"
-                                state.submitting -> "Signing in…"
-                                state.mode == LoginViewModel.Mode.Forgot -> "Send reset link"
-                                state.signUp -> "Create account"
-                                else -> "Sign in"
-                            },
+                            stringResource(
+                                when {
+                                    state.submitting && state.mode == LoginViewModel.Mode.Forgot -> R.string.login_sending
+                                    state.submitting && state.signUp -> R.string.login_creating
+                                    state.submitting -> R.string.login_signing_in
+                                    state.mode == LoginViewModel.Mode.Forgot -> R.string.login_send_reset
+                                    state.signUp -> R.string.login_create_account
+                                    else -> R.string.login_sign_in
+                                },
+                            ),
                         )
                     }
                 }
@@ -182,26 +188,26 @@ fun LoginScreen(
                 ) {
                     when (state.mode) {
                         LoginViewModel.Mode.SignIn -> ModeLinkRow(
-                            text = "Forgot your password?",
-                            action = "Reset it",
+                            text = stringResource(R.string.login_forgot_password),
+                            action = stringResource(R.string.login_reset_it),
                             onClick = { viewModel.switchMode(LoginViewModel.Mode.Forgot) },
                         )
                         LoginViewModel.Mode.Forgot -> ModeLinkRow(
-                            text = "Remembered it?",
-                            action = "Sign in",
+                            text = stringResource(R.string.login_remembered),
+                            action = stringResource(R.string.login_sign_in),
                             onClick = { viewModel.switchMode(LoginViewModel.Mode.SignIn) },
                         )
                         LoginViewModel.Mode.SignUp -> ModeLinkRow(
-                            text = "Already have an Account?",
-                            action = "Sign in",
+                            text = stringResource(R.string.login_already_account),
+                            action = stringResource(R.string.login_sign_in),
                             onClick = { viewModel.switchMode(LoginViewModel.Mode.SignIn) },
                         )
                     }
                 }
                 if (state.mode == LoginViewModel.Mode.SignIn) {
                     ModeLinkRow(
-                        text = "Don't have an Account?",
-                        action = "Sign up",
+                        text = stringResource(R.string.login_no_account),
+                        action = stringResource(R.string.login_sign_up),
                         onClick = { viewModel.switchMode(LoginViewModel.Mode.SignUp) },
                         modifier = Modifier.padding(top = 4.dp),
                     )
@@ -287,6 +293,6 @@ private fun GoogleButton(
         },
         modifier = modifier.fillMaxWidth(),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-        Text("Sign in with Google")
+        Text(stringResource(R.string.login_google))
     }
 }

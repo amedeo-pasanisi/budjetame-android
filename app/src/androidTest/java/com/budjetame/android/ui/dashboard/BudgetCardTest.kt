@@ -26,8 +26,8 @@ import org.junit.runner.RunWith
 
 /**
  * The Budget card (web issues #65, #100) through the real DashboardScreen:
- * the big Spendable Today, the frame line "€Y this month (€X per day)" with
- * the "€X left this month" line under it, the red "€X over today's budget"
+ * the big Spendable Today, the frame line "€Y this month (€A income − €B
+ * costs)" with the "€X per day" and "€X left this month" lines under it, the red "€X over today's budget"
  * note when only the bucket is negative, the month's red bottom line
  * superseding the bucket note ("€X over this month's budget") when the whole
  * frame is blown, and the hide rule (web issue #66): the card hides only
@@ -70,7 +70,10 @@ class BudgetCardTest {
         awaitBudgetCard()
 
         composeRule.onNodeWithText("€49.80").assertIsDisplayed()
-        composeRule.onNodeWithText("€500.00 this month (€16.60 per day)").assertIsDisplayed()
+        // The frame line breaks the Monthly Spendable down (v1.9.0), and the
+        // Daily Allowance sits on its own line under it.
+        composeRule.onNodeWithText("€500.00 this month (€500.00 income − €0.00 costs)").assertIsDisplayed()
+        composeRule.onNodeWithText("€16.60 per day").assertIsDisplayed()
         composeRule.onNodeWithText("€333.40 left this month").assertIsDisplayed()
     }
 

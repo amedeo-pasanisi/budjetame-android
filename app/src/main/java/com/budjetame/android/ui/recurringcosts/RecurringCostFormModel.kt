@@ -1,9 +1,11 @@
 package com.budjetame.android.ui.recurringcosts
 
+import com.budjetame.android.R
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringDefinition
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
 
 /**
@@ -34,24 +36,34 @@ val INTERVAL_UNIT_OPTIONS: List<IntervalUnit> =
  * (ADR-0024). A null or unparseable value reads plural, the web's
  * fallback.
  */
-fun intervalUnitLabel(intervalValue: Int?, unit: IntervalUnit): String = when (unit) {
-    IntervalUnit.DAYS -> if (intervalValue == 1) "Day" else "Days"
-    IntervalUnit.WEEKS -> if (intervalValue == 1) "Week" else "Weeks"
-    IntervalUnit.MONTHS -> if (intervalValue == 1) "Month" else "Months"
-    IntervalUnit.YEARS -> if (intervalValue == 1) "Year" else "Years"
+fun intervalUnitLabel(intervalValue: Int?, unit: IntervalUnit): UiText {
+    val id = when (unit) {
+        IntervalUnit.DAYS -> R.plurals.recurring_unit_days
+        IntervalUnit.WEEKS -> R.plurals.recurring_unit_weeks
+        IntervalUnit.MONTHS -> R.plurals.recurring_unit_months
+        IntervalUnit.YEARS -> R.plurals.recurring_unit_years
+    }
+    // No format argument: the count only picks singular or plural.
+    return UiText.Plural(id, count = intervalValue ?: PLURAL_FALLBACK_COUNT, args = emptyList())
 }
+
+/** Picks the plural form when the interval value is unparseable. */
+private const val PLURAL_FALLBACK_COUNT = 2
 
 /**
  * The interval as display text — "Every month", "Every 2 weeks", "Every 5
  * days", "Every year" — singular for 1, plural otherwise (the web app's
  * `intervalText`).
  */
-fun intervalText(value: Int, unit: IntervalUnit): String = when (unit) {
-    IntervalUnit.DAYS -> if (value == 1) "Every day" else "Every $value days"
-    IntervalUnit.WEEKS -> if (value == 1) "Every week" else "Every $value weeks"
-    IntervalUnit.MONTHS -> if (value == 1) "Every month" else "Every $value months"
-    IntervalUnit.YEARS -> if (value == 1) "Every year" else "Every $value years"
-}
+fun intervalText(value: Int, unit: IntervalUnit): UiText = UiText.Plural(
+    when (unit) {
+        IntervalUnit.DAYS -> R.plurals.recurring_interval_days
+        IntervalUnit.WEEKS -> R.plurals.recurring_interval_weeks
+        IntervalUnit.MONTHS -> R.plurals.recurring_interval_months
+        IntervalUnit.YEARS -> R.plurals.recurring_interval_years
+    },
+    value,
+)
 
 /** The draft interval value ("2") as an Int, or null when it is not a
  * whole number — the mandatory-interval gate. */
