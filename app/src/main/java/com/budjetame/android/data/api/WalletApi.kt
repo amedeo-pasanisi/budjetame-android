@@ -3,7 +3,6 @@ package com.budjetame.android.data.api
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
-import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -59,9 +58,13 @@ interface WalletApi {
     @PATCH("wallets/{id}")
     suspend fun rename(@Path("id") id: Int, @Body body: WalletUpdateRequest): WalletDto
 
-    /** Freeze a Wallet at balance exactly €0; 422 otherwise. */
-    @DELETE("wallets/{id}")
-    suspend fun freeze(@Path("id") id: Int)
+    /**
+     * Freeze a Wallet at balance exactly €0; 422 otherwise. An explicit
+     * action since web v1.10.0: `DELETE wallets/{id}` is the real delete of
+     * a frozen, history-free Wallet (ADR-0034).
+     */
+    @POST("wallets/{id}/freeze")
+    suspend fun freeze(@Path("id") id: Int): WalletDto
 
     /** Unfreeze a Frozen Wallet, restoring it to active. */
     @POST("wallets/{id}/unfreeze")
