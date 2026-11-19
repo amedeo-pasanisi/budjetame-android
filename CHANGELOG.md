@@ -19,6 +19,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 - **Settings** — a **Language** choice (English / Italiano), stored on the Account so the web app and the phone agree; on an Italian device it is set to Italian automatically once. Under Italiano, amounts read `1.000,42 €` and month labels, trend labels and dates are in Italian; Dictation and Quick Dictation listen in the chosen language. Stored amounts, Export and Backup files are unchanged (#59).
 
+- **Language** — the app speaks Italian: with the Account's Language set to Italiano, the dashboard, transactions (including the Transaction form and Draft Transactions), wallets and Settings appear in Italian whatever the phone's language, using the same wording as the web app; switching in Settings takes effect at once (#62).
+
 ### Changed
 
 - **Forms** — Save is always clickable: pressing it on an invalid form saves nothing and shows what is wrong in red under each field ("Enter an amount", "Choose a wallet.", …), and the errors refresh on the next Save. Amounts accept both `17.5` and `17,5` (and `1.000,45` or `1,000.45`). Switching an Expense on a contact wallet to Income no longer silently swaps the wallet: it stays selected and the form says incomes can't be recorded there. A Draft that the rules rejected opens with its missing fields already marked. This applies to every entity form — Transaction, Recurring Cost, Recurring Income, Category, Wallet and the Import row editor — including Categories and Wallets created inline; a new Wallet's Opening balance accepts both separators too (blank still means €0) (#49, #50, #51, #52, #53, #54, #55, #56).
