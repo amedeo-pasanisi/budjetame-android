@@ -284,6 +284,9 @@ fun AppShell(
             email = account.email,
             assistantSettingsRepository = assistantSettingsRepository,
             backupRepository = backupRepository,
+            // A restore replaces every row the undo entries point at: they
+            // are stale by definition (ticket #60, web ADR-0034).
+            onRestored = undoStack::clear,
             onClose = {
                 showSettings = false
                 assistant.refreshAvailability()
@@ -406,7 +409,8 @@ private fun BottomTabs(pagerState: PagerState) {
 
 /**
  * The app's settings (web issue #84): the account email, the Assistant
- * Settings, the Backup's Export all (ticket #57), and the destructive
+ * Settings, the Backup's Export all (ticket #57) and Restore (ticket #60),
+ * and the destructive
  * account-deletion action behind its own confirm step, with the web app's
  * exact copy.
  */
@@ -415,6 +419,8 @@ private fun SettingsDialog(
     email: String,
     assistantSettingsRepository: AssistantSettingsGateway,
     backupRepository: BackupGateway,
+    /** A restore succeeded: the shell clears its undo stack. */
+    onRestored: () -> Unit,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -437,7 +443,7 @@ private fun SettingsDialog(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 AssistantSettingsSection(assistantSettingsRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-                BackupSection(backupRepository)
+                BackupSection(backupRepository, onRestored = onRestored, onCloseSettings = onClose)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
                     text = "Delete account",

@@ -36,10 +36,17 @@ private const val BACKUP_MIME_TYPE = "application/vnd.openxmlformats-officedocum
  * The Backup block of the Settings dialog (ticket #57, web #112): Export all
  * downloads the Account's complete Backup, then [BackupDelivery] offers to
  * save it or share it. Distinct from the ledger's Export, which carries only
- * the filtered Transactions.
+ * the filtered Transactions. Restore from backup (ticket #60) sits next to
+ * it, in the same dialog, so its "Export current state first" shares this
+ * block's held Backup: [onRestored] is the shell's undo-stack clear and
+ * [onCloseSettings] closes the dialog once a restore is done.
  */
 @Composable
-fun BackupSection(backups: BackupGateway) {
+fun BackupSection(
+    backups: BackupGateway,
+    onRestored: () -> Unit,
+    onCloseSettings: () -> Unit,
+) {
     val viewModel = backupViewModel(backups)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -69,6 +76,7 @@ fun BackupSection(backups: BackupGateway) {
             Text(if (state.downloading) "Exporting…" else "Export all")
         }
         BackupDelivery(viewModel)
+        RestoreSection(backups, onRestored = onRestored, onCloseSettings = onCloseSettings)
     }
 }
 
