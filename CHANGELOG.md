@@ -21,7 +21,7 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ### Changed
 
-- **Forms** — Save is always clickable: pressing it on an invalid form saves nothing and shows what is wrong in red under each field ("Enter an amount", "Choose a wallet.", …), and the errors refresh on the next Save. Amounts accept both `17.5` and `17,5` (and `1.000,45` or `1,000.45`). Switching an Expense on a contact wallet to Income no longer silently swaps the wallet: it stays selected and the form says incomes can't be recorded there. A Draft that the rules rejected opens with its missing fields already marked. Now on the Transaction form (#49, #50, #51).
+- **Forms** — Save is always clickable: pressing it on an invalid form saves nothing and shows what is wrong in red under each field ("Enter an amount", "Choose a wallet.", …), and the errors refresh on the next Save. Amounts accept both `17.5` and `17,5` (and `1.000,45` or `1,000.45`). Switching an Expense on a contact wallet to Income no longer silently swaps the wallet: it stays selected and the form says incomes can't be recorded there. A Draft that the rules rejected opens with its missing fields already marked. Now on the Transaction and Recurring Income forms (#49, #50, #51, #53).
 - **Transactions** — deleting a Transaction is now a single tap: the "Tap again to confirm" step is gone, and an Undo entry ("Transaction deleted · …") with a 10-second countdown appears at the bottom of the screen, on every tab. Up to three stack, newest first; tapping Undo brings back the very same Transaction, with its original date and Recurring link. If the undo fails — for example because another Transaction already paid that Recurring Occurrence — the entry says why and nothing is restored (#58, #61).
 
 ### Fixed
