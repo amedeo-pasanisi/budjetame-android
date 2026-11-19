@@ -36,8 +36,8 @@ class RestoreViewModelTest {
 
         override suspend fun download(): BackupFile = error("Restore never downloads")
 
-        override suspend fun restore(fileName: String, content: ByteArray): RestoreResult {
-            restored += fileName to content
+        override suspend fun restore(filename: String, content: ByteArray): RestoreResult {
+            restored += filename to content
             return pending.await()
         }
     }

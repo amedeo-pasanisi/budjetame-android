@@ -30,23 +30,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** The .xlsx content type: the Backup's MIME, for the picker and the share sheet. */
-private const val BACKUP_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+internal const val BACKUP_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 /**
  * The Backup block of the Settings dialog (ticket #57, web #112): Export all
  * downloads the Account's complete Backup, then [BackupDelivery] offers to
  * save it or share it. Distinct from the ledger's Export, which carries only
- * the filtered Transactions. Restore from backup (ticket #60) sits next to
- * it, in the same dialog, so its "Export current state first" shares this
- * block's held Backup: [onRestored] is the shell's undo-stack clear and
- * [onCloseSettings] closes the dialog once a restore is done.
+ * the filtered Transactions.
  */
 @Composable
-fun BackupSection(
-    backups: BackupGateway,
-    onRestored: () -> Unit,
-    onCloseSettings: () -> Unit,
-) {
+fun BackupSection(backups: BackupGateway) {
     val viewModel = backupViewModel(backups)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -76,7 +69,6 @@ fun BackupSection(
             Text(if (state.downloading) "Exporting…" else "Export all")
         }
         BackupDelivery(viewModel)
-        RestoreSection(backups, onRestored = onRestored, onCloseSettings = onCloseSettings)
     }
 }
 

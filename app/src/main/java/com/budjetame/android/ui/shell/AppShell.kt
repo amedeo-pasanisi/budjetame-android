@@ -80,6 +80,7 @@ import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.settings.AssistantSettingsSection
 import com.budjetame.android.ui.settings.BackupSection
+import com.budjetame.android.ui.settings.RestoreSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
@@ -443,7 +444,10 @@ private fun SettingsDialog(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 AssistantSettingsSection(assistantSettingsRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-                BackupSection(backupRepository, onRestored = onRestored, onCloseSettings = onClose)
+                BackupSection(backupRepository)
+                // Next to Export all, in the same dialog: step one's fresh
+                // Backup shares the Backup block's held workbook (ticket #60).
+                RestoreSection(backupRepository, onRestored = onRestored, onCloseSettings = onClose)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
                     text = "Delete account",

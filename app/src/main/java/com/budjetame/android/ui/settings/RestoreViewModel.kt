@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  * Account's data with a picked Backup workbook's contents.
  *
  * Picking a file opens a two-step confirmation: step one ([RestoreStep.Confirm])
- * explains what is replaced and offers a fresh Export all first; step two
+ * explains what is replaced and offers to download a fresh Backup first; step two
  * ([RestoreStep.FinalConfirm]) commits. Only that second confirm uploads, so
  * cancelling at either step sends nothing. The server validates the whole
  * file before replacing anything, so a refused file (422) changed nothing.
@@ -41,11 +41,11 @@ class RestoreViewModel(
         /** The Backup block's "Restore from backup…" entry. */
         data object Idle : RestoreStep
 
-        /** Step one: what is replaced, and the offer to Export all first. */
-        data class Confirm(val fileName: String) : RestoreStep
+        /** Step one: what is replaced, and the offer of a fresh Backup first. */
+        data class Confirm(val filename: String) : RestoreStep
 
         /** Step two: the commit. */
-        data class FinalConfirm(val fileName: String) : RestoreStep
+        data class FinalConfirm(val filename: String) : RestoreStep
 
         data object Restoring : RestoreStep
 
@@ -78,34 +78,34 @@ class RestoreViewModel(
 
     /** The system picker answered. A null name or content means the device
      * could not read the document: an error, and nothing to upload. */
-    fun onFilePicked(fileName: String?, content: ByteArray?) {
+    fun onFilePicked(filename: String?, content: ByteArray?) {
         if (_uiState.value.step == RestoreStep.Restoring) return
-        if (fileName == null || content == null) {
+        if (filename == null || content == null) {
             picked = null
             setStep(RestoreStep.Error(UNREADABLE_FILE))
             return
         }
-        picked = fileName to content
-        setStep(RestoreStep.Confirm(fileName))
+        picked = filename to content
+        setStep(RestoreStep.Confirm(filename))
     }
 
     /** Step one's go-ahead: on to the commit step. */
     fun continueToFinalConfirm() {
         val step = _uiState.value.step
-        if (step is RestoreStep.Confirm) setStep(RestoreStep.FinalConfirm(step.fileName))
+        if (step is RestoreStep.Confirm) setStep(RestoreStep.FinalConfirm(step.filename))
     }
 
     /** Step two's commit: upload the picked workbook. Ignored at any other
      * step, so no single tap can skip a confirmation. */
     fun confirmRestore() {
         if (_uiState.value.step !is RestoreStep.FinalConfirm) return
-        val (fileName, content) = picked ?: return
+        val (filename, content) = picked ?: return
         picked = null
         setStep(RestoreStep.Restoring)
         val run = generation
         viewModelScope.launch {
             val outcome = try {
-                val result = backups.restore(fileName, content)
+                val result = backups.restore(filename, content)
                 onRestored()
                 result.warning?.let { RestoreStep.Warning(it) } ?: RestoreStep.Done
             } catch (cancelled: CancellationException) {

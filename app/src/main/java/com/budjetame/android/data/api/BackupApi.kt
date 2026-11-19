@@ -11,7 +11,7 @@ import retrofit2.http.Part
 
 /**
  * Backup resource (ticket #57, web #112, web ADR-0030): the Account's whole
- * data as the multi-sheet backup workbook, and the Restore from it (ticket
+ * data as the multi-sheet backup workbook, and the restore from it (ticket
  * #60, web #115).
  */
 interface BackupApi {
@@ -31,10 +31,10 @@ interface BackupApi {
     suspend fun restore(@Part file: MultipartBody.Part): RestoreResponseDto
 }
 
-/** The restore's answer: `status` is always "ok"; `warning` names the
- * origin mismatch when the Backup was exported from another Account. */
+/** The restore's answer, `{status: "ok", warning?}`: only `warning` is
+ * read — it names the origin mismatch when the Backup was exported from
+ * another Account. */
 @Serializable
 data class RestoreResponseDto(
-    val status: String,
     val warning: String? = null,
 )

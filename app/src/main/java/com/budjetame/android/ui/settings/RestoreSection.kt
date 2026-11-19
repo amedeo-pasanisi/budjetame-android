@@ -30,7 +30,7 @@ import kotlinx.coroutines.withContext
  * octet-stream some providers label it with (the server refuses anything
  * that is not a Backup workbook with a 422 and changes nothing). */
 private val RESTORE_MIME_TYPES = arrayOf(
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    BACKUP_MIME_TYPE,
     "application/octet-stream",
 )
 
@@ -126,7 +126,11 @@ private fun RestoreStepDialog(
                                 "Recurring definitions with the backup file's contents. This cannot be undone.",
                         )
                         Text(
-                            text = step.fileName,
+                            text = "Everything entered after this backup was made will be lost.",
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        Text(
+                            text = step.filename,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp),
@@ -155,7 +159,7 @@ private fun RestoreStepDialog(
             title = { Text("Restore from backup") },
             text = {
                 Text(
-                    "All your current data will be replaced with the contents of ${step.fileName}. " +
+                    "All your current data will be replaced with the contents of ${step.filename}. " +
                         "This cannot be undone.",
                 )
             },

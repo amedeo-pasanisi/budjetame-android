@@ -18,7 +18,7 @@ class BackupFile(
     val content: ByteArray,
 )
 
-/** A completed Restore: [warning] is the server's origin-mismatch notice
+/** A completed restore: [warning] is the server's origin-mismatch notice
  * ("Backup was exported from …, not from …"), null when the Backup came from
  * the signed-in Account. */
 data class RestoreResult(val warning: String?)
@@ -32,7 +32,7 @@ interface BackupGateway {
     /** Replace all the Account's data with the picked Backup workbook's
      * contents. Throws an ApiException carrying the server's `detail` when
      * the file is refused (422), in which case nothing changed. */
-    suspend fun restore(fileName: String, content: ByteArray): RestoreResult
+    suspend fun restore(filename: String, content: ByteArray): RestoreResult
 }
 
 /** The API-backed BackupGateway. */
@@ -52,11 +52,11 @@ class ApiBackupRepository(private val api: BackupApi) : BackupGateway {
         )
     }
 
-    override suspend fun restore(fileName: String, content: ByteArray): RestoreResult = try {
+    override suspend fun restore(filename: String, content: ByteArray): RestoreResult = try {
         val response = api.restore(
             // The server reads the workbook's bytes; the part's name and
             // content type are immaterial to it.
-            MultipartBody.Part.createFormData("file", fileName, content.toRequestBody(OCTET_STREAM)),
+            MultipartBody.Part.createFormData("file", filename, content.toRequestBody(OCTET_STREAM)),
         )
         RestoreResult(warning = response.warning)
     } catch (error: HttpException) {

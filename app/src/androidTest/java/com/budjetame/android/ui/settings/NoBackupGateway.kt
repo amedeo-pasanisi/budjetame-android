@@ -9,6 +9,6 @@ import com.budjetame.android.data.backup.RestoreResult
 class NoBackupGateway : BackupGateway {
     override suspend fun download(): BackupFile = error("the shell tests never download a Backup")
 
-    override suspend fun restore(fileName: String, content: ByteArray): RestoreResult =
+    override suspend fun restore(filename: String, content: ByteArray): RestoreResult =
         error("the shell tests never restore a Backup")
 }

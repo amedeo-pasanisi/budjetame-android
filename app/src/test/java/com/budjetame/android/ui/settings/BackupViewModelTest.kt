@@ -37,7 +37,7 @@ class BackupViewModelTest {
             return pending.await()
         }
 
-        override suspend fun restore(fileName: String, content: ByteArray): RestoreResult =
+        override suspend fun restore(filename: String, content: ByteArray): RestoreResult =
             error("Export all never restores")
     }
 
