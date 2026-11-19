@@ -55,6 +55,7 @@ import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.categories.CategoryFields
 import com.budjetame.android.ui.common.AmountInputMessages
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.undo.DeletedEntity
@@ -3187,6 +3188,36 @@ class TransactionsViewModelTest {
 
         assertEquals("Enter an amount of €0 or more.", viewModel.uiState.value.walletCreate?.modal?.error)
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/wallets" })
+    }
+
+    @Test
+    fun `saving the inline category form with a blank name reveals Enter a name and creates nothing`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
+        viewModel.onCategoryAdd()
+        viewModel.onCategoryCreateNameChange("  ")
+        viewModel.submitCategoryCreate()
+
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/categories" })
+        val create = viewModel.uiState.value.categoryCreate!!
+        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), create.modal.fieldErrors)
+        assertNull(create.modal.error)
+        // The Transaction draft beneath is untouched and judged separately.
+        assertEquals("5.00", viewModel.uiState.value.modal?.amount)
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors)
+
+        // Typing keeps the error; the next valid Save clears it and creates.
+        viewModel.onCategoryCreateNameChange("Groceries")
+        assertEquals(
+            mapOf(CategoryFields.NAME to "Enter a name"),
+            viewModel.uiState.value.categoryCreate!!.modal.fieldErrors,
+        )
+        viewModel.submitCategoryCreate()
+        awaitState { it.categoryCreate == null && it.modal?.categoryId == 1 }
     }
 
     @Test

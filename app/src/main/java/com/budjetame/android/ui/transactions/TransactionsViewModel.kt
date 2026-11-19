@@ -29,6 +29,7 @@ import com.budjetame.android.data.transaction.latLngFromWire
 import com.budjetame.android.data.transaction.placeFromWire
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
+import com.budjetame.android.ui.categories.validateCategoryForm
 import com.budjetame.android.ui.common.FieldErrors
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.parseAmountInput
@@ -912,7 +913,11 @@ class TransactionsViewModel(
     fun submitCategoryCreate() {
         val create = _uiState.value.categoryCreate ?: return
         val modal = create.modal
-        if (!modal.canSubmit) return
+        if (modal.busy) return
+        // Submit-and-validate (ADR-0009): the shared Category validator.
+        val fieldErrors = validateCategoryForm(modal)
+        updateCategoryCreate { it.copy(fieldErrors = fieldErrors) }
+        if (fieldErrors.isNotEmpty()) return
         val lockedType = create.lockedType
         viewModelScope.launch {
             updateCategoryCreate { it.copy(submitting = true, error = null) }

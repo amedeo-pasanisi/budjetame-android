@@ -337,8 +337,10 @@ class CategoriesViewModelTest {
         assertNull(saved.icon)
     }
 
+    // --- Submit-and-validate (ADR-0009) ---
+
     @Test
-    fun `a blank name never submits`() = runBlocking {
+    fun `saving a blank name reveals Enter a name and creates nothing`() = runBlocking {
         seed(category(1, "Groceries", CategoryType.EXPENSE))
         createViewModel()
         awaitLoaded()
@@ -348,7 +350,61 @@ class CategoriesViewModelTest {
         viewModel.submit()
 
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/categories" })
-        assertTrue(viewModel.uiState.value.modal?.canSubmit == false)
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), modal.fieldErrors)
+        // A Field Error is never the server banner, and the form stays open.
+        assertNull(modal.error)
+        assertFalse(modal.submitting)
+    }
+
+    @Test
+    fun `saving an edit with a blank name reveals Enter a name and patches nothing`() = runBlocking {
+        seed(category(1, "Groceries", CategoryType.EXPENSE))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.categories.first { it.id == 1 })
+        viewModel.onNameChange("")
+        viewModel.submit()
+
+        assertTrue(calls.toList().none { it.method == "PATCH" })
+        assertEquals(
+            mapOf(CategoryFields.NAME to "Enter a name"),
+            viewModel.uiState.value.modal!!.fieldErrors,
+        )
+    }
+
+    @Test
+    fun `typing keeps the revealed error and the next valid save clears it and creates`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.submit()
+        val revealed = mapOf(CategoryFields.NAME to "Enter a name")
+        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
+
+        viewModel.onNameChange("Lunch")
+        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
+
+        viewModel.submit()
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors ?: emptyMap<String, String>())
+        awaitState { it.modal == null && it.categories.any { category -> category.name == "Lunch" } }
+    }
+
+    @Test
+    fun `a duplicate name rejected by the server stays in the banner never a field error`() = runBlocking {
+        createStatus = 409
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Taken")
+        viewModel.submit()
+        awaitState { it.modal?.error != null }
+
+        assertEquals("A category with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal!!.fieldErrors)
     }
 
     // --- Merge (ADR-0007) ---
