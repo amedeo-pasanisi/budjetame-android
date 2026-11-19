@@ -25,8 +25,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -40,8 +40,8 @@ import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
-import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate700

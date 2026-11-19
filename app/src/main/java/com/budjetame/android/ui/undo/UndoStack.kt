@@ -2,9 +2,11 @@ package com.budjetame.android.ui.undo
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.budjetame.android.data.api.ApiException
+import com.budjetame.android.R
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.transaction.TransactionGateway
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.serverMessageOr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -34,7 +36,7 @@ sealed interface DeletedEntity {
     val id: Int
 
     /** The headline the entry opens with (the web's undoToast copy). */
-    val headline: String
+    val headline: UiText
 
     /** What the entry names beside its kind's headline, or null. */
     val label: String?
@@ -44,7 +46,7 @@ sealed interface DeletedEntity {
     data class Transaction(val row: TransactionDto) : DeletedEntity {
         override val kind: UndoKind get() = UndoKind.TRANSACTION
         override val id: Int get() = row.id
-        override val headline: String get() = "Transaction deleted"
+        override val headline: UiText get() = UiText.of(R.string.undo_transaction_deleted)
         override val label: String? get() = row.description?.takeIf { it.isNotBlank() }
     }
 }
@@ -68,9 +70,9 @@ data class UndoEntry(
     val createdAtMillis: Long,
     /** True while this entry's Undo request is in flight. */
     val undoing: Boolean = false,
-    /** The last failed Undo's message (the server's `detail` when it had
-     * one), shown on the entry; null = none. */
-    val error: String? = null,
+    /** The last failed Undo's message (the server's `detail` through the
+     * error catalogue when it had one), shown on the entry; null = none. */
+    val error: UiText? = null,
 ) {
     /** The entry's identity: ids are unique only within a kind. */
     val key: String get() = keyOf(deleted)
@@ -103,7 +105,7 @@ const val MAX_UNDO = 3
 const val UNDO_WINDOW_MILLIS = 10_000L
 
 /** The message a failed Undo shows when the server gave no `detail`. */
-const val UNDO_ERROR = "Could not undo."
+val UNDO_ERROR: UiText = UiText.of(R.string.undo_error)
 
 /** A failed Undo's entry stays at least this long after the failure, so
  * its message can be read even when the window was about to close. */
@@ -175,7 +177,7 @@ class UndoStack(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                val message = (failure as? ApiException)?.detail ?: UNDO_ERROR
+                val message = failure.serverMessageOr(UNDO_ERROR)
                 // A failure near or past the window's end still leaves
                 // its message on screen long enough to read.
                 val readableFrom = clock() + UNDO_ERROR_GRACE_MILLIS - UNDO_WINDOW_MILLIS

@@ -27,6 +27,7 @@ import com.budjetame.android.R
 import com.budjetame.android.data.locale.LOCALE_EN
 import com.budjetame.android.data.locale.LOCALE_IT
 import com.budjetame.android.data.locale.LocaleGateway
+import com.budjetame.android.ui.common.resolve
 
 /** The Locales the Language choice offers, each named in its own language
  * (the web's `settings.language.en` / `.it`). */
@@ -87,7 +88,7 @@ fun LanguageSettingsSection(locale: LocaleGateway) {
         }
         state.error?.let {
             Text(
-                text = it,
+                text = it.resolve(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 4.dp),

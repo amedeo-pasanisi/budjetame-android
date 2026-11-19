@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.budjetame.android.R
 import com.budjetame.android.data.backup.BackupFile
 import com.budjetame.android.data.backup.BackupGateway
+import com.budjetame.android.ui.common.resolve
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -124,7 +125,7 @@ fun BackupDelivery(viewModel: BackupViewModel) {
 
         state.error?.let {
             Text(
-                text = it,
+                text = it.resolve(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 4.dp),

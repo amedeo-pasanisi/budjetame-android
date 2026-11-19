@@ -103,3 +103,7 @@ object EnglishStrings {
 
 /** This [UiText] as the English resources render it. */
 fun UiText.english(): String = EnglishStrings.resolve(this)
+
+/** These Field Errors (or any keyed messages) as the English resources
+ * render them: `assertEquals(mapOf(NAME to "Enter a name"), errors.english())`. */
+fun Map<String, UiText>.english(): Map<String, String> = mapValues { it.value.english() }

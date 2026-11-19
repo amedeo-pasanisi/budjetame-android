@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Generic -->
+    <string name="errors_check_fields">Controlla i campi e riprova.</string>
+    <string name="errors_read_file">Impossibile leggere il file.</string>
+
+    <!-- Dashboard -->
+    <string name="errors_dashboard_load">Impossibile caricare la schermata principale.</string>
+    <string name="errors_dashboard_budget">Impossibile caricare il budget.</string>
+    <string name="errors_dashboard_trend">Impossibile caricare il trend.</string>
+
+    <!-- Transactions -->
+    <string name="errors_transactions_load">Impossibile caricare i dati.</string>
+    <string name="errors_transactions_load_more">Impossibile caricare altre transazioni.</string>
+    <string name="errors_transactions_export">Impossibile esportare le transazioni.</string>
+    <string name="errors_transactions_conflict">Esiste già un portafoglio o una categoria con questo nome.</string>
+    <string name="errors_transactions_create">Impossibile creare la transazione.</string>
+    <string name="errors_transactions_save">Impossibile salvare la transazione.</string>
+    <string name="errors_transactions_delete">Impossibile eliminare la transazione.</string>
+    <string name="errors_transactions_gps">Impossibile ottenere la posizione — verifica i permessi o selezionala sulla mappa.</string>
+    <string name="errors_drafts_approve">Impossibile approvare la bozza.</string>
+    <string name="errors_drafts_discard">Impossibile scartare la bozza.</string>
+
+    <!-- Wallets -->
+    <string name="errors_wallets_load">Impossibile caricare i portafogli.</string>
+    <string name="errors_wallets_conflict">Esiste già un portafoglio con questo nome.</string>
+    <string name="errors_wallets_create">Impossibile creare il portafoglio.</string>
+    <string name="errors_wallets_rename">Impossibile rinominare il portafoglio.</string>
+    <string name="errors_wallets_freeze">Impossibile congelare il portafoglio.</string>
+    <string name="errors_wallets_freeze_balance">Un portafoglio può essere congelato solo quando il suo saldo è esattamente €0,00.</string>
+    <string name="errors_wallets_unfreeze">Impossibile scongelare il portafoglio.</string>
+
+    <!-- Categories -->
+    <string name="errors_categories_conflict">Esiste già una categoria con questo nome.</string>
+    <string name="errors_categories_create">Impossibile creare la categoria.</string>
+    <string name="errors_categories_save">Impossibile salvare la categoria.</string>
+    <string name="errors_categories_delete">Impossibile eliminare la categoria.</string>
+    <string name="errors_categories_merge">Impossibile unire le categorie.</string>
+
+    <!-- Recurring -->
+    <string name="errors_recurring_cost_conflict">Esiste già un\'uscita ricorrente con questo nome.</string>
+    <string name="errors_recurring_cost_create">Impossibile creare l\'uscita ricorrente.</string>
+    <string name="errors_recurring_cost_save">Impossibile salvare l\'uscita ricorrente.</string>
+    <string name="errors_recurring_cost_freeze">Impossibile congelare l\'uscita ricorrente.</string>
+    <string name="errors_recurring_cost_unfreeze">Impossibile scongelare l\'uscita ricorrente.</string>
+    <string name="errors_recurring_income_conflict">Esiste già un\'entrata ricorrente con questo nome.</string>
+    <string name="errors_recurring_income_create">Impossibile creare l\'entrata ricorrente.</string>
+    <string name="errors_recurring_income_save">Impossibile salvare l\'entrata ricorrente.</string>
+    <string name="errors_recurring_income_freeze">Impossibile congelare l\'entrata ricorrente.</string>
+    <string name="errors_recurring_income_unfreeze">Impossibile scongelare l\'entrata ricorrente.</string>
+
+    <!-- Import -->
+    <string name="errors_imports_validate_row">Impossibile validare la riga.</string>
+    <string name="errors_imports_revalidate">Impossibile rivalidare le righe.</string>
+    <string name="errors_imports_confirm">Impossibile confermare l\'importazione.</string>
+
+
+    <!-- Settings -->
+    <string name="errors_settings_language">Impossibile cambiare la lingua. Riprova.</string>
+    <string name="errors_settings_assistant_load">Impossibile caricare le impostazioni dell\'Assistente.</string>
+    <string name="errors_settings_assistant_save">Impossibile salvare le impostazioni dell\'Assistente.</string>
+    <string name="errors_settings_assistant_remove">Impossibile rimuovere le impostazioni dell\'Assistente.</string>
+    <string name="errors_backup_export">Impossibile esportare il backup.</string>
+    <string name="errors_backup_save">Impossibile salvare il file di backup.</string>
+    <string name="errors_backup_share">Impossibile condividere il file di backup.</string>
+    <string name="errors_restore_failed">Impossibile ripristinare il backup</string>
+
+    <!-- ===== Server error catalogue ===== -->
+
+    <!-- Transaction rules -->
+    <string name="errors_server_occurrence_already_paid">Questa occorrenza è già stata pagata da un\'altra transazione</string>
+    <string name="errors_server_frozen_wallets_read_only">I portafogli congelati sono in sola lettura</string>
+    <string name="errors_server_transfer_needs_wallets">I trasferimenti richiedono un portafoglio di origine e uno di destinazione</string>
+    <string name="errors_server_transfer_cost_link">Un trasferimento può essere collegato a un\'uscita ricorrente solo se la destinazione è un portafoglio contatto</string>
+    <string name="errors_server_transfer_income_link">Un trasferimento può essere collegato a un\'entrata ricorrente solo se l\'origine è un portafoglio contatto</string>
+    <string name="errors_server_transfer_contacts_no_link">I trasferimenti tra due portafogli contatto non sono mai collegati a una ricorrenza</string>
+    <string name="errors_server_category_type">Una categoria si applica solo alle transazioni del suo tipo</string>
+    <string name="errors_server_type_invalid">Il tipo deve essere spesa, entrata o trasferimento</string>
+    <string name="errors_server_wallet_required">Spese ed entrate richiedono un portafoglio</string>
+    <string name="errors_server_legs_only_transfers">I portafogli di origine e destinazione valgono solo per i trasferimenti</string>
+    <string name="errors_server_income_on_contact">Le entrate non possono essere registrate su portafogli contatto</string>
+    <string name="errors_server_opening_balance_read_only">Le transazioni di saldo iniziale sono in sola lettura</string>
+    <string name="errors_server_transaction_id_exists">L\'id della transazione esiste già</string>
+    <string name="errors_server_transfer_shape">I trasferimenti usano portafogli di origine e destinazione e non hanno mai una categoria</string>
+    <string name="errors_server_same_wallet">Origine e destinazione devono essere portafogli diversi</string>
+    <string name="errors_server_only_expenses_cost">Solo le spese possono essere collegate a un\'uscita ricorrente</string>
+    <string name="errors_server_only_incomes_income">Solo le entrate possono essere collegate a un\'entrata ricorrente</string>
+    <string name="errors_server_transfer_no_category">I trasferimenti non hanno mai una categoria</string>
+    <string name="errors_server_location_pair">Latitudine e longitudine vanno impostate insieme</string>
+
+    <!-- Draft approval rules -->
+    <string name="errors_server_draft_type_required">Serve un tipo: spesa, entrata o trasferimento</string>
+    <string name="errors_server_draft_amount_required">Serve un importo</string>
+    <string name="errors_server_draft_date_required">Serve una data</string>
+
+    <!-- Wallets -->
+    <string name="errors_server_wallet_not_freezable">Solo un portafoglio con saldo esattamente €0,00 può essere congelato</string>
+    <string name="errors_server_wallet_delete_frozen_only">Solo un portafoglio congelato può essere eliminato — congelalo prima</string>
+    <plurals name="errors_server_wallet_has_transactions">
+        <item quantity="one">Questo portafoglio ha %1$d transazione</item>
+        <item quantity="other">Questo portafoglio ha %1$d transazioni</item>
+    </plurals>
+    <string name="errors_server_wallet_name_taken">Esiste già un portafoglio con questo nome</string>
+    <string name="errors_server_wallet_undo_exists">Questo portafoglio esiste già</string>
+    <string name="errors_server_wallet_undo_name_taken">Annullamento non riuscito: ora esiste un portafoglio con questo nome</string>
+    <string name="errors_server_contact_opening_balance">I portafogli contatto partono da €0: il denaro si muove solo tramite trasferimenti</string>
+
+    <!-- Categories -->
+    <string name="errors_server_category_name_taken">Esiste già una categoria con questo nome</string>
+    <string name="errors_server_category_merge_type">La categoria di destinazione dell\'unione deve essere un\'altra categoria dello stesso tipo</string>
+
+    <!-- Recurring definitions -->
+    <string name="errors_server_recurring_cost_name_taken">Esiste già un\'uscita ricorrente con questo nome</string>
+    <string name="errors_server_recurring_income_name_taken">Esiste già un\'entrata ricorrente con questo nome</string>
+    <string name="errors_server_recurring_cost_undo_exists">Questa uscita ricorrente esiste già</string>
+    <string name="errors_server_recurring_income_undo_exists">Questa entrata ricorrente esiste già</string>
+    <string name="errors_server_recurring_cost_undo_name_taken">Annullamento non riuscito: ora esiste un\'uscita ricorrente con questo nome</string>
+    <string name="errors_server_recurring_income_undo_name_taken">Annullamento non riuscito: ora esiste un\'entrata ricorrente con questo nome</string>
+    <string name="errors_server_recurring_cost_named_exists">Esiste già un\'uscita ricorrente chiamata \"%1$s\" — rinominala prima.</string>
+    <string name="errors_server_recurring_income_named_exists">Esiste già un\'entrata ricorrente chiamata \"%1$s\" — rinominala prima.</string>
+    <string name="errors_server_recurring_cost_frozen_edit">Un\'uscita ricorrente congelata non può essere modificata. Scongelala prima.</string>
+    <string name="errors_server_recurring_income_frozen_edit">Un\'entrata ricorrente congelata non può essere modificata. Scongelala prima.</string>
+    <string name="errors_server_recurring_cost_delete_frozen_only">Solo un\'uscita ricorrente congelata può essere eliminata — congelala prima</string>
+    <string name="errors_server_recurring_income_delete_frozen_only">Solo un\'entrata ricorrente congelata può essere eliminata — congelala prima</string>
+    <plurals name="errors_server_recurring_cost_linked">
+        <item quantity="one">%1$d transazione è collegata a questa uscita ricorrente — scollegala prima</item>
+        <item quantity="other">%1$d transazioni sono collegate a questa uscita ricorrente — scollegale prima</item>
+    </plurals>
+    <plurals name="errors_server_recurring_income_linked">
+        <item quantity="one">%1$d transazione è collegata a questa entrata ricorrente — scollegala prima</item>
+        <item quantity="other">%1$d transazioni sono collegate a questa entrata ricorrente — scollegale prima</item>
+    </plurals>
+    <string name="errors_server_recurring_cost_start_date">Un\'uscita ricorrente ha sempre una data di inizio — si può cambiare, mai togliere.</string>
+    <string name="errors_server_recurring_income_start_date">Un\'entrata ricorrente ha sempre una data di inizio — si può cambiare, mai togliere.</string>
+    <string name="errors_server_occurrence_frozen">Una ricorrenza congelata non ha occorrenze da saltare. Scongelala prima.</string>
+    <string name="errors_server_occurrence_not_a_date">Questa data non è una delle occorrenze della ricorrenza.</string>
+    <string name="errors_server_occurrence_paid_skip">Un\'occorrenza pagata non può mai essere saltata.</string>
+    <string name="errors_server_occurrence_bad_date">%1$s non è un giorno di calendario (AAAA-MM-GG).</string>
+
+    <!-- Not found -->
+    <string name="errors_server_wallet_not_found">Portafoglio non trovato</string>
+    <string name="errors_server_category_not_found">Categoria non trovata</string>
+    <string name="errors_server_transaction_not_found">Transazione non trovata</string>
+    <string name="errors_server_recurring_cost_not_found">Uscita ricorrente non trovata</string>
+    <string name="errors_server_recurring_income_not_found">Entrata ricorrente non trovata</string>
+    <string name="errors_server_draft_not_found">Bozza non trovata</string>
+    <string name="errors_server_reference_not_found">Portafoglio, categoria, uscita ricorrente o entrata ricorrente non trovati</string>
+
+    <!-- Auth -->
+    <string name="errors_server_account_exists">Esiste già un Account con questa email</string>
+    <string name="errors_server_incorrect_credentials">Email o password errate</string>
+    <string name="errors_server_google_invalid">Accesso con Google non valido</string>
+    <string name="errors_server_reset_link_invalid">Questo link di reset non è valido o è scaduto</string>
+
+    <!-- Import -->
+    <string name="errors_server_import_file_empty">Il file è vuoto</string>
+    <string name="errors_server_import_unknown_rows">Righe di destinazione sconosciute: %1$s</string>
+    <string name="errors_server_import_unsupported">Sono supportati solo file .csv e .xlsx</string>
+    <string name="errors_server_import_missing_columns">Colonne obbligatorie mancanti: %1$s</string>
+    <string name="errors_server_import_unknown_wallet">Portafoglio \'%1$s\' sconosciuto</string>
+    <string name="errors_server_import_unknown_expense_category">Categoria spesa \'%1$s\' sconosciuta</string>
+    <string name="errors_server_import_unknown_income_category">Categoria entrata \'%1$s\' sconosciuta</string>
+    <string name="errors_server_import_wallet_frozen">Il portafoglio \'%1$s\' è congelato</string>
+    <string name="errors_server_import_category_expense_not_income">La categoria \'%1$s\' è una categoria di spesa, non di entrata</string>
+    <string name="errors_server_import_category_income_not_expense">La categoria \'%1$s\' è una categoria di entrata, non di spesa</string>
+    <string name="errors_server_import_legs_only_transfers">I portafogli di origine e destinazione valgono solo per i trasferimenti</string>
+    <string name="errors_server_import_transfer_legs">Le righe di trasferimento usano portafoglio di origine e di destinazione, non portafoglio</string>
+    <string name="errors_server_import_transfer_no_category">I trasferimenti non hanno mai una categoria</string>
+    <string name="errors_server_import_row_duplicate">La riga %1$s duplica una transazione esistente</string>
+    <string name="errors_server_import_type_got">Il tipo deve essere spesa, entrata o trasferimento (trovato \'%1$s\')</string>
+    <string name="errors_server_import_date_required">La data è obbligatoria</string>
+    <string name="errors_server_import_date_invalid">Data \'%1$s\' non valida (usa AAAA-MM-GG)</string>
+    <string name="errors_server_import_amount_required">L\'importo è obbligatorio</string>
+    <string name="errors_server_import_amount_invalid">Importo \'%1$s\' non valido</string>
+    <string name="errors_server_import_amount_not_positive">L\'importo deve essere positivo (trovato \'%1$s\')</string>
+    <string name="errors_server_import_amount_too_large">L\'importo è troppo grande (trovato \'%1$s\')</string>
+    <string name="errors_server_import_description_too_long">La descrizione è troppo lunga (max 500 caratteri)</string>
+    <string name="errors_server_import_location_invalid">Posizione \'%1$s\' non valida (usa \'lat,lon\')</string>
+
+    <!-- Restore -->
+    <string name="errors_server_restore_failed">Ripristino non riuscito: i dati del backup non possono essere applicati</string>
+    <string name="errors_server_restore_unparseable">Impossibile leggere il workbook: %1$s</string>
+    <string name="errors_server_restore_missing_sheets">Fogli mancanti: %1$s</string>
+    <string name="errors_server_restore_metadata_empty">Il foglio Metadata è vuoto</string>
+    <string name="errors_server_restore_sheet_empty">Il foglio %1$s è vuoto (nessuna intestazione)</string>
+    <string name="errors_server_restore_sheet_columns">Il foglio %1$s ha %2$s colonne, ne servono %3$s</string>
+    <string name="errors_server_restore_sheet_column">Foglio %1$s, colonna %2$s: atteso %3$s, trovato %4$s</string>
+    <string name="errors_server_restore_wallet_empty_name">Il foglio Wallets ha una riga senza nome</string>
+    <string name="errors_server_restore_category_empty">Il foglio Categories ha una riga senza nome o tipo</string>
+    <string name="errors_server_restore_recurring_cost_empty_name">Il foglio Recurring Costs ha una riga senza nome</string>
+    <string name="errors_server_restore_recurring_income_empty_name">Il foglio Recurring Incomes ha una riga senza nome</string>
+    <string name="errors_server_restore_duplicate_wallet">Nome di portafoglio duplicato nel backup: %1$s</string>
+    <string name="errors_server_restore_duplicate_expense_category">Categoria duplicata nel backup: %1$s (spesa)</string>
+    <string name="errors_server_restore_duplicate_income_category">Categoria duplicata nel backup: %1$s (entrata)</string>
+    <string name="errors_server_restore_duplicate_recurring_cost">Nome di uscita ricorrente duplicato nel backup: %1$s</string>
+    <string name="errors_server_restore_duplicate_recurring_income">Nome di entrata ricorrente duplicato nel backup: %1$s</string>
+    <string name="errors_server_restore_invalid_decimal">Valore decimale non valido: %1$s</string>
+    <string name="errors_server_restore_invalid_boolean">Valore booleano non valido: %1$s</string>
+    <string name="errors_server_restore_invalid_location">Posizione non valida in Transactions: %1$s</string>
+    <string name="errors_server_restore_origin_mismatch">Il backup è stato esportato da %1$s, non da %2$s. Procedendo, tutti i dati saranno sostituiti dal contenuto del backup.</string>
+
+    <!-- Assistant and Assistant Settings -->
+    <string name="errors_server_assistant_key_empty">La chiave dell\'Assistente non può essere vuota</string>
+    <string name="errors_server_assistant_key_rejected">Il provider ha rifiutato la chiave dell\'Assistente: controllala nelle Impostazioni</string>
+    <string name="errors_server_assistant_models_unavailable">L\'elenco dei modelli del provider non è disponibile ora: digita l\'id di un modello o riprova più tardi</string>
+    <string name="errors_server_assistant_not_configured">Le impostazioni dell\'Assistente non sono configurate</string>
+    <string name="errors_server_assistant_no_settings">Nessuna impostazione dell\'Assistente: scegli prima un provider</string>
+    <string name="errors_server_assistant_models_key_required">%1$s elenca i suoi modelli solo con una chiave: inserisci prima la chiave dell\'Assistente</string>
+    <string name="errors_server_assistant_no_adapter">Il provider %1$s non è ancora supportato</string>
+    <string name="errors_server_assistant_provider_error">Errore del provider dell\'Assistente: %1$s</string>
+</resources>

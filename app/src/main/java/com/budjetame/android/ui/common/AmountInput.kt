@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.common
 
+import com.budjetame.android.R
 import java.math.BigDecimal
 
 /*
@@ -10,12 +11,13 @@ import java.math.BigDecimal
  */
 
 /** The Amount Field Error messages, defined once and identical to the web's
- * copy. Forms reach them through [amountFieldError]; they are public so a
- * test can name the exact text it expects. */
+ * copy, as string resources (issue #71). Forms reach them through
+ * [amountFieldError]; they are public so a test can name the message it
+ * expects. */
 object AmountInputMessages {
-    const val EMPTY = "Enter an amount"
-    const val INVALID = "That doesn't look like an amount — use digits and one . or , for decimals"
-    const val NOT_POSITIVE = "Amount must be a positive number"
+    val EMPTY: UiText = UiText.of(R.string.field_error_amount_empty)
+    val INVALID: UiText = UiText.of(R.string.field_error_amount_invalid)
+    val NOT_POSITIVE: UiText = UiText.of(R.string.field_error_amount_not_positive)
 }
 
 private val AMOUNT_CHARACTERS = Regex("^[0-9.,]+$")
@@ -77,7 +79,7 @@ private fun positiveOrNull(canonical: String): BigDecimal? =
  * An optional money field (a new Wallet's Opening balance, where blank means
  * €0) calls it only when the text is not blank.
  */
-fun amountFieldError(raw: String): String? {
+fun amountFieldError(raw: String): UiText? {
     val value = raw.trim()
     return when {
         value.isEmpty() -> AmountInputMessages.EMPTY

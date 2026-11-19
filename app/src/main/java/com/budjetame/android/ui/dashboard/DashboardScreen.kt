@@ -146,7 +146,7 @@ fun DashboardScreen(
         val loadError = state.loadError
         when {
             state.summary == null && loadError != null -> LoadErrorBody(
-                message = loadError,
+                message = loadError.resolve(),
                 onRetry = viewModel::retry,
                 modifier = Modifier.weight(1f),
             )
@@ -278,7 +278,7 @@ private fun BudgetCard(
         val budget = state.budget
         when {
             budgetError != null -> Text(
-                text = budgetError,
+                text = budgetError.resolve(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -636,7 +636,7 @@ private fun TrendCard(
         val trendError = state.trendError
         if (trendError != null) {
             Text(
-                text = trendError,
+                text = trendError.resolve(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 12.dp),

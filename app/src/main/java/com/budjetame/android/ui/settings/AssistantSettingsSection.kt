@@ -35,6 +35,7 @@ import com.budjetame.android.data.api.AssistantModelDto
 import com.budjetame.android.data.api.AssistantProvider
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
 import com.budjetame.android.ui.common.AccountLocaleResources
+import com.budjetame.android.ui.common.resolve
 
 /** The most model rows the picker lists at once; typing narrows the list
  * (OpenRouter's catalogue runs to hundreds). */
@@ -94,7 +95,7 @@ fun AssistantSettingsSection(assistantSettings: AssistantSettingsGateway) {
 
         state.error?.let {
             Text(
-                text = it,
+                text = it.resolve(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 4.dp),
@@ -137,7 +138,7 @@ private fun AssistantSettingsForm(
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             isError = state.keyError != null,
-            supportingText = state.keyError?.let { { Text(it) } },
+            supportingText = state.keyError?.let { { Text(it.resolve()) } },
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { if (!it.isFocused) viewModel.onKeyFieldLeft() },
@@ -145,7 +146,7 @@ private fun AssistantSettingsForm(
         ModelField(
             value = state.model,
             models = state.models,
-            hint = state.catalogue.message,
+            hint = state.catalogue.message?.let { stringResource(it) },
             onChange = viewModel::onModelChange,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

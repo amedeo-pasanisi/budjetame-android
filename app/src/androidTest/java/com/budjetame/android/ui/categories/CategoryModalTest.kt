@@ -17,6 +17,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.budjetame.android.R
+import com.budjetame.android.ui.common.UiText
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -91,7 +93,7 @@ class CategoryModalTest {
 
     @Test
     fun a_server_rejection_stays_in_the_banner_not_under_the_name() {
-        setModal(CategoryModalState(name = "Taken", error = "A category with this name already exists."))
+        setModal(CategoryModalState(name = "Taken", error = UiText.of(R.string.errors_categories_conflict)))
 
         composeRule.onNodeWithText("A category with this name already exists.").assertIsDisplayed()
         composeRule.onNodeWithTag("category-name").assert(!inError)

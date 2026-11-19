@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="undo_transaction_deleted">Transazione eliminata</string>
+    <string name="undo_undo">Annulla</string>
+    <string name="undo_dismiss">Ignora</string>
+    <string name="undo_error">Impossibile annullare.</string>
+</resources>

@@ -10,6 +10,7 @@ import com.budjetame.android.data.api.WalletUpdateRequest
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.ui.common.AmountInputMessages
 import com.budjetame.android.ui.common.EnglishStrings
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -258,7 +259,7 @@ class WalletsViewModelTest {
         viewModel.submit()
 
         val modal = viewModel.uiState.value.modal!!
-        assertEquals(mapOf(WalletFields.NAME to "Enter a name"), modal.fieldErrors)
+        assertEquals(mapOf(WalletFields.NAME to "Enter a name"), modal.fieldErrors?.english())
         assertNull(modal.error)
         assertFalse(modal.submitting)
         assertTrue(postedCreates().isEmpty())
@@ -276,7 +277,7 @@ class WalletsViewModelTest {
 
         assertEquals(
             mapOf(WalletFields.NAME to "Enter a name"),
-            viewModel.uiState.value.modal?.fieldErrors,
+            viewModel.uiState.value.modal?.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "PATCH" })
     }
@@ -355,9 +356,9 @@ class WalletsViewModelTest {
         assertEquals(
             mapOf(
                 WalletFields.NAME to "Enter a name",
-                WalletFields.OPENING_BALANCE to AmountInputMessages.INVALID,
+                WalletFields.OPENING_BALANCE to AmountInputMessages.INVALID.english(),
             ),
-            viewModel.uiState.value.modal?.fieldErrors,
+            viewModel.uiState.value.modal?.fieldErrors?.english(),
         )
         assertTrue(postedCreates().isEmpty())
     }
@@ -372,7 +373,7 @@ class WalletsViewModelTest {
         viewModel.onNameChange("Fixed")
         assertEquals(
             mapOf(WalletFields.NAME to "Enter a name"),
-            viewModel.uiState.value.modal?.fieldErrors,
+            viewModel.uiState.value.modal?.fieldErrors?.english(),
         )
 
         viewModel.submit()
@@ -429,7 +430,7 @@ class WalletsViewModelTest {
         viewModel.submit()
         awaitState { it.modal?.error != null }
 
-        assertEquals("A wallet with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertEquals("A wallet with this name already exists.", viewModel.uiState.value.modal?.error?.english())
         assertTrue(viewModel.uiState.value.modal?.fieldErrors.orEmpty().isEmpty())
     }
 
@@ -465,7 +466,7 @@ class WalletsViewModelTest {
         viewModel.submit()
         awaitState { it.modal?.error != null }
 
-        assertEquals("A wallet with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertEquals("A wallet with this name already exists.", viewModel.uiState.value.modal?.error?.english())
     }
 
     // --- Freeze / unfreeze ---
@@ -526,7 +527,7 @@ class WalletsViewModelTest {
         listStatus = 500
         createViewModel()
         awaitLoaded()
-        assertEquals("Could not load your wallets.", viewModel.uiState.value.loadError)
+        assertEquals("Could not load your wallets.", viewModel.uiState.value.loadError?.english())
 
         listStatus = 200
         seed(wallet(1, "Cash", WalletType.CASH, "0.00"))

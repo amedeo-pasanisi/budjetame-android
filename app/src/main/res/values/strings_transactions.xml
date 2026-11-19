@@ -54,4 +54,10 @@
     <string name="drafts_missing_destination">Destination missing</string>
     <string name="drafts_approve">Approve</string>
     <string name="drafts_discard">Discard</string>
+    <!-- Built by the ViewModel (issue #71). -->
+    <string name="transactions_empty">Nothing here yet.</string>
+    <string name="transactions_empty_search">No transactions match your search.</string>
+    <string name="transactions_empty_filters">No transactions match these filters.</string>
+    <string name="transactions_saved_cash_negative">Saved — this made a Cash wallet negative.</string>
+    <string name="transactions_deleted_cash_negative">Deleted — this made a Cash wallet negative.</string>
 </resources>

@@ -8,6 +8,8 @@ import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.assistant.ApiAssistantRepository
 import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
 import com.budjetame.android.data.dictation.DictationTones
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -192,8 +194,8 @@ class AssistantViewModelTest {
         val state = awaitState { !it.pending && it.lines.size == 2 }
         assertEquals(
             listOf(
-                AssistantViewModel.Line(AssistantViewModel.Speaker.USER, "ho speso 30 euro all'Esselunga con la carta, cibo"),
-                AssistantViewModel.Line(AssistantViewModel.Speaker.ASSISTANT, "Noted: ho speso 30 euro all'Esselunga con la carta, cibo"),
+                AssistantViewModel.Line(AssistantViewModel.Speaker.USER, UiText.Raw("ho speso 30 euro all'Esselunga con la carta, cibo")),
+                AssistantViewModel.Line(AssistantViewModel.Speaker.ASSISTANT, UiText.Raw("Noted: ho speso 30 euro all'Esselunga con la carta, cibo")),
             ),
             state.lines,
         )
@@ -275,7 +277,7 @@ class AssistantViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(
-            AssistantViewModel.Line(AssistantViewModel.Speaker.ASSISTANT, HOURLY_DETAIL),
+            AssistantViewModel.Line(AssistantViewModel.Speaker.ASSISTANT, UiText.Raw(HOURLY_DETAIL)),
             state.lines.last(),
         )
         assertEquals(3, state.lines.size)
@@ -297,16 +299,10 @@ class AssistantViewModelTest {
         sendAndAwait("ho speso 30 euro all'Esselunga con la carta, cibo")
 
         val state = viewModel.uiState.value
-        assertEquals(
-            listOf(
-                AssistantViewModel.Line(
-                    AssistantViewModel.Speaker.ASSISTANT,
-                    "The Assistant could not answer. Try again.",
-                    failure = true,
-                ),
-            ),
-            state.lines,
-        )
+        val line = state.lines.single()
+        assertEquals(AssistantViewModel.Speaker.ASSISTANT, line.speaker)
+        assertEquals("The Assistant could not answer. Try again.", line.text.english())
+        assertTrue(line.failure)
         assertEquals("ho speso 30 euro all'Esselunga con la carta, cibo", state.text)
     }
 

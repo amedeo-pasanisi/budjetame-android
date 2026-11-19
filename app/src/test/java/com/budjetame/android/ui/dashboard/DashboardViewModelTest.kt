@@ -18,6 +18,7 @@ import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
 import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
+import com.budjetame.android.ui.common.english
 import java.time.YearMonth
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -458,7 +459,7 @@ class DashboardViewModelTest {
         createViewModel()
         awaitLoaded()
 
-        assertEquals("Could not load your dashboard.", viewModel.uiState.value.loadError)
+        assertEquals("Could not load your dashboard.", viewModel.uiState.value.loadError?.english())
         assertNull(viewModel.uiState.value.summary)
 
         failMonths.clear()
@@ -592,7 +593,7 @@ class DashboardViewModelTest {
         createViewModel()
         awaitDashboard()
 
-        assertEquals("Could not load the budget.", viewModel.uiState.value.budgetError)
+        assertEquals("Could not load the budget.", viewModel.uiState.value.budgetError?.english())
         assertNull(viewModel.uiState.value.budget)
 
         failBudget = false
@@ -763,7 +764,7 @@ class DashboardViewModelTest {
         createViewModel()
         awaitDashboard()
 
-        assertEquals("Could not load the trend.", viewModel.uiState.value.trendError)
+        assertEquals("Could not load the trend.", viewModel.uiState.value.trendError?.english())
         assertNull(viewModel.uiState.value.trend)
 
         failTrend = false

@@ -24,6 +24,7 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.AmountInputMessages
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.deviceText
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -78,7 +79,7 @@ class ImportRowEditorTest {
         composeRule.onNodeWithTag("im-amount").assert(!inError)
         composeRule.onNodeWithText("Save").assertIsEnabled().performClick()
 
-        composeRule.onNodeWithTag("im-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY))
+        composeRule.onNodeWithTag("im-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY.deviceText()))
         composeRule.onNodeWithTag("im-date").assert(inError).assert(hasText("Choose a date"))
         composeRule.onNodeWithTag("im-wallet").assert(inError).assert(hasText("Choose a wallet."))
         assertEquals(0, submitted.size)
@@ -98,7 +99,7 @@ class ImportRowEditorTest {
         )
 
         composeRule.onNodeWithText("Save").performClick()
-        composeRule.onNodeWithTag("im-amount").assert(hasText(AmountInputMessages.EMPTY))
+        composeRule.onNodeWithTag("im-amount").assert(hasText(AmountInputMessages.EMPTY.deviceText()))
 
         // Typing never clears the error; only the next Save does.
         composeRule.onNodeWithTag("im-amount").performTextInput("7,5")

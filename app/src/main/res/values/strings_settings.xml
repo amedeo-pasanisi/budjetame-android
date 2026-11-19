@@ -21,6 +21,10 @@
     <string name="settings_assistant_model">Model</string>
     <string name="settings_assistant_model_placeholder">Provider\'s default</string>
     <string name="settings_assistant_model_free">%1$s (free)</string>
+    <string name="settings_assistant_models_loading">Loading the models…</string>
+    <string name="settings_assistant_models_key_needed">Enter the Assistant Key to list this provider\'s models, or type a model id.</string>
+    <string name="settings_assistant_models_key_rejected">The provider rejected the Assistant Key: check it, or type a model id.</string>
+    <string name="settings_assistant_models_error">The model list is unavailable right now: type a model id or try again later.</string>
 
     <!-- Backup: Export all -->
     <string name="settings_export_all">Export all</string>

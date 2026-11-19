@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.budjetame.android.R
+import com.budjetame.android.ui.common.AccountLocaleResources
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.theme.Slate500
 
 /**
@@ -78,77 +82,80 @@ fun AssistantDialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .safeDrawingPadding()
-                    .imePadding()
-                    .padding(16.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Assistant",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = onClose) {
-                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Close the Assistant")
-                    }
-                }
-                Transcript(
-                    state = state,
+        // A Dialog is its own window: it re-applies the Account Locale (ADR-0010).
+        AccountLocaleResources {
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+                Column(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                )
-                if (state.dictationFailed) {
-                    Text(
-                        text = "Dictation did not work. Type the sentence instead.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-                if (state.listening) {
-                    Text(
-                        text = "Listening…",
-                        fontSize = 12.sp,
-                        color = Slate500,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 12.dp),
+                        .fillMaxSize()
+                        .safeDrawingPadding()
+                        .imePadding()
+                        .padding(16.dp),
                 ) {
-                    OutlinedTextField(
-                        value = state.text,
-                        onValueChange = onTextChange,
-                        placeholder = { Text("e.g. 30 euro at the supermarket with the card") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { onSend() }),
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.assistant_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = onClose) {
+                            Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(R.string.assistant_close_cd))
+                        }
+                    }
+                    Transcript(
+                        state = state,
                         modifier = Modifier
                             .weight(1f)
-                            .testTag("assistant-input"),
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
                     )
-                    if (state.dictationAvailable) {
-                        MicrophoneButton(
-                            listening = state.listening,
-                            enabled = !state.pending,
-                            onClick = { if (state.listening) onStopDictation() else dictate() },
+                    if (state.dictationFailed) {
+                        Text(
+                            text = stringResource(R.string.assistant_dictation_failed),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp),
                         )
                     }
-                    Button(
-                        onClick = onSend,
-                        enabled = !state.pending && state.text.isNotBlank(),
-                        shape = RoundedCornerShape(8.dp),
+                    if (state.listening) {
+                        Text(
+                            text = stringResource(R.string.assistant_listening),
+                            fontSize = 12.sp,
+                            color = Slate500,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 12.dp),
                     ) {
-                        Text(if (state.pending) "Sending…" else "Send")
+                        OutlinedTextField(
+                            value = state.text,
+                            onValueChange = onTextChange,
+                            placeholder = { Text(stringResource(R.string.assistant_input_placeholder)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = { onSend() }),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("assistant-input"),
+                        )
+                        if (state.dictationAvailable) {
+                            MicrophoneButton(
+                                listening = state.listening,
+                                enabled = !state.pending,
+                                onClick = { if (state.listening) onStopDictation() else dictate() },
+                            )
+                        }
+                        Button(
+                            onClick = onSend,
+                            enabled = !state.pending && state.text.isNotBlank(),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Text(stringResource(if (state.pending) R.string.assistant_sending else R.string.assistant_send))
+                        }
                     }
                 }
             }
@@ -177,7 +184,9 @@ internal fun MicrophoneButton(listening: Boolean, enabled: Boolean, onClick: () 
     ) {
         Icon(
             imageVector = if (listening) Icons.Filled.Stop else Icons.Filled.Mic,
-            contentDescription = if (listening) "Stop dictating" else "Dictate",
+            contentDescription = stringResource(
+                if (listening) R.string.assistant_stop_dictating_cd else R.string.assistant_dictate_cd,
+            ),
         )
     }
 }
@@ -200,11 +209,9 @@ private fun Transcript(state: AssistantViewModel.UiState, modifier: Modifier = M
     ) {
         if (state.lines.isEmpty() && !state.pending) {
             Text(
-                text = if (state.dictationAvailable) {
-                    "Say or type what you spent or received: each Draft Transaction lands on the Transactions tab."
-                } else {
-                    "Type what you spent or received: each Draft Transaction lands on the Transactions tab."
-                },
+                text = stringResource(
+                    if (state.dictationAvailable) R.string.assistant_empty_dictation else R.string.assistant_empty_typing,
+                ),
                 fontSize = 12.sp,
                 color = Slate500,
             )
@@ -219,7 +226,7 @@ private fun Transcript(state: AssistantViewModel.UiState, modifier: Modifier = M
             items(state.lines) { line -> LineBubble(line) }
             if (state.pending) {
                 item {
-                    Text(text = "The Assistant is writing…", fontSize = 12.sp, color = Slate500)
+                    Text(text = stringResource(R.string.assistant_writing), fontSize = 12.sp, color = Slate500)
                 }
             }
         }
@@ -235,19 +242,22 @@ internal fun LineBubble(line: AssistantViewModel.Line) {
         line.failure -> colors.errorContainer to colors.onErrorContainer
         else -> colors.surfaceVariant to colors.onSurfaceVariant
     }
+    val text = line.text.resolve()
+    val speaker = stringResource(if (user) R.string.assistant_speaker_you else R.string.assistant_title)
+    val description = stringResource(R.string.assistant_line_cd, speaker, text)
     Box(
         contentAlignment = if (user) Alignment.CenterEnd else Alignment.CenterStart,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
-            text = line.text,
+            text = text,
             color = foreground,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
                 .widthIn(max = 300.dp)
                 .background(background, RoundedCornerShape(8.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp)
-                .semantics { contentDescription = "${if (user) "You" else "Assistant"}: ${line.text}" },
+                .semantics { contentDescription = description },
         )
     }
 }

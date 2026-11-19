@@ -52,6 +52,7 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.resolve
+import com.budjetame.android.ui.common.serverMessage
 import com.budjetame.android.ui.transactions.descriptionText
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Money
@@ -187,7 +188,7 @@ fun ImportScreen(
             wallets = wallets,
             categories = categories,
             saving = draft.editorSaving,
-            error = draft.editorError,
+            error = draft.editorError?.resolve(),
             fieldErrors = draft.editorFieldErrors,
             onSave = viewModel::saveRowEdit,
             onClose = viewModel::closeEditor,
@@ -284,7 +285,7 @@ private fun PickPhase(
         }
         draft.error?.let { error ->
             Text(
-                text = error,
+                text = error.resolve(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 12.dp),
@@ -322,7 +323,7 @@ private fun PreviewPhase(
     Column(modifier = modifier.fillMaxWidth()) {
         draft.error?.let { error ->
             Text(
-                text = error,
+                text = error.resolve(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -476,7 +477,7 @@ private fun ImportRowCard(
                 when (row.status) {
                     ImportRowStatus.ERROR -> row.error?.let { message ->
                         Text(
-                            text = message,
+                            text = serverMessage(message).resolve(),
                             style = MaterialTheme.typography.labelSmall,
                             color = RED_700,
                             modifier = Modifier.padding(top = 4.dp),

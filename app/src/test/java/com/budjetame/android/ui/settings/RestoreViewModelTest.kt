@@ -1,10 +1,13 @@
 package com.budjetame.android.ui.settings
 
 import com.budjetame.android.MainDispatcherRule
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.backup.BackupFile
 import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.data.backup.RestoreResult
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.english
 import com.budjetame.android.ui.settings.RestoreViewModel.RestoreStep
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
@@ -49,6 +52,9 @@ class RestoreViewModelTest {
     private val workbook = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
 
     private fun step() = viewModel.uiState.value.step
+
+    /** The Error step's message as the English resources render it. */
+    private fun errorText(): String = (step() as RestoreStep.Error).message.english()
 
     private suspend fun awaitStep(predicate: (RestoreStep) -> Boolean) {
         withTimeout(5_000) { viewModel.uiState.first { predicate(it.step) } }
@@ -128,10 +134,14 @@ class RestoreViewModelTest {
     fun `an origin-mismatch warning shows after the restore, clears the undo stack, and dismisses to done`() = runBlocking {
         pickAndConfirmBoth()
 
-        backups.pending.complete(RestoreResult(warning = "Backup was exported from a@x.com, not from b@x.com"))
+        backups.pending.complete(RestoreResult(warning = ORIGIN_WARNING))
         awaitStep { it != RestoreStep.Restoring }
 
-        assertEquals(RestoreStep.Warning("Backup was exported from a@x.com, not from b@x.com"), step())
+        // The server's warning goes through the error catalogue: Italian under
+        // `it`, the server's text as is under `en`.
+        val warning = (step() as RestoreStep.Warning).message
+        assertEquals(UiText.of(R.string.errors_server_restore_origin_mismatch, "a@x.com", "b@x.com"), warning)
+        assertEquals(ORIGIN_WARNING, warning.english())
         assertEquals(1, undoClears)
 
         viewModel.dismissWarning()
@@ -151,7 +161,7 @@ class RestoreViewModelTest {
         )
         awaitStep { it != RestoreStep.Restoring }
 
-        assertEquals(RestoreStep.Error("Could not parse workbook: not a zip file"), step())
+        assertEquals("Could not parse workbook: not a zip file", errorText())
         assertEquals(0, undoClears)
     }
 
@@ -162,7 +172,7 @@ class RestoreViewModelTest {
         backups.pending.completeExceptionally(IOException("offline"))
         awaitStep { it != RestoreStep.Restoring }
 
-        assertEquals(RestoreStep.Error("Could not restore backup"), step())
+        assertEquals("Could not restore backup", errorText())
 
         viewModel.cancel()
         assertEquals(RestoreStep.Idle, step())
@@ -172,7 +182,7 @@ class RestoreViewModelTest {
     fun `a picked file the device could not read shows an error and uploads nothing`() {
         viewModel.onFilePicked(null, null)
 
-        assertEquals(RestoreStep.Error("Could not read the file."), step())
+        assertEquals("Could not read the file.", errorText())
         assertEquals(0, backups.restored.size)
     }
 
@@ -189,5 +199,11 @@ class RestoreViewModelTest {
         assertEquals(1, undoClears)
         // The dialog is gone: the next Settings opens on the idle block.
         assertEquals(RestoreStep.Idle, step())
+    }
+
+    private companion object {
+        /** The backend's origin-mismatch warning (services/backup.py). */
+        const val ORIGIN_WARNING =
+            "Backup was exported from a@x.com, not from b@x.com. Proceeding will replace all data with the backup's contents."
     }
 }

@@ -8,6 +8,7 @@ import com.budjetame.android.data.assistant.ApiAssistantRepository
 import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
+import com.budjetame.android.ui.common.UiText
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -159,7 +160,7 @@ class AssistantDictationTest {
         assertFalse(state.listening)
         assertEquals(listOf("ho speso 30 euro all'Esselunga con la carta, cibo"), turnTexts.toList())
         assertEquals(
-            AssistantViewModel.Line(AssistantViewModel.Speaker.USER, "ho speso 30 euro all'Esselunga con la carta, cibo"),
+            AssistantViewModel.Line(AssistantViewModel.Speaker.USER, UiText.Raw("ho speso 30 euro all'Esselunga con la carta, cibo")),
             state.lines.first(),
         )
     }

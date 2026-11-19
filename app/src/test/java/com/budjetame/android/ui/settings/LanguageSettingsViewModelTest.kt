@@ -6,6 +6,7 @@ import com.budjetame.android.data.Session
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.AuthApi
 import com.budjetame.android.data.auth.ApiAuthRepository
+import com.budjetame.android.ui.common.english
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -73,7 +74,7 @@ class LanguageSettingsViewModelTest {
         viewModel.choose("it")
         val state = withTimeout(5_000) { viewModel.uiState.first { it.error != null } }
 
-        assertEquals("Could not change the language. Please try again.", state.error)
+        assertEquals("Could not change the language. Please try again.", state.error?.english())
         assertEquals("en", state.locale)
         assertEquals("en", repository.locale.value)
     }

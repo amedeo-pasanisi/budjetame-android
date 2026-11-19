@@ -8,6 +8,7 @@ import com.budjetame.android.data.assistant.ApiAssistantRepository
 import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -164,7 +165,7 @@ class QuickDictationTest {
         dictate("trenta euro all'Esselunga con la carta")
 
         val state = awaitState { it.closing }
-        assertEquals("Spesa 30,00 € oggi: trenta euro all'Esselunga con la carta", state.lines.last().text)
+        assertEquals("Spesa 30,00 € oggi: trenta euro all'Esselunga con la carta", state.lines.last().text?.english())
         advanceClock(2_900)
         assertTrue(viewModel.uiState.value.open)
         advanceClock(200)

@@ -50,6 +50,7 @@ import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.ui.common.localized
+import com.budjetame.android.ui.common.resolve
 
 // The web app's Tailwind palette, ported for the merge offer and delete
 // confirmation (CategoryForm.tsx).
@@ -164,7 +165,7 @@ fun CategoryModal(
 
                 modal.error?.let { error ->
                     Text(
-                        text = error,
+                        text = error.resolve(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 12.dp),

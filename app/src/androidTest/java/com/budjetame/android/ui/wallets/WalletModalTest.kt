@@ -18,7 +18,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.budjetame.android.R
 import com.budjetame.android.ui.common.AmountInputMessages
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.deviceText
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -75,7 +78,7 @@ class WalletModalTest {
             .assert(hasText("Enter a name"))
         composeRule.onNodeWithTag("wallet-opening-balance")
             .assert(inError)
-            .assert(hasText(AmountInputMessages.INVALID))
+            .assert(hasText(AmountInputMessages.INVALID.deviceText()))
         assertEquals(0, submitted)
 
         // Typing keeps the errors; only the next Save clears them.
@@ -98,7 +101,7 @@ class WalletModalTest {
 
     @Test
     fun a_server_rejection_stays_in_the_banner_not_under_the_name() {
-        setModal(WalletModalState(name = "Taken", error = "A wallet with this name already exists."))
+        setModal(WalletModalState(name = "Taken", error = UiText.of(R.string.errors_wallets_conflict)))
 
         composeRule.onNodeWithText("A wallet with this name already exists.").assertIsDisplayed()
         composeRule.onNodeWithTag("wallet-name").assert(!inError)

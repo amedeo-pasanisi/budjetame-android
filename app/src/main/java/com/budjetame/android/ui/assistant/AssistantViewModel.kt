@@ -2,12 +2,14 @@ package com.budjetame.android.ui.assistant
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.assistant.AssistantGateway
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.dictation.recognitionLanguage
+import com.budjetame.android.ui.common.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -84,8 +86,10 @@ class AssistantViewModel(
     enum class CannotRun { SIGNED_OUT, NO_ASSISTANT_SETTINGS, OFFLINE }
 
     /** One line of the conversation as shown. A failure line is the
-     * client's own words for a turn that did not happen, styled apart. */
-    data class Line(val speaker: Speaker, val text: String, val failure: Boolean = false)
+     * client's own words for a turn that did not happen, styled apart. The
+     * user's sentences and the replies are [UiText.Raw]: a reply (and the
+     * hourly bound's `detail`) arrives already in the Account's Locale. */
+    data class Line(val speaker: Speaker, val text: UiText, val failure: Boolean = false)
 
     data class UiState(
         /** The Assistant Settings status has been read at least once:
@@ -282,14 +286,14 @@ class AssistantViewModel(
      * received. Nothing is sent while a reply is pending. */
     private fun sendSentence(sentence: String) {
         if (sentence.isEmpty() || _uiState.value.pending) return
-        val userLine = Line(Speaker.USER, sentence)
+        val userLine = Line(Speaker.USER, UiText.Raw(sentence))
         _uiState.update { it.copy(lines = it.lines + userLine, text = "", pending = true) }
         turnJob = viewModelScope.launch {
             try {
                 val result = turns.sendTurn(transcript, sentence)
                 transcript = transcript + result.transcript_tail
                 _uiState.update {
-                    it.copy(lines = it.lines + Line(Speaker.ASSISTANT, result.reply), pending = false)
+                    it.copy(lines = it.lines + Line(Speaker.ASSISTANT, UiText.Raw(result.reply)), pending = false)
                 }
                 if (quick) {
                     // The Assistant's one question waits for a spoken answer;
@@ -314,7 +318,7 @@ class AssistantViewModel(
                         _uiState.update { it.copy(available = false) }
                         return@launch
                     }
-                    429 -> Line(Speaker.ASSISTANT, apiError.detail ?: HOURLY_BOUND)
+                    429 -> Line(Speaker.ASSISTANT, apiError.detail?.let(UiText::Raw) ?: HOURLY_BOUND)
                     else -> Line(Speaker.ASSISTANT, COULD_NOT_ANSWER, failure = true)
                 }
                 _uiState.update {
@@ -356,7 +360,7 @@ class AssistantViewModel(
          * nothing more. */
         const val AUTO_CLOSE_MILLIS = 3_000L
 
-        private const val HOURLY_BOUND = "You have reached the hourly limit of Assistant requests. Try again later."
-        private const val COULD_NOT_ANSWER = "The Assistant could not answer. Try again."
+        private val HOURLY_BOUND: UiText = UiText.of(R.string.assistant_hourly_limit)
+        private val COULD_NOT_ANSWER: UiText = UiText.of(R.string.assistant_could_not_answer)
     }
 }

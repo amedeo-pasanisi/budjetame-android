@@ -90,14 +90,14 @@ private val WHOLE_NUMBER = Regex("""^\d+$""")
  * creation an empty one stays allowed, the first Occurrence becoming today.
  */
 fun validateRecurringCostForm(form: RecurringCostModalState): FieldErrors = buildMap {
-    if (form.name.isBlank()) put(RecurringCostFields.NAME, "Enter a name")
+    if (form.name.isBlank()) put(RecurringCostFields.NAME, UiText.of(R.string.field_error_name_empty))
     amountFieldError(form.amount)?.let { put(RecurringCostFields.AMOUNT, it) }
     val interval = form.intervalValue.trim().takeIf { WHOLE_NUMBER.matches(it) }?.toIntOrNull()
     if (interval == null || interval < 1) {
-        put(RecurringCostFields.INTERVAL, "The interval must be at least 1")
+        put(RecurringCostFields.INTERVAL, UiText.of(R.string.field_error_interval))
     }
     if (form.editing && form.startDate.isBlank()) {
-        put(RecurringCostFields.START_DATE, "Choose a start date")
+        put(RecurringCostFields.START_DATE, UiText.of(R.string.field_error_start_date))
     }
 }
 

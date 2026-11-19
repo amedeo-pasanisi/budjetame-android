@@ -11,6 +11,7 @@ import com.budjetame.android.data.api.CategoryMergeRequest
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.CategoryUpdateRequest
 import com.budjetame.android.data.category.ApiCategoryRepository
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -310,7 +311,7 @@ class CategoriesViewModelTest {
         viewModel.submit()
         awaitState { it.modal?.error != null }
 
-        assertEquals("A category with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertEquals("A category with this name already exists.", viewModel.uiState.value.modal?.error?.english())
     }
 
     // --- Edit ---
@@ -353,7 +354,7 @@ class CategoriesViewModelTest {
 
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/categories" })
         val modal = viewModel.uiState.value.modal!!
-        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), modal.fieldErrors)
+        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), modal.fieldErrors?.english())
         // A Field Error is never the server banner, and the form stays open.
         assertNull(modal.error)
         assertFalse(modal.submitting)
@@ -372,7 +373,7 @@ class CategoriesViewModelTest {
         assertTrue(calls.toList().none { it.method == "PATCH" })
         assertEquals(
             mapOf(CategoryFields.NAME to "Enter a name"),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
     }
 
@@ -387,10 +388,10 @@ class CategoriesViewModelTest {
         viewModel.openCreate()
         viewModel.submit()
         val revealed = mapOf(CategoryFields.NAME to "Enter a name")
-        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
+        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors?.english())
 
         viewModel.onNameChange("Lunch")
-        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
+        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors?.english())
 
         viewModel.submit()
         awaitState { it.modal?.error != null }
@@ -409,7 +410,7 @@ class CategoriesViewModelTest {
         viewModel.submit()
         awaitState { it.modal?.error != null }
 
-        assertEquals("A category with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertEquals("A category with this name already exists.", viewModel.uiState.value.modal?.error?.english())
         assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal!!.fieldErrors)
     }
 
@@ -492,7 +493,7 @@ class CategoriesViewModelTest {
         viewModel.submit()
         awaitState { it.modal?.error != null }
 
-        assertEquals("A category with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertEquals("A category with this name already exists.", viewModel.uiState.value.modal?.error?.english())
         assertNull(viewModel.uiState.value.modal?.mergeOffer)
     }
 
