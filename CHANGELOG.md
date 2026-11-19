@@ -21,6 +21,7 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 - **Dashboard** — the Budget card now supports a **month selector**
 - **Settings** — an **Assistant Settings** block: pick the provider (Anthropic, OpenRouter, Google Gemini), enter the Assistant Key and choose a model from the provider's list or type its id; once saved the block shows only the provider, the model and the key's last characters, with Replace and Remove. The key is never shown again (#66).
+- **Assistant** — an Assistant button on every tab (shown once the Account has Assistant Settings) opens the Assistant: type a sentence such as "ho speso 30 euro all'Esselunga con la carta" and it writes Draft Transactions you approve on the Transactions tab; "no, erano 35" corrects and "lascia stare" discards them. The conversation lives only while the Assistant is open (#68).
 - **Transactions** — Draft Transactions written by the Assistant (on the web or on another device) now sit pinned above the ledger, each with the same columns as a Transaction row and its missing fields marked in amber. **Approve** turns a complete Draft into a Transaction in one tap; a Draft the rules reject opens the Transaction form pre-filled, with the reason in its banner, and its Save completes the approval. **Edit** opens that form directly, and **Discard** removes the Draft at once, with no Undo. Drafts count toward nothing — no Balance, Budget, dashboard figure or Export (#67).
 
 ### Fixed
