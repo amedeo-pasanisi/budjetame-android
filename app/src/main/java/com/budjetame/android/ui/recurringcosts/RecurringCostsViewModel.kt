@@ -10,7 +10,8 @@ import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
-import com.budjetame.android.ui.transactions.parseAmount
+import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.parseAmountInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,8 +24,8 @@ import kotlinx.coroutines.launch
  * forms. `startDate` is "" when unset — only possible at creation, where
  * empty means "start today" (the backend sets it to the creation day): an
  * existing definition always carries one (ADR-0024), so while editing the
- * field is prefilled and can be changed but never cleared — the save gate
- * below blocks an empty date.
+ * field is prefilled and can be changed but never cleared — an edit's Save
+ * with an empty date reveals a Field Error instead of saving.
  */
 data class RecurringCostModalState(
     val cost: RecurringCostDto? = null,
@@ -34,6 +35,10 @@ data class RecurringCostModalState(
     val intervalUnit: IntervalUnit = IntervalUnit.MONTHS,
     val startDate: String = "",
     val error: String? = null,
+    /** The last Save attempt's Field Errors (ADR-0009), keyed by
+     * [RecurringCostFields] — client-side only, never mixed with the
+     * server [error] banner. Typing leaves them; the next Save refreshes. */
+    val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingFreeze: Boolean = false,
     val freezing: Boolean = false,
@@ -57,19 +62,11 @@ data class RecurringCostModalState(
 
     val busy: Boolean get() = submitting || freezing
 
-    /** The web form's save gate (ADR-0024): a non-blank name, an amount
-     * over €0, a whole interval of at least 1, and — the start date is
-     * only optional at creation (empty = today); an existing definition
-     * always carries one, so an empty date blocks an edit's save. */
-    val canSubmit: Boolean
-        get() {
-            if (busy) return false
-            val interval = parseIntervalValue(intervalValue) ?: return false
-            if (interval < 1) return false
-            if (parseAmount(amount) == null) return false
-            if (editing && startDate.isBlank()) return false
-            return name.isNotBlank()
-        }
+    /** Save is disabled only for in-flight work (ADR-0009) — a save, a
+     * freeze, or an Occurrence Skip/Un-skip, mirroring the web form —
+     * never because the form is invalid: an invalid Save reveals Field
+     * Errors. */
+    val canSave: Boolean get() = !busy && togglingDate == null
 }
 
 /**
@@ -163,9 +160,17 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
 
     fun onStartDateChange(value: String) = updateModal { it.copy(startDate = value, error = null) }
 
+    /**
+     * Save, submit-and-validate (ADR-0009): the form is judged first. Any
+     * Field Error is revealed under its field and nothing is written; a
+     * valid form clears them and saves exactly as before.
+     */
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (!modal.canSave) return
+        val fieldErrors = validateRecurringCostForm(modal)
+        updateModal { it.copy(fieldErrors = fieldErrors) }
+        if (fieldErrors.isNotEmpty()) return
         if (modal.editing) update(modal) else create(modal)
     }
 
@@ -399,12 +404,16 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
     private fun draftOf(modal: RecurringCostModalState): RecurringCostDraft =
         RecurringCostDraft(
             name = modal.name.trim(),
-            amount = modal.amount.trim(),
+            // Validated before any write: the tolerant Amount Input's
+            // US-canonical value, never the typed text (ADR-0009).
+            amount = parseAmountInput(modal.amount)!!.toPlainString(),
+            // Validated too: a whole number of at least 1 by now.
             intervalValue = parseIntervalValue(modal.intervalValue) ?: 0,
             intervalUnit = modal.intervalUnit,
             // Empty only ever at creation: "start today" needs no typing,
-            // the backend sets the creation day (ADR-0024). An edit's gate
-            // keeps the date non-empty, so an update never sends null.
+            // the backend sets the creation day (ADR-0024). An edit's
+            // validation keeps the date non-empty, so an update never
+            // sends null.
             startDate = modal.startDate.trim().ifEmpty { null },
         )
 

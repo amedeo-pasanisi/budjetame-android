@@ -11,6 +11,7 @@ import com.budjetame.android.data.api.RecurringCostUpdateRequest
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringOccurrenceUpdateRequest
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
+import com.budjetame.android.ui.common.AmountInputMessages
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -495,28 +496,130 @@ class RecurringCostsViewModelTest {
         assertEquals("2026-06-30", viewModel.uiState.value.costs.single().start_date)
     }
 
+    // --- Submit-and-validate (ADR-0009): Field Errors, never a dead Save ---
+
     @Test
-    fun `the blank and invalid gates never submit`() = runBlocking {
+    fun `an invalid create's Save reveals a Field Error under every wrong field and writes nothing`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
         viewModel.openCreate()
-        // Blank name.
-        viewModel.onAmountChange("5.00")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
-        viewModel.submit()
-        // Non-numeric amount.
-        viewModel.onNameChange("Rent")
         viewModel.onAmountChange("abc")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
-        viewModel.submit()
-        // Interval below one.
-        viewModel.onAmountChange("5.00")
         viewModel.onIntervalValueChange("0")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
+        // Validation never disables Save: only in-flight work does.
+        assertTrue(viewModel.uiState.value.modal!!.canSave)
         viewModel.submit()
 
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals(
+            mapOf(
+                RecurringCostFields.NAME to "Enter a name",
+                RecurringCostFields.AMOUNT to AmountInputMessages.INVALID,
+                RecurringCostFields.INTERVAL to "The interval must be at least 1",
+            ),
+            modal.fieldErrors,
+        )
+        // Field Errors never mix with the server banner.
+        assertNull(modal.error)
         assertTrue(calls.toList().none { it.method == "POST" })
+    }
+
+    @Test
+    fun `the amount Field Error names what is wrong with the typed amount`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Rent")
+        listOf(
+            "" to AmountInputMessages.EMPTY,
+            "0" to AmountInputMessages.NOT_POSITIVE,
+            "-5" to AmountInputMessages.NOT_POSITIVE,
+            "1.2.3" to AmountInputMessages.INVALID,
+        ).forEach { (typed, message) ->
+            viewModel.onAmountChange(typed)
+            viewModel.submit()
+            assertEquals(
+                "'$typed'",
+                mapOf(RecurringCostFields.AMOUNT to message),
+                viewModel.uiState.value.modal!!.fieldErrors,
+            )
+        }
+        assertTrue(calls.toList().none { it.method == "POST" })
+    }
+
+    @Test
+    fun `an empty, fractional, signed or non-numeric interval is below 1`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Rent")
+        viewModel.onAmountChange("5.00")
+        listOf("", " ", "2.5", "-1", "+2", "abc").forEach { typed ->
+            viewModel.onIntervalValueChange(typed)
+            viewModel.submit()
+            assertEquals(
+                "'$typed'",
+                mapOf(RecurringCostFields.INTERVAL to "The interval must be at least 1"),
+                viewModel.uiState.value.modal!!.fieldErrors,
+            )
+        }
+        assertTrue(calls.toList().none { it.method == "POST" })
+    }
+
+    @Test
+    fun `Field Errors stay while typing and the next valid Save clears them and creates`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.submit()
+        val revealed = viewModel.uiState.value.modal!!.fieldErrors
+        assertEquals(setOf(RecurringCostFields.NAME, RecurringCostFields.AMOUNT), revealed.keys)
+
+        // Typing the fix never clears or recomputes them — only Save does.
+        viewModel.onNameChange("Rent")
+        viewModel.onAmountChange("800")
+        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
+
+        viewModel.submit()
+        assertTrue(viewModel.uiState.value.modal?.fieldErrors.orEmpty().isEmpty())
+        awaitState { it.modal == null }
+        val create = json.decodeFromString<RecurringCostCreateRequest>(call("POST", "/api/recurring-costs").body)
+        assertEquals("Rent", create.name)
+    }
+
+    @Test
+    fun `a comma-decimal amount is a valid Amount Input and goes on the wire US-canonical`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Gym")
+        viewModel.onAmountChange("1.000,5")
+        viewModel.submit()
+        awaitState { it.modal == null }
+
+        val create = json.decodeFromString<RecurringCostCreateRequest>(call("POST", "/api/recurring-costs").body)
+        assertEquals("1000.5", create.amount)
+    }
+
+    @Test
+    fun `a 422 shows the check-your-fields banner and never becomes a Field Error`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        createStatus = 422
+        viewModel.openCreate()
+        viewModel.onNameChange("Rent")
+        viewModel.onAmountChange("800.00")
+        viewModel.submit()
+        awaitState { it.modal?.error != null }
+
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals("Check the fields and try again.", modal.error)
+        assertTrue(modal.fieldErrors.isEmpty())
     }
 
     @Test
@@ -536,19 +639,6 @@ class RecurringCostsViewModelTest {
             viewModel.uiState.value.modal?.error,
         )
         assertEquals(1, viewModel.uiState.value.costs.size)
-    }
-
-    @Test
-    fun `a 422 shows the check-your-fields message`() = runBlocking {
-        createViewModel()
-        awaitLoaded()
-
-        createStatus = 422
-        viewModel.openCreate()
-        viewModel.onNameChange("Rent")
-        viewModel.onAmountChange("800.00")
-        viewModel.submit()
-        awaitState { it.modal?.error == "Check the fields and try again." }
     }
 
     // --- Edit ---
@@ -595,7 +685,7 @@ class RecurringCostsViewModelTest {
     }
 
     @Test
-    fun `an edit cannot clear the start date - the save gate blocks an empty date`() = runBlocking {
+    fun `an edit's Save with an empty start date reveals its Field Error and patches only once re-picked`() = runBlocking {
         seed(
             costDto(
                 1, "Rent", amount = "800.00", startDate = "2026-01-01",
@@ -606,19 +696,28 @@ class RecurringCostsViewModelTest {
         awaitLoaded()
 
         viewModel.openEdit(viewModel.uiState.value.costs.first { it.id == 1 })
-        // The web form's edit gate (ADR-0024): the start date can be
-        // changed, never unset — an empty date blocks the save, like the
-        // web's required date input.
+        // The start date can be changed, never unset (ADR-0024): an edit
+        // with an empty date says so under the field instead of saving.
         viewModel.onStartDateChange("")
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
+        viewModel.onNameChange("")
         viewModel.submit()
 
+        assertEquals(
+            mapOf(
+                RecurringCostFields.NAME to "Enter a name",
+                RecurringCostFields.START_DATE to "Choose a start date",
+            ),
+            viewModel.uiState.value.modal!!.fieldErrors,
+        )
         assertTrue(calls.toList().none { it.method == "PATCH" })
-        assertTrue(viewModel.uiState.value.modal != null)
 
-        // Re-picking a date unblocks the save.
+        // Re-picking a date and naming it saves.
         viewModel.onStartDateChange("2026-01-01")
-        assertTrue(viewModel.uiState.value.modal!!.canSubmit)
+        viewModel.onNameChange("Rent")
+        viewModel.submit()
+        awaitState { it.modal == null }
+        val update = json.decodeFromString<RecurringCostUpdateRequest>(call("PATCH", "/api/recurring-costs/1").body)
+        assertEquals("2026-01-01", update.start_date)
     }
 
     @Test
@@ -788,9 +887,9 @@ class RecurringCostsViewModelTest {
         assertEquals("Could not load the occurrences.", modal.occurrencesError)
         assertNull(modal.occurrences)
         // The modal itself stays usable: the fields are still editable.
-        assertTrue(modal.canSubmit)
+        assertTrue(modal.canSave)
         viewModel.onNameChange("Rent (home)")
-        assertTrue(viewModel.uiState.value.modal!!.canSubmit)
+        assertTrue(viewModel.uiState.value.modal!!.canSave)
     }
 
     @Test
@@ -870,6 +969,10 @@ class RecurringCostsViewModelTest {
         val live = viewModel.uiState.value.modal!!.occurrences!!.first { !it.skipped }
         viewModel.toggleOccurrence(live)
         viewModel.toggleOccurrence(live)
+        // A toggle in flight is in-flight work: Save waits for it (the web
+        // form's `togglingDate !== null`).
+        awaitState { it.modal?.togglingDate != null }
+        assertFalse(viewModel.uiState.value.modal!!.canSave)
         release.countDown()
         awaitState {
             it.modal?.occurrences?.first { row -> row.date == "2026-09-05" }?.skipped == true
@@ -879,6 +982,7 @@ class RecurringCostsViewModelTest {
         // twice (skip then un-skip).
         assertEquals(1, occurrenceCalls().count { it.method == "PUT" })
         assertNull(viewModel.uiState.value.modal!!.togglingDate)
+        assertTrue(viewModel.uiState.value.modal!!.canSave)
     }
 
     @Test

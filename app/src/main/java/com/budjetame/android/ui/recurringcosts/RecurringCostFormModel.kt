@@ -3,6 +3,8 @@ package com.budjetame.android.ui.recurringcosts
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringDefinition
+import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.amountFieldError
 
 /**
  * Presentation-only logic for the Recurring Costs screen and form (ticket
@@ -54,6 +56,38 @@ fun intervalText(value: Int, unit: IntervalUnit): String = when (unit) {
 /** The draft interval value ("2") as an Int, or null when it is not a
  * whole number — the mandatory-interval gate. */
 fun parseIntervalValue(raw: String): Int? = raw.trim().toIntOrNull()
+
+/** The Recurring Cost form's Field Error keys (ADR-0009): one per field a
+ * message can render under. */
+object RecurringCostFields {
+    const val NAME = "name"
+    const val AMOUNT = "amount"
+    const val INTERVAL = "interval"
+    const val START_DATE = "start"
+}
+
+private val WHOLE_NUMBER = Regex("""^\d+$""")
+
+/**
+ * Submit-and-validate (ADR-0009, mirror of the web
+ * RecurringDefinitionForm's `validate()`): one Field Error per wrong field
+ * of [form], empty when it may save. The amount is a tolerant Amount Input;
+ * the interval must be a whole number of units, at least 1 — empty,
+ * fractional, signed or below 1 is one message, like the web's `^\d+$`
+ * check. The start date is mandatory only while editing (ADR-0024): at
+ * creation an empty one stays allowed, the first Occurrence becoming today.
+ */
+fun validateRecurringCostForm(form: RecurringCostModalState): FieldErrors = buildMap {
+    if (form.name.isBlank()) put(RecurringCostFields.NAME, "Enter a name")
+    amountFieldError(form.amount)?.let { put(RecurringCostFields.AMOUNT, it) }
+    val interval = form.intervalValue.trim().takeIf { WHOLE_NUMBER.matches(it) }?.toIntOrNull()
+    if (interval == null || interval < 1) {
+        put(RecurringCostFields.INTERVAL, "The interval must be at least 1")
+    }
+    if (form.editing && form.startDate.isBlank()) {
+        put(RecurringCostFields.START_DATE, "Choose a start date")
+    }
+}
 
 /**
  * Definitions ordered by next due date ascending, ties by name

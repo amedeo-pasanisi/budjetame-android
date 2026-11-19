@@ -53,7 +53,8 @@ class RecurringCostFormModelTest {
         assertNull(parseIntervalValue(""))
         assertNull(parseIntervalValue("abc"))
         assertNull(parseIntervalValue("2.5"))
-        // A negative parses; the canSubmit gate (at least 1) rejects it.
+        // A negative parses; the form's Save validation (at least 1)
+        // rejects it with a Field Error.
         assertEquals(-1, parseIntervalValue("-1"))
     }
 
