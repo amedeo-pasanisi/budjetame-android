@@ -10,9 +10,11 @@ import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.amountFieldError
+import com.budjetame.android.ui.common.parseAmountInput
 import com.budjetame.android.ui.recurringcosts.parseIntervalValue
 import com.budjetame.android.ui.recurringcosts.sortByNextDue
-import com.budjetame.android.ui.transactions.parseAmount
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,8 +28,8 @@ import kotlinx.coroutines.launch
  * is "" when unset — only possible at creation, where empty means "start
  * today" (the backend sets it to the creation day): an existing definition
  * always carries one (ADR-0024), so while editing the field is prefilled
- * and can be changed but never cleared — the save gate below blocks an
- * empty date.
+ * and can be changed but never cleared — Save on an empty date reveals a
+ * Field Error instead.
  */
 data class RecurringIncomeModalState(
     val income: RecurringIncomeDto? = null,
@@ -36,7 +38,13 @@ data class RecurringIncomeModalState(
     val intervalValue: String = "1",
     val intervalUnit: IntervalUnit = IntervalUnit.MONTHS,
     val startDate: String = "",
+    /** The server's rejection — the form-level banner, never mixed with
+     * [fieldErrors]. */
     val error: String? = null,
+    /** The last Save attempt's Field Errors (ADR-0009), keyed by
+     * [RecurringIncomeFields]: set only by [RecurringIncomesViewModel.submit],
+     * never cleared by typing. */
+    val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingFreeze: Boolean = false,
     val freezing: Boolean = false,
@@ -60,19 +68,39 @@ data class RecurringIncomeModalState(
 
     val busy: Boolean get() = submitting || freezing
 
-    /** The web form's save gate (ADR-0024): a non-blank name, an amount
-     * over €0, a whole interval of at least 1, and — the start date is
-     * only optional at creation (empty = today); an existing definition
-     * always carries one, so an empty date blocks an edit's save. */
-    val canSubmit: Boolean
-        get() {
-            if (busy) return false
-            val interval = parseIntervalValue(intervalValue) ?: return false
-            if (interval < 1) return false
-            if (parseAmount(amount) == null) return false
-            if (editing && startDate.isBlank()) return false
-            return name.isNotBlank()
-        }
+    /** Submit-and-validate (ADR-0009): Save is disabled by in-flight work
+     * only — a save, a freeze, or an Occurrence row's Skip/Un-skip (the web
+     * form's `submitting || togglingDate !== null`) — never by validation. */
+    val saveEnabled: Boolean get() = !busy && togglingDate == null
+}
+
+/** The Recurring Income form's Field Error keys (ADR-0009): one per field a
+ * message can render under. */
+object RecurringIncomeFields {
+    const val NAME = "name"
+    const val AMOUNT = "amount"
+    const val INTERVAL = "interval"
+    const val START = "start"
+}
+
+/**
+ * Submit-and-validate (ADR-0009, mirror of the web RecurringDefinitionForm's
+ * `validate()`): one Field Error per wrong field of [form], empty when it
+ * may save. The interval is a whole number of units — empty, non-integer,
+ * or below 1 is one message. The start date is only mandatory while editing
+ * (ADR-0024): at creation an empty one stays allowed, the first Occurrence
+ * becoming today.
+ */
+fun validateRecurringIncomeForm(form: RecurringIncomeModalState): FieldErrors = buildMap {
+    if (form.name.isBlank()) put(RecurringIncomeFields.NAME, "Enter a name")
+    amountFieldError(form.amount)?.let { put(RecurringIncomeFields.AMOUNT, it) }
+    val interval = parseIntervalValue(form.intervalValue)
+    if (interval == null || interval < 1) {
+        put(RecurringIncomeFields.INTERVAL, "The interval must be at least 1")
+    }
+    if (form.editing && form.startDate.isBlank()) {
+        put(RecurringIncomeFields.START, "Choose a start date")
+    }
 }
 
 /**
@@ -168,9 +196,17 @@ class RecurringIncomesViewModel(
 
     fun onStartDateChange(value: String) = updateModal { it.copy(startDate = value, error = null) }
 
+    /**
+     * Submit-and-validate (ADR-0009): validate first — any Field Error is
+     * stored on the modal and nothing is written; a valid form clears them
+     * and saves exactly as before. Only the next Save refreshes the errors.
+     */
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (!modal.saveEnabled) return
+        val fieldErrors = validateRecurringIncomeForm(modal)
+        updateModal { it.copy(fieldErrors = fieldErrors) }
+        if (fieldErrors.isNotEmpty()) return
         if (modal.editing) update(modal) else create(modal)
     }
 
@@ -406,12 +442,15 @@ class RecurringIncomesViewModel(
     private fun draftOf(modal: RecurringIncomeModalState): RecurringIncomeDraft =
         RecurringIncomeDraft(
             name = modal.name.trim(),
-            amount = modal.amount.trim(),
+            // The tolerant Amount Input's canonical value, never the typed
+            // text: "17,5" goes out as "17.5". Validation ran first, so the
+            // amount parses here.
+            amount = parseAmountInput(modal.amount)!!.toPlainString(),
             intervalValue = parseIntervalValue(modal.intervalValue) ?: 0,
             intervalUnit = modal.intervalUnit,
             // Empty only ever at creation: "start today" needs no typing,
-            // the backend sets the creation day (ADR-0024). An edit's gate
-            // keeps the date non-empty, so an update never sends null.
+            // the backend sets the creation day (ADR-0024). An edit's empty
+            // date is a Field Error, so an update never sends null.
             startDate = modal.startDate.trim().ifEmpty { null },
         )
 
