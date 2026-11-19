@@ -4,9 +4,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -23,6 +27,7 @@ import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.ui.common.AmountInputMessages
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -30,12 +35,13 @@ import org.junit.runner.RunWith
 
 /**
  * The Transaction form's fiddly validation rules (spec #13 testing
- * decisions: Compose UI tests for form validation): the mandatory-fields
- * gate on Save, the Transfer's distinct-Wallet rule and its absent Category
- * field, and the Contact-Wallet eligibility split (ADR-0017) — offered to an
- * Expense, never to an Income. The modal is driven with a local state
- * harness; the type-change resets themselves live in the ViewModel and are
- * covered by the seam tests.
+ * decisions: Compose UI tests for form validation): submit-and-validate
+ * (ADR-0009, ticket #51) — Save always enabled, an invalid Save rendering
+ * each Field Error under its own field — the Transfer's distinct-Wallet rule
+ * and its absent Category field, and the Contact-Wallet eligibility split
+ * (ADR-0017) — offered to an Expense, never to an Income. The modal is
+ * driven with a local state harness; the type-change rules themselves live
+ * in the ViewModel and are covered by the seam tests.
  */
 @RunWith(AndroidJUnit4::class)
 class TransactionFormTest {
@@ -71,6 +77,13 @@ class TransactionFormTest {
         next_unpaid_occurrence_date = "2026-08-01",
         created_at = "2026-08-01T10:00:00Z",
     )
+
+    /** Saves the harness let through: its Save mirrors the ViewModel's
+     * submit-and-validate — the same validator, errors stored, a write
+     * counted only for a valid form. */
+    private var submitted = 0
+
+    private val inError = SemanticsMatcher.keyIsDefined(SemanticsProperties.Error)
 
     private fun setForm(
         initial: TransactionsViewModel.ModalState,
@@ -109,7 +122,19 @@ class TransactionFormTest {
                 onDescriptionChange = { modal = modal.copy(description = it) },
                 onAddWallet = onAddWallet,
                 onAddCategory = onAddCategory,
-                onSubmit = {},
+                onSubmit = {
+                    val errors = validateTransactionForm(
+                        type = modal.type,
+                        amount = modal.amount,
+                        date = modal.date,
+                        walletId = modal.walletId,
+                        selectedWalletType = wallets.find { it.id == modal.walletId }?.type,
+                        sourceWalletId = modal.sourceWalletId,
+                        destinationWalletId = modal.destinationWalletId,
+                    )
+                    modal = modal.copy(fieldErrors = errors)
+                    if (errors.isEmpty()) submitted++
+                },
                 onDelete = {},
                 onClose = {},
             )
@@ -252,42 +277,52 @@ class TransactionFormTest {
     }
 
     @Test
-    fun the_save_button_stays_disabled_until_a_positive_amount_is_entered() {
+    fun save_is_always_enabled_and_an_invalid_save_reveals_errors_under_each_field() {
+        setForm(
+            TransactionsViewModel.ModalState(type = TransactionType.EXPENSE, date = "2026-08-01", walletId = null),
+            wallets = listOf(cash),
+            categories = emptyList(),
+        )
+
+        // Never gated on validation (ADR-0009): nothing shows before a Save.
+        composeRule.onNodeWithText("Save transaction").assertIsEnabled()
+        composeRule.onNodeWithTag("tx-amount").assert(!inError)
+        composeRule.onNodeWithText(AmountInputMessages.EMPTY, useUnmergedTree = true).assertDoesNotExist()
+
+        composeRule.onNodeWithText("Save transaction").performClick()
+
+        composeRule.onNodeWithTag("tx-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY))
+        composeRule.onNodeWithTag("tx-wallet").assert(inError).assert(hasText("Choose a wallet."))
+        assertEquals(0, submitted)
+    }
+
+    @Test
+    fun a_field_error_stays_while_typing_and_the_next_valid_save_clears_it() {
         setForm(
             TransactionsViewModel.ModalState(type = TransactionType.EXPENSE, date = "2026-08-01", walletId = 1),
             wallets = listOf(cash),
             categories = emptyList(),
         )
-
-        composeRule.onNodeWithText("Save transaction").assertIsNotEnabled()
-
-        composeRule.onNodeWithTag("tx-amount").performTextInput("5.00")
-        composeRule.onNodeWithText("Save transaction").assertIsEnabled()
-
-        // Zero is not an amount; the gate closes again.
-        composeRule.onNodeWithTag("tx-amount").performTextClearance()
         composeRule.onNodeWithTag("tx-amount").performTextInput("0")
-        composeRule.onNodeWithText("Save transaction").assertIsNotEnabled()
+        composeRule.onNodeWithText("Save transaction").performClick()
+        composeRule.onNodeWithTag("tx-amount").assert(hasText(AmountInputMessages.NOT_POSITIVE))
+
+        // Typing the fix leaves the error in place: only Save refreshes it.
+        composeRule.onNodeWithTag("tx-amount").performTextClearance()
+        composeRule.onNodeWithTag("tx-amount").performTextInput("17,5")
+        composeRule.onNodeWithTag("tx-amount").assert(hasText(AmountInputMessages.NOT_POSITIVE))
+        // The tolerant amount already drives the Balance preview.
+        composeRule.onNodeWithText("Cash: €100.00 → €82.50").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Save transaction").performClick()
+
+        composeRule.onNodeWithText(AmountInputMessages.NOT_POSITIVE, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag("tx-amount").assert(!inError)
+        assertEquals(1, submitted)
     }
 
     @Test
-    fun the_save_button_stays_disabled_until_a_wallet_is_selected() {
-        setForm(
-            TransactionsViewModel.ModalState(type = TransactionType.EXPENSE, amount = "5.00", date = "2026-08-01", walletId = null),
-            wallets = listOf(cash),
-            categories = emptyList(),
-        )
-
-        composeRule.onNodeWithText("Save transaction").assertIsNotEnabled()
-
-        composeRule.onNodeWithTag("tx-wallet").performClick()
-        composeRule.onNodeWithText("Cash (€100.00)").assertIsDisplayed().performClick()
-
-        composeRule.onNodeWithText("Save transaction").assertIsEnabled()
-    }
-
-    @Test
-    fun a_transfer_needs_distinct_wallets_and_never_shows_a_category() {
+    fun a_transfer_with_the_same_wallets_flags_both_legs_and_never_shows_a_category() {
         setForm(
             TransactionsViewModel.ModalState(
                 type = TransactionType.TRANSFER,
@@ -304,13 +339,60 @@ class TransactionFormTest {
         composeRule.onNodeWithTag("tx-category").assertDoesNotExist()
         composeRule.onNodeWithText("Transfers never carry a category.").assertIsDisplayed()
 
-        // Same source and destination: Save stays disabled.
-        composeRule.onNodeWithText("Save transaction").assertIsNotEnabled()
+        composeRule.onNodeWithText("Save transaction").assertIsEnabled().performClick()
+
+        val same = "Source and destination must be different wallets."
+        composeRule.onNodeWithTag("tx-source").assert(inError).assert(hasText(same))
+        composeRule.onNodeWithTag("tx-destination").assert(inError).assert(hasText(same))
+        assertEquals(0, submitted)
 
         composeRule.onNodeWithTag("tx-destination").performClick()
         composeRule.onNodeWithText("Card (€0.00)").performClick()
+        composeRule.onNodeWithText("Save transaction").performClick()
 
-        composeRule.onNodeWithText("Save transaction").assertIsEnabled()
+        composeRule.onNodeWithTag("tx-source").assert(!inError)
+        assertEquals(1, submitted)
+    }
+
+    @Test
+    fun an_income_kept_on_a_contact_wallet_shows_it_and_flags_it_on_save() {
+        setForm(
+            TransactionsViewModel.ModalState(type = TransactionType.INCOME, amount = "5.00", date = "2026-08-01", walletId = 3),
+            wallets = listOf(cash, marco),
+            categories = emptyList(),
+        )
+
+        // The kept Contact Wallet stays visible in the field, though the
+        // Income's list never offers it.
+        composeRule.onNodeWithTag("tx-wallet").assert(hasText("Marco (€0.00)"))
+
+        composeRule.onNodeWithText("Save transaction").performClick()
+
+        composeRule.onNodeWithTag("tx-wallet")
+            .assert(inError)
+            .assert(hasText("Incomes can't be recorded on contact wallets."))
+        assertEquals(0, submitted)
+    }
+
+    @Test
+    fun a_rejected_drafts_errors_show_from_the_start_beside_the_rule_banner() {
+        setForm(
+            TransactionsViewModel.ModalState(
+                type = TransactionType.EXPENSE,
+                walletId = 1,
+                error = "Amount is required",
+                fieldErrors = mapOf(
+                    TransactionFields.AMOUNT to AmountInputMessages.EMPTY,
+                    TransactionFields.DATE to "Choose a date",
+                ),
+            ),
+            wallets = listOf(cash),
+            categories = emptyList(),
+        )
+
+        composeRule.onNodeWithText("Amount is required").assertIsDisplayed()
+        composeRule.onNodeWithTag("tx-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY))
+        composeRule.onNodeWithTag("tx-date").assert(inError).assert(hasText("Choose a date"))
     }
 
     @Test

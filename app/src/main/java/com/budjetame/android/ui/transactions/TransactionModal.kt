@@ -60,6 +60,8 @@ import com.budjetame.android.data.transaction.Place
 import com.budjetame.android.data.transaction.formatLocation
 import com.budjetame.android.data.transaction.mapLink
 import com.budjetame.android.ui.maps.MapPickerDialog
+import com.budjetame.android.ui.common.fieldErrorSupportingText
+import com.budjetame.android.ui.common.parseAmountInput
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 import java.time.Instant
@@ -73,7 +75,9 @@ private val RED_600 = Color(0xFFDC2626)
  * The create/edit/delete Transaction form inside an AlertDialog (ticket #20):
  * the Expense/Income/Transfer write path with the type-specific rules
  * (Transfer's distinct From/To Wallets and no Category; Contact Wallets only
- * on an Expense, ADR-0017), the Europe/Rome-defaulted date, the Cash
+ * on an Expense, ADR-0017; enforced by submit-and-validate, ADR-0009 — Save
+ * is never gated on them, an invalid Save renders each Field Error under
+ * its own field), the Europe/Rome-defaulted date, the Cash
  * negative-balance preview, and the tap-again delete confirmation. The
  * post-write warning flag from the API surfaces as the screen's banner. The
  * Wallet and Category selects carry the inline-create sentinels (ADR-0013):
@@ -163,7 +167,7 @@ fun TransactionModal(
             )
         },
         confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+            Button(onClick = onSubmit, enabled = modal.canSave, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
                         modal.submitting -> "Saving…"
@@ -246,6 +250,7 @@ internal fun TransactionForm(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(top = 12.dp),
         ) {
+            val amountError = modal.fieldErrors[TransactionFields.AMOUNT]
             OutlinedTextField(
                 value = modal.amount,
                 onValueChange = onAmountChange,
@@ -253,12 +258,15 @@ internal fun TransactionForm(
                 placeholder = { Text("0.00") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
+                isError = amountError != null,
+                supportingText = fieldErrorSupportingText(amountError),
                 modifier = Modifier
                     .weight(1f)
                     .testTag("tx-amount"),
             )
             FormDateField(
                 value = modal.date,
+                error = modal.fieldErrors[TransactionFields.DATE],
                 onSelect = onDateChange,
                 modifier = Modifier.weight(1f),
             )
@@ -269,6 +277,8 @@ internal fun TransactionForm(
                 wallets = activeWallets(wallets),
                 sourceWalletId = modal.sourceWalletId,
                 destinationWalletId = modal.destinationWalletId,
+                sourceError = modal.fieldErrors[TransactionFields.SOURCE],
+                destinationError = modal.fieldErrors[TransactionFields.DESTINATION],
                 enabled = !editing,
                 onSourceChange = onSourceWalletChange,
                 onDestinationChange = onDestinationWalletChange,
@@ -283,7 +293,8 @@ internal fun TransactionForm(
                     spendableWallets(wallets)
                 },
                 type = modal.type,
-                value = modal.walletId,
+                value = modal.walletId?.let { id -> wallets.find { it.id == id } },
+                error = modal.fieldErrors[TransactionFields.WALLET],
                 enabled = !editing,
                 onChange = onWalletChange,
                 onAdd = { onAddWallet(WalletFieldTarget.WALLET) },
@@ -438,7 +449,8 @@ internal fun transactionTypeLabel(type: TransactionType): String = when (type) {
 private fun SingleWalletField(
     wallets: List<WalletDto>,
     type: TransactionType,
-    value: Int?,
+    value: WalletDto?,
+    error: String?,
     enabled: Boolean,
     onChange: (Int) -> Unit,
     onAdd: () -> Unit,
@@ -451,13 +463,18 @@ private fun SingleWalletField(
             onExpandedChange = { if (enabled) expanded = it },
         ) {
             OutlinedTextField(
-                value = value?.let { id -> wallets.find { it.id == id }?.let(::walletOptionLabel) } ?: "",
+                // The selection shows even when the list does not offer it:
+                // a Contact Wallet kept from an Expense switched to Income
+                // stays visible for its Field Error to point at (ADR-0009).
+                value = value?.let(::walletOptionLabel) ?: "",
                 onValueChange = {},
                 readOnly = true,
                 enabled = enabled,
                 singleLine = true,
                 label = { Text("Wallet") },
                 placeholder = { Text("Select a wallet") },
+                isError = error != null,
+                supportingText = fieldErrorSupportingText(error),
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -511,6 +528,8 @@ private fun TransferWalletFields(
     wallets: List<WalletDto>,
     sourceWalletId: Int?,
     destinationWalletId: Int?,
+    sourceError: String?,
+    destinationError: String?,
     enabled: Boolean,
     onSourceChange: (Int) -> Unit,
     onDestinationChange: (Int) -> Unit,
@@ -525,6 +544,7 @@ private fun TransferWalletFields(
             label = "From",
             wallets = wallets,
             value = sourceWalletId,
+            error = sourceError,
             enabled = enabled,
             onChange = onSourceChange,
             onAdd = { onAddWallet(WalletFieldTarget.SOURCE) },
@@ -535,6 +555,7 @@ private fun TransferWalletFields(
             label = "To",
             wallets = wallets,
             value = destinationWalletId,
+            error = destinationError,
             enabled = enabled,
             onChange = onDestinationChange,
             onAdd = { onAddWallet(WalletFieldTarget.DESTINATION) },
@@ -550,6 +571,7 @@ private fun WalletSelectField(
     label: String,
     wallets: List<WalletDto>,
     value: Int?,
+    error: String?,
     enabled: Boolean,
     onChange: (Int) -> Unit,
     onAdd: () -> Unit,
@@ -570,6 +592,8 @@ private fun WalletSelectField(
             singleLine = true,
             label = { Text(label) },
             placeholder = { Text("Select") },
+            isError = error != null,
+            supportingText = fieldErrorSupportingText(error),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -819,8 +843,8 @@ private fun BalancePreview(
     modal: TransactionsViewModel.ModalState,
     wallets: List<WalletDto>,
 ) {
-    val amount = parseAmount(modal.amount)
-    val editedAmount = modal.editing?.let { parseAmount(it.amount) }
+    val amount = parseAmountInput(modal.amount)
+    val editedAmount = modal.editing?.let { parseAmountInput(it.amount) }
 
     if (modal.isTransfer) {
         val source = modal.sourceWalletId?.let { id -> wallets.find { it.id == id } }
@@ -1037,6 +1061,7 @@ private fun LocationSection(
 @Composable
 private fun FormDateField(
     value: String,
+    error: String?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1050,14 +1075,29 @@ private fun FormDateField(
             singleLine = true,
             label = { Text("Date") },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
+            // Only a Draft that caught no date can leave it empty (ticket
+            // #67); the field is disabled so the tap reaches the picker, and
+            // the disabled colors carry the error state themselves.
+            isError = error != null,
+            supportingText = fieldErrorSupportingText(error),
             colors = OutlinedTextFieldDefaults.colors(
                 disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledBorderColor = if (error != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.outline
+                },
+                disabledLabelColor = if (error != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 disabledContainerColor = Color.Transparent,
             ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("tx-date"),
         )
         Box(
             modifier = Modifier

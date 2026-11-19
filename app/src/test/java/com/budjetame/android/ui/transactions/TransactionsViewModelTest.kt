@@ -54,6 +54,7 @@ import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.common.AmountInputMessages
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.util.Dates
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -1874,8 +1875,95 @@ class TransactionsViewModelTest {
         assertNull(create.category_id)
     }
 
+    // --- Submit-and-validate (ADR-0009, ticket #51) ---
+
     @Test
-    fun `a transfer with the same source and destination never submits`() = runBlocking {
+    fun `an invalid save reveals a field error under each wrong field and writes nothing`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        // No Wallets exist, so the Expense starts with none; the amount is empty.
+        viewModel.openCreate()
+        viewModel.submit()
+
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals(
+            mapOf(
+                TransactionFields.AMOUNT to AmountInputMessages.EMPTY,
+                TransactionFields.WALLET to "Choose a wallet.",
+            ),
+            modal.fieldErrors,
+        )
+        // Field Errors are never the server banner.
+        assertNull(modal.error)
+        assertFalse(modal.submitting)
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
+    }
+
+    @Test
+    fun `an unparseable or non-positive amount gets its own message`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("abc")
+        viewModel.submit()
+        assertEquals(
+            mapOf(TransactionFields.AMOUNT to AmountInputMessages.INVALID),
+            viewModel.uiState.value.modal!!.fieldErrors,
+        )
+
+        viewModel.onAmountChange("0")
+        viewModel.submit()
+        assertEquals(
+            mapOf(TransactionFields.AMOUNT to AmountInputMessages.NOT_POSITIVE),
+            viewModel.uiState.value.modal!!.fieldErrors,
+        )
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
+    }
+
+    @Test
+    fun `field errors stay while typing and the next valid save clears them and writes`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.submit()
+        val revealed = mapOf(TransactionFields.AMOUNT to AmountInputMessages.EMPTY)
+        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
+
+        // Typing the fix never clears or recomputes the error.
+        viewModel.onAmountChange("5.00")
+        viewModel.onDescriptionChange("Lunch")
+        assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
+
+        viewModel.submit()
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors ?: emptyMap<String, String>())
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals("5.00", create.amount)
+    }
+
+    @Test
+    fun `a comma amount saves as its canonical value`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onAmountChange("17,5")
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+
+        // The wire carries the parsed value, never the typed text.
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals("17.5", create.amount)
+    }
+
+    @Test
+    fun `a transfer with the same source and destination flags both legs and writes nothing`() = runBlocking {
         seedWallets(
             wallet(1, "Cash", WalletType.CASH, "100.00"),
             wallet(2, "Card", WalletType.CREDIT_CARD, "0.00"),
@@ -1890,12 +1978,36 @@ class TransactionsViewModelTest {
         viewModel.onDestinationWalletChange(1)
         viewModel.submit()
 
-        assertFalse(viewModel.uiState.value.modal!!.canSubmit)
+        val same = "Source and destination must be different wallets."
+        assertEquals(
+            mapOf(TransactionFields.SOURCE to same, TransactionFields.DESTINATION to same),
+            viewModel.uiState.value.modal!!.fieldErrors,
+        )
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
     }
 
     @Test
-    fun `switching an expense that picked a contact wallet to income resets the wallet`() = runBlocking {
+    fun `a transfer missing its legs names each one`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onTypeChange(TransactionType.TRANSFER)
+        viewModel.onAmountChange("10.00")
+        viewModel.submit()
+
+        assertEquals(
+            mapOf(
+                TransactionFields.SOURCE to "Choose the source wallet.",
+                TransactionFields.DESTINATION to "Choose the destination wallet.",
+            ),
+            viewModel.uiState.value.modal!!.fieldErrors,
+        )
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
+    }
+
+    @Test
+    fun `switching an expense on a contact wallet to income keeps the wallet and save flags it`() = runBlocking {
         seedWallets(
             wallet(1, "Marco", WalletType.CONTACT, "0.00"),
             wallet(2, "Cash", WalletType.CASH, "100.00"),
@@ -1904,10 +2016,26 @@ class TransactionsViewModelTest {
         awaitLoaded()
 
         viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
         viewModel.onWalletChange(1)
         viewModel.onTypeChange(TransactionType.INCOME)
 
-        assertEquals(2, viewModel.uiState.value.modal?.walletId)
+        // No silent swap: the user's pick stays until they change it.
+        assertEquals(1, viewModel.uiState.value.modal?.walletId)
+
+        viewModel.submit()
+        assertEquals(
+            mapOf(TransactionFields.WALLET to "Incomes can't be recorded on contact wallets."),
+            viewModel.uiState.value.modal!!.fieldErrors,
+        )
+        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
+
+        viewModel.onWalletChange(2)
+        viewModel.submit()
+        awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
+        val create = json.decodeFromString<TransactionCreateRequest>(call("POST", "/api/transactions").body)
+        assertEquals(TransactionType.INCOME, create.type)
+        assertEquals(2, create.wallet_id)
     }
 
     @Test
@@ -2018,6 +2146,8 @@ class TransactionsViewModelTest {
         viewModel.submit()
         awaitState { it.modal?.error != null }
         assertEquals("A wallet or category with this name already exists.", viewModel.uiState.value.modal?.error)
+        // A server rejection is the banner, never a Field Error.
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors)
 
         createStatus = 422
         viewModel.openCreate()
@@ -2728,7 +2858,6 @@ class TransactionsViewModelTest {
         assertEquals(2, state.modal?.walletId)
         assertEquals("5.00", state.modal?.amount)
         assertEquals("Lunch", state.modal?.description)
-        assertTrue(state.modal!!.canSubmit)
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
 
         // The form submits immediately against the fresh Wallet.
@@ -2788,7 +2917,6 @@ class TransactionsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(1, state.modal?.sourceWalletId)
         assertEquals(3, state.modal?.destinationWalletId)
-        assertTrue(state.modal!!.canSubmit)
     }
 
     @Test
@@ -2839,7 +2967,6 @@ class TransactionsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(1, state.modal?.categoryId)
         assertEquals("5.00", state.modal?.amount)
-        assertTrue(state.modal!!.canSubmit)
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
 
         viewModel.submit()

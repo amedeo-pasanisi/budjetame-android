@@ -7,6 +7,8 @@ import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.util.Money
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -150,6 +152,51 @@ fun transferCostLinkQualifies(source: WalletDto?, destination: WalletDto?): Bool
 fun transferIncomeLinkQualifies(source: WalletDto?, destination: WalletDto?): Boolean =
     source != null && source.type == WalletType.CONTACT &&
         destination != null && destination.type != WalletType.CONTACT
+
+/** The Transaction form's Field Error keys (ADR-0009): one per field a
+ * message can render under. */
+object TransactionFields {
+    const val AMOUNT = "amount"
+    const val DATE = "date"
+    const val WALLET = "wallet"
+    const val SOURCE = "source"
+    const val DESTINATION = "destination"
+}
+
+/**
+ * Submit-and-validate (ADR-0009, mirror of the web TransactionForm's
+ * `validate()`): one Field Error per wrong field, empty when the form may
+ * save. [selectedWalletType] is the type of the Expense/Income's picked
+ * Wallet — an Income on a Contact Wallet is flagged here rather than
+ * silently swapped (ADR-0017's guard moved to Save). The date is
+ * picker-set and cannot be cleared on a new form; only a Draft that caught
+ * no date (ticket #67) can leave it empty.
+ */
+fun validateTransactionForm(
+    type: TransactionType,
+    amount: String,
+    date: String,
+    walletId: Int?,
+    selectedWalletType: WalletType?,
+    sourceWalletId: Int?,
+    destinationWalletId: Int?,
+): FieldErrors = buildMap {
+    amountFieldError(amount)?.let { put(TransactionFields.AMOUNT, it) }
+    if (date.isBlank()) put(TransactionFields.DATE, "Choose a date")
+    if (type == TransactionType.TRANSFER) {
+        if (sourceWalletId == null) put(TransactionFields.SOURCE, "Choose the source wallet.")
+        if (destinationWalletId == null) put(TransactionFields.DESTINATION, "Choose the destination wallet.")
+        if (sourceWalletId != null && sourceWalletId == destinationWalletId) {
+            // Both legs are equally wrong: the same message under each.
+            put(TransactionFields.SOURCE, "Source and destination must be different wallets.")
+            put(TransactionFields.DESTINATION, "Source and destination must be different wallets.")
+        }
+    } else if (walletId == null) {
+        put(TransactionFields.WALLET, "Choose a wallet.")
+    } else if (type == TransactionType.INCOME && selectedWalletType == WalletType.CONTACT) {
+        put(TransactionFields.WALLET, "Incomes can't be recorded on contact wallets.")
+    }
+}
 
 /**
  * The draft's amount as a positive BigDecimal, or null when blank, not a
