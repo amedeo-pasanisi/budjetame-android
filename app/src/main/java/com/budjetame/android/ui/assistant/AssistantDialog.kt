@@ -1,5 +1,9 @@
 package com.budjetame.android.ui.assistant
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,9 +25,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -32,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -41,21 +50,47 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import com.budjetame.android.ui.theme.Slate500
 
 /**
  * The Assistant (ticket #68, the web's AssistantModal): a full-screen chat
- * over whatever tab is showing — the transcript, a text box and Send. The
- * conversation lives in [AssistantViewModel] while the dialog shows and is
- * forgotten when it closes.
+ * over whatever tab is showing — the transcript, a text box, the microphone
+ * and Send. The conversation lives in [AssistantViewModel] while the dialog
+ * shows and is forgotten when it closes.
+ *
+ * Dictation (ticket #69): opening the dialog starts one, and the microphone
+ * starts another or ends the one listening. Each start first holds the
+ * microphone permission: the system prompt is asked when it is missing, and
+ * a refusal starts nothing, sounds nothing and says nothing. Once the user
+ * refuses for good, the system answers the request itself without a
+ * prompt, so it is not asked again on every open. Where the device has no
+ * recognizer there is no microphone.
  */
 @Composable
 fun AssistantDialog(
     state: AssistantViewModel.UiState,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
+    onStartDictation: () -> Unit,
+    onStopDictation: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val microphonePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) onStartDictation() }
+    val dictate = {
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) onStartDictation() else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+    // Opening the Assistant starts a Dictation: once per open, as the dialog
+    // leaves the composition when it closes.
+    LaunchedEffect(Unit) {
+        if (state.dictationAvailable) dictate()
+    }
+
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -86,6 +121,22 @@ fun AssistantDialog(
                         .fillMaxWidth()
                         .padding(top = 12.dp),
                 )
+                if (state.dictationFailed) {
+                    Text(
+                        text = "Dictation did not work. Type the sentence instead.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                if (state.listening) {
+                    Text(
+                        text = "Listening…",
+                        fontSize = 12.sp,
+                        color = Slate500,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -102,6 +153,13 @@ fun AssistantDialog(
                             .weight(1f)
                             .testTag("assistant-input"),
                     )
+                    if (state.dictationAvailable) {
+                        MicrophoneButton(
+                            listening = state.listening,
+                            enabled = !state.pending,
+                            onClick = { if (state.listening) onStopDictation() else dictate() },
+                        )
+                    }
                     Button(
                         onClick = onSend,
                         enabled = !state.pending && state.text.isNotBlank(),
@@ -112,6 +170,32 @@ fun AssistantDialog(
                 }
             }
         }
+    }
+}
+
+/** The microphone: starts a Dictation, or ends the one listening; shown
+ * pressed while it listens, and disabled while a reply is pending. */
+@Composable
+private fun MicrophoneButton(listening: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    OutlinedIconButton(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(8.dp),
+        colors = if (listening) {
+            IconButtonDefaults.outlinedIconButtonColors(
+                containerColor = colors.errorContainer,
+                contentColor = colors.onErrorContainer,
+            )
+        } else {
+            IconButtonDefaults.outlinedIconButtonColors()
+        },
+        modifier = Modifier.testTag("assistant-microphone"),
+    ) {
+        Icon(
+            imageVector = if (listening) Icons.Filled.Stop else Icons.Filled.Mic,
+            contentDescription = if (listening) "Stop dictating" else "Dictate",
+        )
     }
 }
 
@@ -133,7 +217,11 @@ private fun Transcript(state: AssistantViewModel.UiState, modifier: Modifier = M
     ) {
         if (state.lines.isEmpty() && !state.pending) {
             Text(
-                text = "Type what you spent or received: each Draft Transaction lands on the Transactions tab.",
+                text = if (state.dictationAvailable) {
+                    "Say or type what you spent or received: each Draft Transaction lands on the Transactions tab."
+                } else {
+                    "Type what you spent or received: each Draft Transaction lands on the Transactions tab."
+                },
                 fontSize = 12.sp,
                 color = Slate500,
             )

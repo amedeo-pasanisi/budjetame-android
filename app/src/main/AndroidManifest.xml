@@ -8,6 +8,19 @@
          runtime prompt is requested only on a user save or a GPS press. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- The Assistant's Dictation (ticket #69): the speech recognizer
+         listens through the microphone. The runtime prompt is asked when the
+         Assistant opens or its microphone is tapped; a refusal is no failure. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Android 11+ package visibility: without it
+         SpeechRecognizer.isRecognitionAvailable never sees the device's
+         recognition service and the Assistant would show no microphone. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"

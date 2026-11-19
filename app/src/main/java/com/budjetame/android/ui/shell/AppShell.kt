@@ -58,6 +58,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.assistant.AssistantGateway
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
+import com.budjetame.android.data.dictation.DictationRecognizer
+import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
@@ -100,6 +102,10 @@ fun AppShell(
     assistantSettingsRepository: AssistantSettingsGateway,
     /** The Assistant's turns (ticket #68). */
     assistantRepository: AssistantGateway,
+    /** The Assistant's Dictation (ticket #69): the device's speech
+     * recognizer (null where it has none: no microphone) and its tones. */
+    dictationRecognizer: DictationRecognizer?,
+    dictationTones: DictationTones,
     walletRepository: WalletGateway,
     categoryRepository: CategoryGateway,
     dashboardRepository: DashboardGateway,
@@ -120,7 +126,13 @@ fun AppShell(
     // The Assistant (ticket #68): its button on every tab while the Account
     // has Assistant Settings, re-read when the Settings dialog closes.
     val assistant: AssistantViewModel = viewModel {
-        AssistantViewModel(assistantRepository, assistantSettingsRepository)
+        AssistantViewModel(
+            turns = assistantRepository,
+            settings = assistantSettingsRepository,
+            recognizer = dictationRecognizer,
+            tones = dictationTones,
+            locale = account.language,
+        )
     }
     val assistantState by assistant.uiState.collectAsStateWithLifecycle()
 
@@ -244,6 +256,8 @@ fun AppShell(
             state = assistantState,
             onTextChange = assistant::onTextChange,
             onSend = assistant::send,
+            onStartDictation = assistant::startDictation,
+            onStopDictation = assistant::stopDictation,
             onClose = assistant::close,
         )
     }

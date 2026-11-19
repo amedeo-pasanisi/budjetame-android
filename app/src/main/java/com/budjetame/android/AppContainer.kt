@@ -19,6 +19,10 @@ import com.budjetame.android.data.assistant.ApiAssistantRepository
 import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
 import com.budjetame.android.data.auth.ApiAuthRepository
 import com.budjetame.android.data.category.ApiCategoryRepository
+import com.budjetame.android.data.dictation.AndroidDictationRecognizer
+import com.budjetame.android.data.dictation.AndroidDictationTones
+import com.budjetame.android.data.dictation.DictationRecognizer
+import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.drafttransaction.ApiDraftTransactionRepository
 import com.budjetame.android.data.imports.ApiImportRepository
@@ -47,6 +51,12 @@ class AppContainer(context: Context) {
     val assistantSettingsRepository = ApiAssistantSettingsRepository(api.create(AssistantSettingsApi::class.java))
 
     val assistantRepository = ApiAssistantRepository(api.create(AssistantApi::class.java))
+
+    /** The Assistant's Dictation (ticket #69): the device's speech
+     * recognizer, null where it has none, and the tones that frame it. */
+    val dictationRecognizer: DictationRecognizer? = AndroidDictationRecognizer.createOrNull(context)
+
+    val dictationTones: DictationTones = AndroidDictationTones()
 
     val walletRepository = ApiWalletRepository(api.create(WalletApi::class.java))
 
