@@ -52,6 +52,7 @@ import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -85,6 +86,7 @@ class TabPagerTest {
             AppShell(
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
                 assistantSettingsRepository = NoAssistantSettingsGateway(),
+                assistantRepository = NoAssistantGateway(),
                 walletRepository = walletRepository,
                 categoryRepository = categoryRepository,
                 dashboardRepository = EmptyDashboardGateway(),
