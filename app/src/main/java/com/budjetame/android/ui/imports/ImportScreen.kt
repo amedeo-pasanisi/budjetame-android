@@ -183,6 +183,7 @@ fun ImportScreen(
             categories = categories,
             saving = draft.editorSaving,
             error = draft.editorError,
+            fieldErrors = draft.editorFieldErrors,
             onSave = viewModel::saveRowEdit,
             onClose = viewModel::closeEditor,
             onAddWallet = viewModel::onRowWalletAdd,

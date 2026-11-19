@@ -764,6 +764,16 @@ class ImportViewModelTest {
         return viewModel.uiState.value.draft!!
     }
 
+    /** Row 4 of [mixedFile] as the editor builds it, valid unless overridden. */
+    private fun rowFourEdit(
+        type: TransactionType = TransactionType.EXPENSE,
+        amount: String = "7.00",
+        date: String = "2026-08-03",
+        wallet: String = "Checking",
+        sourceWallet: String = "",
+        destinationWallet: String = "",
+    ): ImportRowInput = editedRowInput(4, type, amount, date, wallet, sourceWallet, destinationWallet, category = "", description = "dinner", latitude = "", longitude = "")
+
     private fun callsFor(path: String): List<RecordedCall> =
         calls.filter { it.path == path }
 
@@ -978,8 +988,99 @@ class ImportViewModelTest {
         )
         val draft = awaitDraft { it.editorError != null }
         assertEquals("boom", draft.editorError)
+        // A server rejection is the editor's banner, never a Field Error.
+        assertEquals(emptyMap<String, String>(), draft.editorFieldErrors)
         assertEquals(4, draft.editingRow)
         assertEquals(ImportRowStatus.ERROR, draft.preview!!.rows.first { it.row == 4 }.status)
+    }
+
+    @Test
+    fun `saving an invalid row reveals its field errors and re-validates nothing`() = runBlocking {
+        fixtureViewModel()
+        pickAndRead(content = mixedFile())
+
+        viewModel.openEditor(4)
+        viewModel.saveRowEdit(
+            rowFourEdit(amount = "", date = "", wallet = " "),
+        )
+
+        val draft = viewModel.uiState.value.draft!!
+        assertEquals(
+            mapOf(
+                ImportRowFields.AMOUNT to "Enter an amount",
+                ImportRowFields.DATE to "Choose a date",
+                ImportRowFields.WALLET to "Choose a wallet.",
+            ),
+            draft.editorFieldErrors,
+        )
+        // No write: the editor stays open, idle, the row untouched.
+        assertEquals(0, callsFor("/api/import/validate-row").size)
+        assertEquals(4, draft.editingRow)
+        assertFalse(draft.editorSaving)
+        assertNull(draft.editorError)
+        assertEquals(ImportRowStatus.ERROR, draft.preview!!.rows.first { it.row == 4 }.status)
+    }
+
+    @Test
+    fun `a transfer row with the same source and destination is flagged on both legs`() = runBlocking {
+        fixtureViewModel()
+        pickAndRead(content = mixedFile())
+
+        viewModel.openEditor(4)
+        viewModel.saveRowEdit(
+            rowFourEdit(type = TransactionType.TRANSFER, wallet = "", sourceWallet = "Checking", destinationWallet = "Checking"),
+        )
+
+        val same = "Source and destination must be different wallets."
+        assertEquals(
+            mapOf(ImportRowFields.SOURCE to same, ImportRowFields.DESTINATION to same),
+            viewModel.uiState.value.draft!!.editorFieldErrors,
+        )
+        assertEquals(0, callsFor("/api/import/validate-row").size)
+    }
+
+    @Test
+    fun `field errors stay until the next save and leave with the editor`() = runBlocking {
+        fixtureViewModel()
+        pickAndRead(content = mixedFile())
+
+        viewModel.openEditor(4)
+        viewModel.saveRowEdit(
+            rowFourEdit(amount = "abc"),
+        )
+        assertEquals(setOf(ImportRowFields.AMOUNT), viewModel.uiState.value.draft!!.editorFieldErrors.keys)
+
+        // Closing abandons the edit and its errors: a reopened editor is clean.
+        viewModel.closeEditor()
+        viewModel.openEditor(4)
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.draft!!.editorFieldErrors)
+
+        // A failing save, then a valid one: the valid save clears them.
+        viewModel.saveRowEdit(
+            rowFourEdit(amount = "0"),
+        )
+        assertEquals(setOf(ImportRowFields.AMOUNT), viewModel.uiState.value.draft!!.editorFieldErrors.keys)
+        viewModel.saveRowEdit(
+            rowFourEdit(),
+        )
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.draft!!.editorFieldErrors)
+        assertNull(awaitDraft { it.editingRow == null }.editingRow)
+    }
+
+    @Test
+    fun `a comma amount re-validates and lands as the canonical value`() = runBlocking {
+        fixtureViewModel()
+        pickAndRead(content = mixedFile())
+
+        viewModel.openEditor(4)
+        viewModel.saveRowEdit(
+            rowFourEdit(amount = "1.007,5"),
+        )
+        val draft = awaitDraft { it.editingRow == null }
+
+        val request = json.decodeFromString<ImportRowValidationRequest>(callBody("/api/import/validate-row"))
+        assertEquals("1007.5", request.row.amount)
+        assertEquals("1007.5", draft.preview!!.rows.first { it.row == 4 }.amount)
     }
 
     @Test

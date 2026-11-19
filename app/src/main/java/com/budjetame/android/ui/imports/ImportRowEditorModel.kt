@@ -4,16 +4,17 @@ import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.ui.transactions.NON_CONTACT_WALLET_TYPES
 import com.budjetame.android.ui.transactions.WalletFieldTarget
-import com.budjetame.android.ui.transactions.parseAmount
 
 /**
  * The Verification row editor's draft rules (ticket #26, web issue #46),
  * ported from the web app's ImportRowModal.tsx + ImportEntitySelect.tsx:
  * the cleaned-value normalization (blank fields travel as null — a blank
- * description matches a missing one, ADR-0006), the mandatory-fields gate
- * on Save, the wire input built from the edited fields, and the inline
+ * description matches a missing one, ADR-0006), the Field Errors Save
+ * reveals (ADR-0009), the wire input built from the edited fields, and the inline
  * entity-creation rules ticket #27 adds (the sentinel's prefill, the
  * eligibility lock, and the re-validation matching). The editor edits
  * *names*, not resolved entities: the row's Wallet and Category are names
@@ -25,28 +26,41 @@ import com.budjetame.android.ui.transactions.parseAmount
  * resolution does (the backend treats it as missing). */
 fun cleanedImportField(value: String): String? = value.trim().ifEmpty { null }
 
+/** The row editor's Field Error keys (ADR-0009). */
+object ImportRowFields {
+    const val AMOUNT = "amount"
+    const val DATE = "date"
+    const val WALLET = "wallet"
+    const val SOURCE = "source"
+    const val DESTINATION = "destination"
+}
+
 /**
- * The mandatory-fields gate on Save (the web editor's `canSave`): a
- * strictly positive amount, a date, and the Wallet(s) the type needs — a
- * Transfer needs two distinct Wallets. The row's Wallet fields are *names*,
- * so a set field may still name an unknown Wallet — that is what the
- * re-validation decides, not this gate.
+ * Submit-and-validate (ADR-0009, mirror of the web ImportRowModal's
+ * `validate()`): one Field Error per wrong field of the edited row [input]
+ * (as [editedRowInput] builds it), empty when it may re-validate. The
+ * amount is a tolerant Amount Input; a Transfer needs two different legs,
+ * an Expense/Income its Wallet. The Wallet fields are *names*, so presence
+ * is non-blankness and the legs compare raw (case-sensitively, as on the
+ * web): whether a name resolves to a real Wallet is the re-validation's
+ * call, not this one's.
  */
-fun canSaveEditedRow(
-    type: TransactionType,
-    amount: String,
-    date: String,
-    wallet: String,
-    sourceWallet: String,
-    destinationWallet: String,
-): Boolean {
-    if (date.isEmpty() || parseAmount(amount) == null) return false
-    return if (type == TransactionType.TRANSFER) {
-        cleanedImportField(sourceWallet) != null &&
-            cleanedImportField(destinationWallet) != null &&
-            cleanedImportField(sourceWallet) != cleanedImportField(destinationWallet)
-    } else {
-        cleanedImportField(wallet) != null
+fun validateImportRow(input: ImportRowInput): FieldErrors = buildMap {
+    amountFieldError(input.amount)?.let { put(ImportRowFields.AMOUNT, it) }
+    if (input.date.isBlank()) put(ImportRowFields.DATE, "Choose a date")
+    if (input.type == TransactionType.TRANSFER) {
+        val source = input.source_wallet
+        val destination = input.destination_wallet
+        if (source == null) put(ImportRowFields.SOURCE, "Choose the source wallet.")
+        if (destination == null) put(ImportRowFields.DESTINATION, "Choose the destination wallet.")
+        if (source != null && source == destination) {
+            // Both legs are equally wrong: the same message under each.
+            val sameWallet = "Source and destination must be different wallets."
+            put(ImportRowFields.SOURCE, sameWallet)
+            put(ImportRowFields.DESTINATION, sameWallet)
+        }
+    } else if (input.wallet == null) {
+        put(ImportRowFields.WALLET, "Choose a wallet.")
     }
 }
 

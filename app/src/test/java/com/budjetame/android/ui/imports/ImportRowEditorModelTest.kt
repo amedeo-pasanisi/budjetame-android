@@ -14,7 +14,7 @@ import org.junit.Test
 
 /** The Verification row editor's draft rules (ImportRowEditorModel.kt),
  * ported from the web app's ImportRowModal.tsx + ImportEntitySelect.tsx:
- * the cleaned-value normalization, the mandatory-fields gate on Save, the
+ * the cleaned-value normalization, the Field Errors Save reveals, the
  * wire input's type-shaped fields, and the inline entity-creation rules
  * (ticket #27): the sentinel's prefill, the Wallet eligibility lock, and
  * the re-validation matching. */
@@ -27,66 +27,95 @@ class ImportRowEditorModelTest {
         assertEquals("Food", cleanedImportField("  Food  "))
     }
 
+    /** An edited row as the editor builds it, valid unless overridden. */
+    private fun edited(
+        type: TransactionType = TransactionType.EXPENSE,
+        amount: String = "12.50",
+        date: String = "2026-08-01",
+        wallet: String = "Checking",
+        sourceWallet: String = "",
+        destinationWallet: String = "",
+    ): ImportRowInput = editedRowInput(
+        rowNumber = 4,
+        type = type,
+        amount = amount,
+        date = date,
+        wallet = wallet,
+        sourceWallet = sourceWallet,
+        destinationWallet = destinationWallet,
+        category = "",
+        description = "",
+        latitude = "",
+        longitude = "",
+    )
+
     @Test
-    fun `save needs a positive amount, a date, and the type's wallets`() {
-        val base = canSaveEditedRow(
-            type = TransactionType.EXPENSE,
-            amount = "12.50",
-            date = "2026-08-01",
-            wallet = "Checking",
-            sourceWallet = "",
-            destinationWallet = "",
+    fun `a complete row has no field errors, with either decimal separator`() {
+        assertEquals(emptyMap<String, String>(), validateImportRow(edited()))
+        assertEquals(emptyMap<String, String>(), validateImportRow(edited(amount = "12,50")))
+        assertEquals(emptyMap<String, String>(), validateImportRow(edited(amount = "1.000,45")))
+    }
+
+    @Test
+    fun `an invalid amount gets the amount input's message`() {
+        assertEquals(
+            mapOf(ImportRowFields.AMOUNT to "Enter an amount"),
+            validateImportRow(edited(amount = "  ")),
         )
-        assertTrue(base)
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.EXPENSE, "0", "2026-08-01", "Checking", "", "",
+        assertEquals(
+            mapOf(ImportRowFields.AMOUNT to "Amount must be a positive number"),
+            validateImportRow(edited(amount = "0")),
+        )
+        assertEquals(
+            mapOf(ImportRowFields.AMOUNT to "That doesn't look like an amount — use digits and one . or , for decimals"),
+            validateImportRow(edited(amount = "12abc")),
+        )
+    }
+
+    @Test
+    fun `an empty date and a missing wallet are each flagged`() {
+        assertEquals(
+            mapOf(
+                ImportRowFields.DATE to "Choose a date",
+                ImportRowFields.WALLET to "Choose a wallet.",
+            ),
+            validateImportRow(edited(date = "", wallet = "  ")),
+        )
+    }
+
+    @Test
+    fun `a transfer needs both legs, and two different ones`() {
+        assertEquals(
+            mapOf(
+                ImportRowFields.SOURCE to "Choose the source wallet.",
+                ImportRowFields.DESTINATION to "Choose the destination wallet.",
+            ),
+            validateImportRow(edited(type = TransactionType.TRANSFER, wallet = "Checking")),
+        )
+        val same = "Source and destination must be different wallets."
+        assertEquals(
+            mapOf(ImportRowFields.SOURCE to same, ImportRowFields.DESTINATION to same),
+            validateImportRow(
+                edited(type = TransactionType.TRANSFER, sourceWallet = " Checking ", destinationWallet = "Checking"),
             ),
         )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.EXPENSE, "12.50", "", "Checking", "", "",
-            ),
-        )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.EXPENSE, "12.50", "2026-08-01", "  ", "", "",
+        // The names are compared raw (case-sensitively), as on the web: two
+        // spellings of one Wallet pass, and the re-validation then rejects
+        // the row; the resolution is the backend's.
+        assertEquals(
+            emptyMap<String, String>(),
+            validateImportRow(
+                edited(type = TransactionType.TRANSFER, sourceWallet = "Checking", destinationWallet = "checking"),
             ),
         )
     }
 
     @Test
-    fun `a transfer needs two distinct wallets`() {
-        assertTrue(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "Cash",
-            ),
-        )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "",
-            ),
-        )
-        // The web's gate compares the raw names (case-sensitively): two
-        // spellings of one Wallet pass the gate and the re-validation then
-        // rejects the row — the resolution is the backend's.
-        assertTrue(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "checking",
-            ),
-        )
-        assertFalse(
-            canSaveEditedRow(
-                TransactionType.TRANSFER, "12.50", "2026-08-01", "", "Checking", "Checking",
-            ),
-        )
-    }
-
-    @Test
-    fun `an expense or income ignores the transfer legs on save`() {
-        assertTrue(
-            canSaveEditedRow(
-                TransactionType.INCOME, "12.50", "2026-08-01", "Checking", "Cash", "Cash",
+    fun `an expense or income ignores the transfer legs`() {
+        assertEquals(
+            emptyMap<String, String>(),
+            validateImportRow(
+                edited(type = TransactionType.INCOME, sourceWallet = "Cash", destinationWallet = "Cash"),
             ),
         )
     }
