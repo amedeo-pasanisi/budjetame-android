@@ -375,7 +375,10 @@ class CategoriesViewModelTest {
     }
 
     @Test
-    fun `typing keeps the revealed error and the next valid save clears it and creates`() = runBlocking {
+    fun `typing keeps the revealed error and the next valid save clears it and submits`() = runBlocking {
+        // The server rejects the valid save, so the modal stays open and the
+        // cleared Field Errors can be observed beside the banner.
+        createStatus = 409
         createViewModel()
         awaitLoaded()
 
@@ -388,8 +391,9 @@ class CategoriesViewModelTest {
         assertEquals(revealed, viewModel.uiState.value.modal!!.fieldErrors)
 
         viewModel.submit()
-        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors ?: emptyMap<String, String>())
-        awaitState { it.modal == null && it.categories.any { category -> category.name == "Lunch" } }
+        awaitState { it.modal?.error != null }
+        assertTrue(calls.toList().any { it.method == "POST" && it.path == "/api/categories" })
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal!!.fieldErrors)
     }
 
     @Test
