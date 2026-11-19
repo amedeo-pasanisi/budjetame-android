@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.assistant.AssistantGateway
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
+import com.budjetame.android.data.dictation.DictationRecognizer
+import com.budjetame.android.data.dictation.DictationTones
+import com.budjetame.android.data.dictation.recognitionLanguage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,14 +42,26 @@ import kotlinx.serialization.json.JsonObject
  * a failure line. A failed turn is not in the transcript, and its sentence
  * goes back into the box for a retry.
  *
- * Every turn goes through [sendSentence], and the box changes only through
- * [onTextChange]: the two places a Dictation (ticket #69) hooks into — its
- * end sends the box's text followed by what was heard, and typing cancels
- * it.
+ * Dictation (ticket #69; CONTEXT.md: Dictation) listens through the
+ * [DictationRecognizer] seam in the Account's Locale. The screen starts one
+ * when the Assistant opens and on a microphone tap, once it holds the
+ * microphone permission; [startDictation] starts none while a reply is
+ * pending. The start tone sounds when the recognizer is really listening,
+ * the end tone at its end — so a refused microphone sounds nothing. What
+ * was heard goes through [sendSentence] after the box's text; typing
+ * ([onTextChange]), sending and closing drop it, silently and unsent. Only
+ * a failure the user did not choose raises [UiState.dictationFailed].
  */
 class AssistantViewModel(
     private val turns: AssistantGateway,
     private val settings: AssistantSettingsGateway,
+    /** The device's speech recognizer; null where it has none: no
+     * microphone, the Assistant is the box alone. */
+    private val recognizer: DictationRecognizer?,
+    private val tones: DictationTones,
+    /** The Account's Locale as the server serves it: the language a
+     * Dictation listens in. */
+    private val locale: String,
 ) : ViewModel() {
 
     enum class Speaker { USER, ASSISTANT }
@@ -67,13 +82,29 @@ class AssistantViewModel(
         val text: String = "",
         /** A turn is in flight: Send waits for its reply. */
         val pending: Boolean = false,
+        /** The device has a speech recognizer: the microphone shows. */
+        val dictationAvailable: Boolean = false,
+        /** A Dictation is running. */
+        val listening: Boolean = false,
+        /** The last Dictation failed for a reason the user did not choose. */
+        val dictationFailed: Boolean = false,
     )
 
-    private val _uiState = MutableStateFlow(UiState())
+    private val _uiState = MutableStateFlow(UiState(dictationAvailable = recognizer != null))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private var availabilityJob: Job? = null
     private var turnJob: Job? = null
+
+    /** One Dictation's own state: whether the microphone opened (its
+     * start tone sounded) and whether the Assistant dropped it. */
+    private class Dictation {
+        var started = false
+        var dropped = false
+    }
+
+    /** The Dictation running now, if any. */
+    private var dictation: Dictation? = null
 
     /** The conversation as last received: the previous turns' tails joined. */
     private var transcript: List<JsonObject> = emptyList()
@@ -107,17 +138,90 @@ class AssistantViewModel(
      * still writes one, is dropped; its Drafts show on the Transactions
      * tab all the same). */
     fun close() {
+        dropDictation()
         turnJob?.cancel()
         transcript = emptyList()
-        _uiState.update { it.copy(open = false, lines = emptyList(), text = "", pending = false) }
+        _uiState.update {
+            it.copy(open = false, lines = emptyList(), text = "", pending = false, dictationFailed = false)
+        }
     }
 
     fun onTextChange(value: String) {
+        // Typing means the user chose the box: the Dictation gives way.
+        dropDictation()
         _uiState.update { it.copy(text = value) }
+    }
+
+    /** Start a Dictation: when the Assistant opens and on a microphone tap,
+     * once the microphone permission is granted. None starts while the
+     * Assistant is closed, a reply is pending or one is already listening. */
+    fun startDictation() {
+        val recognizer = recognizer ?: return
+        val state = _uiState.value
+        if (!state.open || state.pending || dictation != null) return
+        val dictation = Dictation()
+        this.dictation = dictation
+        _uiState.update { it.copy(listening = true, dictationFailed = false) }
+        recognizer.start(
+            recognitionLanguage(locale),
+            object : DictationRecognizer.Listener {
+                override fun onReadyForSpeech() {
+                    if (dictation.dropped) return
+                    dictation.started = true
+                    tones.playStart()
+                }
+
+                override fun onResult(heard: String) {
+                    if (!end(dictation)) return
+                    // What was heard is the next turn, after anything already typed.
+                    sendSentence("${_uiState.value.text.trim()} $heard".trim())
+                }
+
+                override fun onNoMatch() {
+                    end(dictation)
+                }
+
+                override fun onFailure() {
+                    if (!end(dictation)) return
+                    _uiState.update { it.copy(dictationFailed = true) }
+                }
+            },
+        )
+    }
+
+    /** End the running Dictation early (the second microphone tap): what
+     * it heard so far is still sent. */
+    fun stopDictation() {
+        if (dictation != null) recognizer?.stop()
+    }
+
+    /** [dictation] ended: the end tone answers its start tone. False when it
+     * was dropped, whose late end must change nothing. */
+    private fun end(dictation: Dictation): Boolean {
+        if (dictation.dropped) return false
+        this.dictation = null
+        _uiState.update { it.copy(listening = false) }
+        if (dictation.started) tones.playEnd()
+        return true
+    }
+
+    /** End the running Dictation, if any, without sending or sounding. */
+    private fun dropDictation() {
+        val dictation = dictation ?: return
+        dictation.dropped = true
+        this.dictation = null
+        _uiState.update { it.copy(listening = false) }
+        recognizer?.cancel()
+    }
+
+    override fun onCleared() {
+        dropDictation()
     }
 
     /** Send what is typed in the box. */
     fun send() {
+        // Sending the box is choosing the box: the Dictation gives way.
+        dropDictation()
         sendSentence(_uiState.value.text.trim())
     }
 

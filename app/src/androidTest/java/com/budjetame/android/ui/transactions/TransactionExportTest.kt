@@ -41,6 +41,7 @@ import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
+import com.budjetame.android.ui.settings.SilentDictationTones
 import com.budjetame.android.ui.shell.AppShell
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -72,6 +73,8 @@ class TransactionExportTest {
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
                 assistantSettingsRepository = NoAssistantSettingsGateway(),
                 assistantRepository = NoAssistantGateway(),
+                dictationRecognizer = null,
+                dictationTones = SilentDictationTones(),
                 walletRepository = FakeWalletGateway(),
                 categoryRepository = FakeCategoryGateway(),
                 dashboardRepository = FakeDashboardGateway(),

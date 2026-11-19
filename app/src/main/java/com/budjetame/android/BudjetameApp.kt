@@ -74,6 +74,8 @@ fun BudjetameApp(container: AppContainer) {
             account = state.account,
             assistantSettingsRepository = container.assistantSettingsRepository,
             assistantRepository = container.assistantRepository,
+            dictationRecognizer = container.dictationRecognizer,
+            dictationTones = container.dictationTones,
             walletRepository = container.walletRepository,
             categoryRepository = container.categoryRepository,
             dashboardRepository = container.dashboardRepository,

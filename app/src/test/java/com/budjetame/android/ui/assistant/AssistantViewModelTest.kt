@@ -7,6 +7,7 @@ import com.budjetame.android.data.api.AssistantSettingsApi
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.assistant.ApiAssistantRepository
 import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
+import com.budjetame.android.data.dictation.DictationTones
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -93,6 +94,12 @@ class AssistantViewModelTest {
         viewModel = AssistantViewModel(
             turns = ApiAssistantRepository(client.create(AssistantApi::class.java)),
             settings = ApiAssistantSettingsRepository(client.create(AssistantSettingsApi::class.java)),
+            recognizer = null,
+            tones = object : DictationTones {
+                override fun playStart() {}
+                override fun playEnd() {}
+            },
+            locale = "en",
         )
     }
 

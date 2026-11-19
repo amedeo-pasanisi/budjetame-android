@@ -6,11 +6,14 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 
-/** The single login identity (CONTEXT.md: Account). */
+/** The single login identity (CONTEXT.md: Account). [language] is the
+ * Account's Locale as the server serves it (`en` or `it`): the language a
+ * Dictation listens in (ticket #69). */
 @Serializable
 data class AccountDto(
     val id: Int,
     val email: String,
+    val language: String = "en",
 )
 
 /** Public sign-in options: an empty client id means no Google button. */

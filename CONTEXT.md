@@ -20,6 +20,10 @@ _Avoid_: AI settings, LLM config, provider config
 The provider key inside the Assistant Settings, set and removed in Settings. It is write-only: once saved it is never shown again beyond its last characters, and the app never stores or logs it — a key typed but not saved is dropped when Settings closes, and may be sent once, in a request header, to list a provider's models before Save.
 _Avoid_: API key, token, credential, secret
 
+**Dictation**:
+One spoken sentence to the Assistant, heard in the Account's Locale. A Dictation starts on its own when the Assistant opens, and again each time the user taps the microphone while no reply is pending. A short tone marks the moment it is really listening and another its end; a Dictation the user refuses the microphone to never starts, makes no sound and is no failure. Only a Dictation that fails for a reason the user did not choose says so. It ends when the user falls silent or taps the microphone again, and what was heard is sent as the next turn straight away, after anything already typed in the box. Using the box while it listens — typing, or sending what is typed — cancels it. Closing the Assistant drops it without sending. A Dictation that heard nothing sends nothing.
+_Avoid_: registration, recording, voice note, voice message
+
 **Wallet**:
 Any money-holder in the system. Four types: Checking, Credit Card, Cash, Contact.
 _Avoid_: account, bank account

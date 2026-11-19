@@ -54,6 +54,7 @@ import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
+import com.budjetame.android.ui.settings.SilentDictationTones
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -87,6 +88,8 @@ class TabPagerTest {
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
                 assistantSettingsRepository = NoAssistantSettingsGateway(),
                 assistantRepository = NoAssistantGateway(),
+                dictationRecognizer = null,
+                dictationTones = SilentDictationTones(),
                 walletRepository = walletRepository,
                 categoryRepository = categoryRepository,
                 dashboardRepository = EmptyDashboardGateway(),
