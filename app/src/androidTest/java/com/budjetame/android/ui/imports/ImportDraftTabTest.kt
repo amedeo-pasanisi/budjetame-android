@@ -41,6 +41,7 @@ import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.settings.FixedLocaleGateway
 import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
+import com.budjetame.android.ui.settings.NoBackupGateway
 import com.budjetame.android.ui.settings.SilentDictationTones
 import com.budjetame.android.ui.shell.AppShell
 import org.junit.Rule
@@ -81,6 +82,7 @@ class ImportDraftTabTest {
                 importRepository = FakeImportGateway(),
                 recurringCostRepository = FakeRecurringCostGateway(),
                 recurringIncomeRepository = FakeRecurringIncomeGateway(),
+                backupRepository = NoBackupGateway(),
                 location = SilentLocation(),
                 onSignOut = {},
                 onDeleteAccount = {},
@@ -171,6 +173,7 @@ class ImportDraftTabTest {
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto = error("unused")
+        override suspend fun undoTransaction(row: TransactionDto): TransactionDto = error("unused")
         override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
     }
 

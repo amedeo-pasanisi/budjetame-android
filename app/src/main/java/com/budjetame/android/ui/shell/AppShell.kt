@@ -3,6 +3,7 @@ package com.budjetame.android.ui.shell
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -59,6 +60,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.assistant.AssistantGateway
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
+import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.category.CategoryGateway
@@ -78,10 +80,13 @@ import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.settings.AssistantSettingsSection
+import com.budjetame.android.ui.settings.BackupSection
 import com.budjetame.android.ui.settings.LanguageSettingsSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
+import com.budjetame.android.ui.undo.UndoStackViewModel
+import com.budjetame.android.ui.undo.UndoToastStack
 import com.budjetame.android.ui.wallets.WalletsScreen
 import kotlinx.coroutines.launch
 
@@ -122,6 +127,8 @@ fun AppShell(
     importRepository: ImportGateway,
     recurringCostRepository: RecurringCostGateway,
     recurringIncomeRepository: RecurringIncomeGateway,
+    /** The Backup block of the Settings dialog (ticket #57). */
+    backupRepository: BackupGateway,
     /** The device GPS (ticket #29): the Transaction form's location pick,
      * prefill, and first-save attach. */
     location: DeviceLocation,
@@ -159,6 +166,16 @@ fun AppShell(
     // an unconsumed one.
     var pendingLedgerJump by remember { mutableStateOf<LedgerJump?>(null) }
     val scope = rememberCoroutineScope()
+
+    // The Undo stack (web ADR-0031, lifted to the app shell by web
+    // ADR-0034; ticket #58): one stack for every tab, owned here so a tab
+    // switch never forfeits an undo — the pager disposes the pages, never
+    // the shell. Held in the Activity's ViewModel store like the pages'
+    // ViewModels: it survives configuration changes and goes with the
+    // store on sign-out (ADR-0003). Screens report deletes into it; the
+    // shell renders it above the bottom bar and runs its Undo handler.
+    val undoStack = viewModel { UndoStackViewModel(transactionRepository) }.stack
+    val undoState by undoStack.state.collectAsStateWithLifecycle()
 
     // The five tabs in one finger-following pager (ADR-0003): the content
     // drags with the finger, a release snaps to the nearest tab, a fling
@@ -209,51 +226,62 @@ fun AppShell(
         },
         bottomBar = { BottomTabs(pagerState) },
     ) { innerPadding ->
-        HorizontalPager(
-            state = pagerState,
-            // The header and the bottom bar stay fixed; only the content
-            // area pages. The tag lets the UI tests drag the pager itself
-            // (never a scrollable card inside a page).
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .testTag("tab-pager"),
-        ) { page ->
-            val tab = TABS[page]
-            tabState.SaveableStateProvider(key = tab.name) {
-                when (tab) {
-                    Tab.Dashboard -> DashboardScreen(
-                        dashboardRepository,
-                        recurringCostRepository,
-                        recurringIncomeRepository,
-                    )
-                    Tab.Wallets -> WalletsScreen(
-                        walletRepository,
-                        onLedgerJump = requestLedgerJump,
-                    )
-                    Tab.Transactions -> TransactionsScreen(
-                        transactionRepository,
-                        draftTransactionRepository,
-                        importRepository,
-                        walletRepository,
-                        categoryRepository,
-                        recurringCostRepository,
-                        recurringIncomeRepository,
-                        location = location,
-                        pendingLedgerJump = pendingLedgerJump,
-                        onLedgerJumpConsumed = { pendingLedgerJump = null },
-                    )
-                    Tab.Categories -> CategoriesScreen(
-                        categoryRepository,
-                        onLedgerJump = requestLedgerJump,
-                    )
-                    Tab.Recurring -> RecurringScreen(
-                        recurringCostRepository,
-                        recurringIncomeRepository,
-                        onLedgerJump = requestLedgerJump,
-                    )
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            HorizontalPager(
+                state = pagerState,
+                // The header and the bottom bar stay fixed; only the content
+                // area pages. The tag lets the UI tests drag the pager itself
+                // (never a scrollable card inside a page).
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("tab-pager"),
+            ) { page ->
+                val tab = TABS[page]
+                tabState.SaveableStateProvider(key = tab.name) {
+                    when (tab) {
+                        Tab.Dashboard -> DashboardScreen(
+                            dashboardRepository,
+                            recurringCostRepository,
+                            recurringIncomeRepository,
+                        )
+                        Tab.Wallets -> WalletsScreen(
+                            walletRepository,
+                            onLedgerJump = requestLedgerJump,
+                        )
+                        Tab.Transactions -> TransactionsScreen(
+                            transactionRepository,
+                            draftTransactionRepository,
+                            importRepository,
+                            walletRepository,
+                            categoryRepository,
+                            recurringCostRepository,
+                            recurringIncomeRepository,
+                            location = location,
+                            pendingLedgerJump = pendingLedgerJump,
+                            onLedgerJumpConsumed = { pendingLedgerJump = null },
+                            undoSink = undoStack,
+                        )
+                        Tab.Categories -> CategoriesScreen(
+                            categoryRepository,
+                            onLedgerJump = requestLedgerJump,
+                        )
+                        Tab.Recurring -> RecurringScreen(
+                            recurringCostRepository,
+                            recurringIncomeRepository,
+                            onLedgerJump = requestLedgerJump,
+                        )
+                    }
                 }
             }
+
+            // Outside the pager, over whichever page shows: the entries stay
+            // put while the pages slide underneath.
+            UndoToastStack(
+                state = undoState,
+                onUndo = undoStack::undo,
+                onDismiss = undoStack::dismiss,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 
@@ -262,6 +290,7 @@ fun AppShell(
             email = account.email,
             localeGateway = localeGateway,
             assistantSettingsRepository = assistantSettingsRepository,
+            backupRepository = backupRepository,
             onClose = {
                 showSettings = false
                 assistant.refreshAvailability()
@@ -383,7 +412,8 @@ private fun BottomTabs(pagerState: PagerState) {
 }
 
 /**
- * The app's settings (web issue #84): the account email and the destructive
+ * The app's settings (web issue #84): the account email, the Assistant
+ * Settings, the Backup's Export all (ticket #57), and the destructive
  * account-deletion action behind its own confirm step, with the web app's
  * exact copy.
  */
@@ -392,6 +422,7 @@ private fun SettingsDialog(
     email: String,
     localeGateway: LocaleGateway,
     assistantSettingsRepository: AssistantSettingsGateway,
+    backupRepository: BackupGateway,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -415,6 +446,8 @@ private fun SettingsDialog(
                 LanguageSettingsSection(localeGateway)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 AssistantSettingsSection(assistantSettingsRepository)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                BackupSection(backupRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
                     text = "Delete account",

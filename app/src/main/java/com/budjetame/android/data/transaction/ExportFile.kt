@@ -18,11 +18,13 @@ data class ExportFile(
  * when the header is missing or carries no quoted filename (ported from
  * the web transport's `exportFilename`). The server always attaches
  * `attachment; filename="budjetame-YYYY-MM-DD.xlsx"`; the fallback keeps
- * the share flow working against a proxy that stripped the header.
+ * the share flow working against a proxy that stripped the header. The
+ * Backup download (ticket #57) reads its own dated name the same way, with
+ * its own [fallback].
  */
-internal fun exportFilename(disposition: String?): String {
+internal fun exportFilename(disposition: String?, fallback: String = FALLBACK_EXPORT_FILENAME): String {
     val match = disposition?.let { FILENAME_PATTERN.find(it) }
-    return match?.groupValues?.get(1) ?: FALLBACK_EXPORT_FILENAME
+    return match?.groupValues?.get(1) ?: fallback
 }
 
 private val FILENAME_PATTERN = Regex("""filename="([^"]+)"""")

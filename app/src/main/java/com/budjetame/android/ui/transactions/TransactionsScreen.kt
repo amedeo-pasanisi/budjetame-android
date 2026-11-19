@@ -98,6 +98,7 @@ import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.theme.Slate700
 import com.budjetame.android.ui.wallets.WalletModal
+import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.util.Dates
 import java.io.File
 import java.time.Instant
@@ -155,6 +156,9 @@ fun TransactionsScreen(
     /** The consume side of the jump: call once the pending request has been
      * applied, so the shell clears it and no later render can reapply it. */
     onLedgerJumpConsumed: () -> Unit = {},
+    /** The shell's Undo stack (ticket #58): a deleted Transaction is
+     * reported here and its Undo entry shows on every tab. */
+    undoSink: UndoSink = UndoSink.None,
 ) {
     val viewModel: TransactionsViewModel = viewModel {
         TransactionsViewModel(
@@ -169,6 +173,7 @@ fun TransactionsScreen(
             // the ViewModel's initial state: its very first fetch already
             // carries the filter — never an unfiltered flash (ADR-0004).
             seed = pendingLedgerJump,
+            undoSink = undoSink,
         )
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()

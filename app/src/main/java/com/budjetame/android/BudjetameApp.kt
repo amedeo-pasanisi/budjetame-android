@@ -69,13 +69,13 @@ fun BudjetameApp(
     // second account must never see the previous session's screens or data
     // (the login screen's own ViewModel is recreated fresh with it).
     val context = LocalContext.current
+    val clearSessionViewModels = {
+        (context as? ComponentActivity)?.viewModelStore?.clear()
+    }
 
     // The Account's Locale (issue #59): every screen renders amounts and
     // dates in it, and a change in Settings recomposes the readers in place.
     val localeCode by container.authRepository.locale.collectAsStateWithLifecycle()
-    val clearSessionViewModels = {
-        (context as? ComponentActivity)?.viewModelStore?.clear()
-    }
 
     CompositionLocalProvider(LocalDisplayLocale provides displayLocale(localeCode)) {
         when (val state = authState) {
@@ -103,6 +103,7 @@ fun BudjetameApp(
                     importRepository = container.importRepository,
                     recurringCostRepository = container.recurringCostRepository,
                     recurringIncomeRepository = container.recurringIncomeRepository,
+                    backupRepository = container.backupRepository,
                     location = container.deviceLocation,
                     showTransactions = showTransactions,
                     onTransactionsShown = onTransactionsShown,

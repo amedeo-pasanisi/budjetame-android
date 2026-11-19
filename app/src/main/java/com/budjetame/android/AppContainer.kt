@@ -7,6 +7,7 @@ import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.AssistantApi
 import com.budjetame.android.data.api.AssistantSettingsApi
 import com.budjetame.android.data.api.AuthApi
+import com.budjetame.android.data.api.BackupApi
 import com.budjetame.android.data.api.CategoryApi
 import com.budjetame.android.data.api.DashboardApi
 import com.budjetame.android.data.api.DraftTransactionApi
@@ -18,6 +19,7 @@ import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.assistant.ApiAssistantRepository
 import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
 import com.budjetame.android.data.auth.ApiAuthRepository
+import com.budjetame.android.data.backup.ApiBackupRepository
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.dictation.AndroidDictationRecognizer
 import com.budjetame.android.data.dictation.AndroidDictationTones
@@ -80,6 +82,9 @@ class AppContainer(context: Context) {
     val recurringCostRepository = ApiRecurringCostRepository(api.create(RecurringCostApi::class.java))
 
     val recurringIncomeRepository = ApiRecurringIncomeRepository(api.create(RecurringIncomeApi::class.java))
+
+    /** The Backup block of the Settings dialog (ticket #57). */
+    val backupRepository = ApiBackupRepository(api.create(BackupApi::class.java))
 
     /** The device GPS (ticket #29): the Transaction form's location pick,
      * prefill, and first-save attach. */
