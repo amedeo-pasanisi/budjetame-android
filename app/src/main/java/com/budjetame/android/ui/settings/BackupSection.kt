@@ -34,34 +34,19 @@ private const val BACKUP_MIME_TYPE = "application/vnd.openxmlformats-officedocum
 
 /**
  * The Backup block of the Settings dialog (ticket #57, web #112): Export all
- * downloads the Account's complete Backup, then offers to save it through
- * the system document picker under the server's dated filename, or to hand
- * it to the share sheet. Distinct from the ledger's Export, which carries
- * only the filtered Transactions.
+ * downloads the Account's complete Backup, then [BackupDelivery] offers to
+ * save it or share it. Distinct from the ledger's Export, which carries only
+ * the filtered Transactions.
  */
 @Composable
 fun BackupSection(backups: BackupGateway) {
     val viewModel = backupViewModel(backups)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     // The block is composed while the dialog shows: drop the held workbook
     // when the dialog goes.
     DisposableEffect(viewModel) {
         onDispose { viewModel.close() }
-    }
-
-    val saveLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE),
-    ) { uri ->
-        val backup = viewModel.uiState.value.backup
-        // A cancelled picker answers null: nothing is written, nothing to say.
-        if (uri == null || backup == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val written = withContext(Dispatchers.IO) { writeBackup(context, uri, backup) }
-            if (!written) viewModel.onDeliveryFailed("Could not save the backup file.")
-        }
     }
 
     Column {
@@ -77,25 +62,58 @@ fun BackupSection(backups: BackupGateway) {
             modifier = Modifier.padding(top = 4.dp),
         )
         TextButton(
-            onClick = viewModel::exportAll,
-            enabled = !state.exporting,
+            onClick = viewModel::downloadBackup,
+            enabled = !state.downloading,
             modifier = Modifier.padding(top = 4.dp),
         ) {
-            Text(if (state.exporting) "Exporting…" else "Export all")
+            Text(if (state.downloading) "Exporting…" else "Export all")
         }
+        BackupDelivery(viewModel)
+    }
+}
 
+/**
+ * The held Backup's way out of the app, and the Backup's error line: save it
+ * through the system document picker under the server's dated filename, or
+ * hand it to the share sheet. Shows nothing but the error until a Backup is
+ * held. Public so Restore's "offer a fresh Backup first" step can render it.
+ */
+@Composable
+fun BackupDelivery(viewModel: BackupViewModel) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE),
+    ) { uri ->
+        val backup = viewModel.uiState.value.backup
+        // A cancelled picker answers null: nothing is written, nothing to say.
+        if (uri == null || backup == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val written = withContext(Dispatchers.IO) { writeBackup(context, uri, backup) }
+            if (!written) viewModel.onDeliveryFailed(BackupDeliveryFailure.SAVE)
+        }
+    }
+
+    Column {
         state.backup?.let { backup ->
             Text(
                 text = "Backup ready: ${backup.filename}",
                 style = MaterialTheme.typography.labelSmall,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { saveLauncher.launch(backup.filename) }) { Text("Save to device") }
                 TextButton(
                     onClick = {
+                        viewModel.onDeliveryStarted()
+                        saveLauncher.launch(backup.filename)
+                    },
+                ) { Text("Save to device") }
+                TextButton(
+                    onClick = {
+                        viewModel.onDeliveryStarted()
                         scope.launch {
-                            val shared = shareBackup(context, backup)
-                            if (!shared) viewModel.onDeliveryFailed("Could not share the backup file.")
+                            if (!shareBackup(context, backup)) viewModel.onDeliveryFailed(BackupDeliveryFailure.SHARE)
                         }
                     },
                 ) { Text("Share") }

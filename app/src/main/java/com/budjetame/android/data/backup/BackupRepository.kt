@@ -16,22 +16,25 @@ class BackupFile(
 
 /** The Backup operations the Settings dialog calls. */
 interface BackupGateway {
-    /** Download the Account's complete Backup workbook. Throws an
-     * ApiException when the server refuses it. */
-    suspend fun exportAll(): BackupFile
+    /** Download the Account's complete Backup workbook. Throws when the
+     * server refuses it or sends no file. */
+    suspend fun download(): BackupFile
 }
 
 /** The API-backed BackupGateway. */
 class ApiBackupRepository(private val api: BackupApi) : BackupGateway {
 
-    override suspend fun exportAll(): BackupFile {
+    override suspend fun download(): BackupFile {
         // A raw-body endpoint: Retrofit does not throw for a non-2xx, so the
         // response is checked here, with the same detail parsing.
-        val response = api.export()
+        val response = api.download()
         if (!response.isSuccessful) throw response.toApiException()
+        val content = response.body()?.bytes()
+        // An empty answer is no Backup: nothing must be saved from it.
+        check(content != null && content.isNotEmpty()) { "The server sent no backup workbook." }
         return BackupFile(
             filename = exportFilename(response.headers()["Content-Disposition"], FALLBACK_BACKUP_FILENAME),
-            content = response.body()?.bytes() ?: ByteArray(0),
+            content = content,
         )
     }
 }

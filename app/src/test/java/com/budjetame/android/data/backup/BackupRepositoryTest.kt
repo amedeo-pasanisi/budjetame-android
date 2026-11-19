@@ -53,7 +53,7 @@ class BackupRepositoryTest {
     fun `the Backup is fetched with the bearer token and comes back as the server's bytes and filename`() = runBlocking {
         server.enqueue(workbookResponse("attachment; filename=\"budjetame-backup-2026-11-19.xlsx\""))
 
-        val backup = repository.exportAll()
+        val backup = repository.download()
 
         val request = server.takeRequest()
         assertEquals("GET", request.method)
@@ -67,7 +67,19 @@ class BackupRepositoryTest {
     fun `a stripped Content-Disposition falls back to the web's backup filename`() = runBlocking {
         server.enqueue(workbookResponse(disposition = null))
 
-        assertEquals("budjetame-backup.xlsx", repository.exportAll().filename)
+        assertEquals("budjetame-backup.xlsx", repository.download().filename)
+    }
+
+    @Test
+    fun `a success with an empty body is no Backup`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        try {
+            repository.download()
+            fail("expected an empty answer to throw")
+        } catch (_: IllegalStateException) {
+            // Nothing to save: the ViewModel shows its error line.
+        }
     }
 
     @Test
@@ -80,7 +92,7 @@ class BackupRepositoryTest {
         )
 
         try {
-            repository.exportAll()
+            repository.download()
             fail("expected the failed download to throw")
         } catch (error: ApiException) {
             assertEquals(500, error.status)

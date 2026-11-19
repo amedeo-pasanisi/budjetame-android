@@ -14,5 +14,5 @@ interface BackupApi {
      * returns the unparsed response: the bytes come from the body, the dated
      * `budjetame-backup-YYYY-MM-DD.xlsx` name from Content-Disposition. */
     @GET("backup/export")
-    suspend fun export(): Response<ResponseBody>
+    suspend fun download(): Response<ResponseBody>
 }

@@ -14,21 +14,30 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** How handing a held Backup to the device can fail, with the line the
+ * Backup section shows. */
+enum class BackupDeliveryFailure(val message: String) {
+    SAVE("Could not save the backup file."),
+    SHARE("Could not share the backup file."),
+}
+
 /**
- * Export all (ticket #57, web #112): download the Account's Backup and hold
- * it until the user saves it through the document picker or shares it.
+ * The Backup's "Export all" (ticket #57, web #112): download the Account's
+ * Backup and hold it until the user saves it through the document picker or
+ * shares it.
  *
  * The ViewModel lives in the Activity's store, like the Assistant Settings
  * block's, so every Settings section asking [backupViewModel] for it gets the
- * same instance: the Backup section shows it, and Restore's "offer a fresh
- * Backup first" step calls the same [exportAll] (CONTEXT.md: Restore). The
- * dialog calls [close] when it goes, which drops the held workbook.
+ * same instance: the Backup section shows it, and Restore's step that offers
+ * a fresh Backup first can call the same [downloadBackup] and render
+ * [BackupDelivery]. The dialog calls [close] when it goes, which drops the
+ * held workbook.
  */
 class BackupViewModel(private val backups: BackupGateway) : ViewModel() {
 
     data class UiState(
         /** True while the Backup downloads. */
-        val exporting: Boolean = false,
+        val downloading: Boolean = false,
         /** The downloaded Backup, ready to save or share; null before Export
          * all, after a failed download, and once the dialog closed. */
         val backup: BackupFile? = null,
@@ -38,16 +47,16 @@ class BackupViewModel(private val backups: BackupGateway) : ViewModel() {
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    private var exportJob: Job? = null
+    private var downloadJob: Job? = null
 
     /** Download a fresh Backup, replacing any held one. A failure shows an
      * error and holds no file, so nothing can be saved from it. */
-    fun exportAll() {
-        if (_uiState.value.exporting) return
-        _uiState.value = UiState(exporting = true)
-        exportJob = viewModelScope.launch {
+    fun downloadBackup() {
+        if (_uiState.value.downloading) return
+        _uiState.value = UiState(downloading = true)
+        downloadJob = viewModelScope.launch {
             try {
-                val backup = backups.exportAll()
+                val backup = backups.download()
                 _uiState.value = UiState(backup = backup)
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -57,15 +66,21 @@ class BackupViewModel(private val backups: BackupGateway) : ViewModel() {
         }
     }
 
-    /** The device could not write or share the held Backup: show [message].
-     * The Backup stays held, so the user can try again or the other way. */
-    fun onDeliveryFailed(message: String) {
-        _uiState.update { it.copy(error = message) }
+    /** A save or share of the held Backup starts: an earlier one's failure
+     * line goes. */
+    fun onDeliveryStarted() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    /** The device could not write or share the held Backup. The Backup stays
+     * held, so the user can try again or the other way. */
+    fun onDeliveryFailed(failure: BackupDeliveryFailure) {
+        _uiState.update { it.copy(error = failure.message) }
     }
 
     /** Drop the held Backup and stop a download in flight. */
     fun close() {
-        exportJob?.cancel()
+        downloadJob?.cancel()
         _uiState.value = UiState()
     }
 }
