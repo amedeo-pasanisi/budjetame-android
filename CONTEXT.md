@@ -157,8 +157,12 @@ The removal of a Draft Transaction without creating anything, at once and with n
 _Avoid_: delete, reject, cancel
 
 **Export**:
-A generated .xlsx of the Account's Transactions in the import template's format, downloaded from the ledger with the current filters and search applied. It carries only what the template carries: Opening Balance Transactions are left out (the template's type vocabulary has no value for them), Recurring links are never carried, and Places flatten to coordinates. Re-importing an Export into the same Account flags every row as a Duplicate; into a fresh Account it restores the ledger once its Wallets and Categories exist.
+A generated .xlsx of the Account's Transactions in the import template's format, downloaded from the ledger with the current filters and search applied. It carries only what the template carries: Opening Balance Transactions are left out (the template's type vocabulary has no value for them), Recurring links are never carried, and Places flatten to coordinates. Re-importing an Export into the same Account flags every row as a Duplicate; into a fresh Account it restores the ledger once its Wallets and Categories exist. Not to be confused with a Backup, which is complete.
 _Avoid_: backup, dump, statement
+
+**Backup**:
+A multi-sheet .xlsx downloaded on demand from Settings ("Export all") carrying the Account's whole data state: Transactions including Opening Balances, Wallets, Categories, Recurring Costs and Recurring Incomes, and skips, plus an origin marker (the Account's email). Entities are keyed by name, with the original ids carried alongside for reference. Unlike an Export it is unfiltered and complete; it never carries the Account's credentials, Locale, Assistant Key or Draft Transactions. The user saves it through the system document picker under the server's dated filename, or hands it to the share sheet.
+_Avoid_: export all, full export, dump, snapshot
 
 **Ledger jump**:
 What a Wallet, Category, or Recurring definition row's whole-surface tap does: it opens the Transactions tab with the ledger already filtered to exactly that Wallet, that Category, or — for a Recurring Cost or Recurring Income — that definition's linked Transactions — the previous filters, search, and open Filters panel are all reset by the jump, and a Frozen Wallet's history lands read-only. Editing the row is the card's separate trailing Edit button, never the tap itself.

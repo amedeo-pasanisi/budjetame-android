@@ -41,6 +41,7 @@ import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
+import com.budjetame.android.ui.settings.NoBackupGateway
 import com.budjetame.android.ui.settings.SilentDictationTones
 import com.budjetame.android.ui.shell.AppShell
 import org.junit.Assert.assertEquals
@@ -83,6 +84,7 @@ class TransactionExportTest {
                 importRepository = FakeImportGateway(),
                 recurringCostRepository = FakeRecurringCostGateway(),
                 recurringIncomeRepository = FakeRecurringIncomeGateway(),
+                backupRepository = NoBackupGateway(),
                 location = ExportSilentLocation(),
                 onSignOut = {},
                 onDeleteAccount = {},

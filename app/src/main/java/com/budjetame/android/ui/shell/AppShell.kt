@@ -59,6 +59,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.assistant.AssistantGateway
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
+import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.category.CategoryGateway
@@ -77,6 +78,7 @@ import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.settings.AssistantSettingsSection
+import com.budjetame.android.ui.settings.BackupSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
@@ -116,6 +118,8 @@ fun AppShell(
     importRepository: ImportGateway,
     recurringCostRepository: RecurringCostGateway,
     recurringIncomeRepository: RecurringIncomeGateway,
+    /** The Backup block of the Settings dialog (ticket #57). */
+    backupRepository: BackupGateway,
     /** The device GPS (ticket #29): the Transaction form's location pick,
      * prefill, and first-save attach. */
     location: DeviceLocation,
@@ -255,6 +259,7 @@ fun AppShell(
         SettingsDialog(
             email = account.email,
             assistantSettingsRepository = assistantSettingsRepository,
+            backupRepository = backupRepository,
             onClose = {
                 showSettings = false
                 assistant.refreshAvailability()
@@ -376,7 +381,8 @@ private fun BottomTabs(pagerState: PagerState) {
 }
 
 /**
- * The app's settings (web issue #84): the account email and the destructive
+ * The app's settings (web issue #84): the account email, the Assistant
+ * Settings, the Backup's Export all (ticket #57), and the destructive
  * account-deletion action behind its own confirm step, with the web app's
  * exact copy.
  */
@@ -384,6 +390,7 @@ private fun BottomTabs(pagerState: PagerState) {
 private fun SettingsDialog(
     email: String,
     assistantSettingsRepository: AssistantSettingsGateway,
+    backupRepository: BackupGateway,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -405,6 +412,8 @@ private fun SettingsDialog(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 AssistantSettingsSection(assistantSettingsRepository)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                BackupSection(backupRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
                     text = "Delete account",
