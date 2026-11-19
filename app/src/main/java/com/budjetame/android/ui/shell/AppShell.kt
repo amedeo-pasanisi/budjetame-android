@@ -80,6 +80,7 @@ import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.settings.AssistantSettingsSection
 import com.budjetame.android.ui.settings.BackupSection
+import com.budjetame.android.ui.settings.RestoreSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
@@ -284,6 +285,9 @@ fun AppShell(
             email = account.email,
             assistantSettingsRepository = assistantSettingsRepository,
             backupRepository = backupRepository,
+            // A restore replaces every row the undo entries point at: they
+            // are stale by definition (ticket #60, web ADR-0034).
+            onRestored = undoStack::clear,
             onClose = {
                 showSettings = false
                 assistant.refreshAvailability()
@@ -406,7 +410,8 @@ private fun BottomTabs(pagerState: PagerState) {
 
 /**
  * The app's settings (web issue #84): the account email, the Assistant
- * Settings, the Backup's Export all (ticket #57), and the destructive
+ * Settings, the Backup's Export all (ticket #57) and Restore (ticket #60),
+ * and the destructive
  * account-deletion action behind its own confirm step, with the web app's
  * exact copy.
  */
@@ -415,6 +420,8 @@ private fun SettingsDialog(
     email: String,
     assistantSettingsRepository: AssistantSettingsGateway,
     backupRepository: BackupGateway,
+    /** A restore succeeded: the shell clears its undo stack. */
+    onRestored: () -> Unit,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -438,6 +445,9 @@ private fun SettingsDialog(
                 AssistantSettingsSection(assistantSettingsRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 BackupSection(backupRepository)
+                // Next to Export all, in the same dialog: step one's fresh
+                // Backup shares the Backup block's held workbook (ticket #60).
+                RestoreSection(backupRepository, onRestored = onRestored, onCloseSettings = onClose)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
                     text = "Delete account",

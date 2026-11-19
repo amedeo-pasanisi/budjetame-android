@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** The .xlsx content type: the Backup's MIME, for the picker and the share sheet. */
-private const val BACKUP_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+internal const val BACKUP_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 /**
  * The Backup block of the Settings dialog (ticket #57, web #112): Export all

@@ -600,7 +600,7 @@ private fun DonePhase(
 
 /** Read a picked document into memory: its display name and bytes, or null
  * when the read failed (the pick phase then surfaces its error). */
-private fun readPickedFile(resolver: ContentResolver, uri: Uri): Pair<String, ByteArray>? = try {
+internal fun readPickedFile(resolver: ContentResolver, uri: Uri): Pair<String, ByteArray>? = try {
     val name = resolver.query(
         uri,
         arrayOf(OpenableColumns.DISPLAY_NAME),
