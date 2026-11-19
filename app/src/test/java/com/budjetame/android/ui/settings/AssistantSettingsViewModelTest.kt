@@ -351,6 +351,24 @@ class AssistantSettingsViewModelTest {
         assertEquals("", viewModel.uiState.value.key)
     }
 
+    @Test
+    fun `closing the dialog while a save is in flight leaves the block empty`() = runBlocking {
+        createViewModel()
+        viewModel.open()
+        awaitState { !it.loading }
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                route(request).setBodyDelay(300, java.util.concurrent.TimeUnit.MILLISECONDS)
+        }
+        viewModel.onKeyChange("sk-ant-secret-9876")
+        viewModel.save()
+
+        viewModel.close()
+        kotlinx.coroutines.delay(600)
+
+        assertNull(viewModel.uiState.value.status)
+    }
+
     // --- Provider and model list ---
 
     @Test
@@ -394,21 +412,20 @@ class AssistantSettingsViewModelTest {
         }
 
     @Test
-    fun `a key typed before switching to a provider that lists only with a key is sent for that listing`() =
+    fun `switching provider drops a key typed for the previous one so it never reaches the new provider`() =
         runBlocking {
             createViewModel()
             viewModel.open()
             awaitState { it.catalogue == CatalogueState.READY }
-            viewModel.onKeyChange("AIza-unsaved-2222")
+            viewModel.onKeyChange("sk-ant-unsaved-2222")
             viewModel.onKeyFieldLeft()
 
             viewModel.onProviderChange(AssistantProvider.GEMINI)
-            awaitState { it.catalogue == CatalogueState.READY && it.provider == AssistantProvider.GEMINI }
+            awaitState { it.catalogue == CatalogueState.KEY_NEEDED && it.provider == AssistantProvider.GEMINI }
 
-            assertEquals(listOf("gemini-flash"), viewModel.uiState.value.models.map { it.id })
-            assertEquals("AIza-unsaved-2222", lastCall("GET", "/api/assistant/models").keyHeader)
+            assertEquals("", viewModel.uiState.value.key)
+            assertTrue(calls.none { it.keyHeader != null })
         }
-
     @Test
     fun `a typed model id outside the list is saved as typed`() = runBlocking {
         createViewModel()
@@ -442,7 +459,7 @@ class AssistantSettingsViewModelTest {
     }
 
     @Test
-    fun `a key the provider rejects while listing is reported against the key`() = runBlocking {
+    fun `a key the provider rejects while listing is reported under the model picker`() = runBlocking {
         modelsStatus = 422
         createViewModel()
         viewModel.open()

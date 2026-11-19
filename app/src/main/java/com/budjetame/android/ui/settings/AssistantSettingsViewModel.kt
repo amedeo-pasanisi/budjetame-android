@@ -63,18 +63,19 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    private var loadingStatus: Job? = null
-    private var listing: Job? = null
+    private var statusJob: Job? = null
+    private var listingJob: Job? = null
+    private var writeJob: Job? = null
 
     /** The unsaved key the current listing was made with, if any. */
     private var listedWithKey: String? = null
 
     fun open() {
         close()
-        loadingStatus = viewModelScope.launch {
+        statusJob = viewModelScope.launch {
             try {
                 val status = gateway.fetchStatus()
-                _uiState.update { formFor(status) }
+                _uiState.update { stateFor(status) }
                 if (!status.configured) listModels()
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -84,11 +85,12 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
         }
     }
 
-    /** Drop everything the block holds, the typed key first. */
+    /** Drop everything the block holds, the typed key first, and stop any
+     * request in flight from writing into it. */
     fun close() {
-        loadingStatus?.cancel()
-        listing?.cancel()
-        listedWithKey = null
+        statusJob?.cancel()
+        writeJob?.cancel()
+        cancelListing()
         _uiState.value = UiState()
     }
 
@@ -99,8 +101,8 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
 
     fun cancelReplace() {
         val status = _uiState.value.status ?: return
-        listing?.cancel()
-        _uiState.update { formFor(status) }
+        cancelListing()
+        _uiState.update { stateFor(status) }
     }
 
     fun onKeyChange(value: String) {
@@ -118,11 +120,12 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
         if (state.editing && waitingForKey && key.isNotEmpty() && key != listedWithKey) listModels(key)
     }
 
-    /** Switching provider resets the model to the provider's default and
-     * lists the new provider's models. */
+    /** Switching provider replaces the key and resets the model to the
+     * provider's default (CONTEXT.md: Assistant Settings): a key typed for
+     * the previous provider is dropped, so it never reaches the new one. */
     fun onProviderChange(value: AssistantProvider) {
         if (value == _uiState.value.provider) return
-        _uiState.update { it.copy(provider = value, model = "") }
+        _uiState.update { it.copy(provider = value, key = "", keyError = null, model = "") }
         listModels()
     }
 
@@ -132,37 +135,39 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
 
     fun save() {
         val state = _uiState.value
-        if (state.saving) return
         if (state.key.isBlank()) {
             _uiState.update { it.copy(keyError = "Enter the Assistant Key.") }
             return
         }
-        viewModelScope.launch {
-            _uiState.update { it.copy(saving = true, error = null) }
-            try {
-                val saved = gateway.save(state.provider, state.key, state.model)
-                listing?.cancel()
-                _uiState.update { formFor(saved) }
-            } catch (error: ApiException) {
-                _uiState.update {
-                    it.copy(saving = false, error = error.detail ?: "Could not save the Assistant Settings.")
-                }
-            } catch (_: Exception) {
-                _uiState.update { it.copy(saving = false, error = "Could not save the Assistant Settings.") }
-            }
+        write(failure = "Could not save the Assistant Settings.") {
+            val saved = gateway.save(state.provider, state.key, state.model)
+            cancelListing()
+            _uiState.update { stateFor(saved) }
         }
     }
 
     fun remove() {
+        write(failure = "Could not remove the Assistant Settings.") {
+            gateway.remove()
+            _uiState.update { stateFor(AssistantSettingsDto(configured = false)) }
+            listModels()
+        }
+    }
+
+    /** One Save or Remove at a time. A rejection shows the server's message
+     * when it sent one (a string detail), else [failure]. */
+    private fun write(failure: String, block: suspend () -> Unit) {
         if (_uiState.value.saving) return
-        viewModelScope.launch {
+        writeJob = viewModelScope.launch {
             _uiState.update { it.copy(saving = true, error = null) }
             try {
-                gateway.remove()
-                _uiState.update { formFor(AssistantSettingsDto(configured = false)) }
-                listModels()
+                block()
+            } catch (error: ApiException) {
+                _uiState.update { it.copy(saving = false, error = error.detail ?: failure) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
-                _uiState.update { it.copy(saving = false, error = "Could not remove the Assistant Settings.") }
+                _uiState.update { it.copy(saving = false, error = failure) }
             }
         }
     }
@@ -170,7 +175,7 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
     /** The block's state for a loaded or saved status: the form only when
      * nothing is configured, on the configured provider and model, and
      * never a key. */
-    private fun formFor(status: AssistantSettingsDto) = UiState(
+    private fun stateFor(status: AssistantSettingsDto) = UiState(
         loading = false,
         status = status,
         editing = !status.configured,
@@ -178,41 +183,37 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
         model = status.model.orEmpty(),
     )
 
+    private fun cancelListing() {
+        listingJob?.cancel()
+        listedWithKey = null
+    }
+
     /** List the chosen provider's models, replacing any listing in flight
-     * (a response for a provider no longer shown is dropped with it). When
-     * the provider lists only with a key and one is typed, it is sent for
-     * one more try. */
+     * (a response for a provider no longer shown is dropped with it). */
     private fun listModels(unsavedKey: String? = null) {
         val provider = _uiState.value.provider
-        listing?.cancel()
+        cancelListing()
         listedWithKey = unsavedKey
-        listing = viewModelScope.launch {
+        listingJob = viewModelScope.launch {
             _uiState.update { it.copy(models = emptyList(), catalogue = CatalogueState.LOADING) }
-            var catalogue = fetchCatalogue(provider, unsavedKey)
-            val typedKey = _uiState.value.key.trim()
-            if (catalogue == CatalogueState.KEY_NEEDED && unsavedKey == null && typedKey.isNotEmpty()) {
-                listedWithKey = typedKey
-                catalogue = fetchCatalogue(provider, typedKey)
+            val catalogue = try {
+                val models = gateway.fetchModels(provider, unsavedKey)
+                _uiState.update { it.copy(models = models) }
+                CatalogueState.READY
+            } catch (error: ApiException) {
+                when {
+                    error.status == 409 -> CatalogueState.KEY_NEEDED
+                    // The handler's 422 carries a string detail; FastAPI's own
+                    // validation 422 (a list) is a client bug, a plain failure.
+                    error.status == 422 && error.detail != null -> CatalogueState.KEY_REJECTED
+                    else -> CatalogueState.ERROR
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                CatalogueState.ERROR
             }
             _uiState.update { it.copy(catalogue = catalogue) }
         }
-    }
-
-    private suspend fun fetchCatalogue(provider: AssistantProvider, unsavedKey: String?): CatalogueState = try {
-        val models = gateway.fetchModels(provider, unsavedKey)
-        _uiState.update { it.copy(models = models) }
-        CatalogueState.READY
-    } catch (error: ApiException) {
-        when {
-            error.status == 409 -> CatalogueState.KEY_NEEDED
-            // The handler's 422 carries a string detail; FastAPI's own
-            // validation 422 (a list) is a client bug, a plain failure.
-            error.status == 422 && error.detail != null -> CatalogueState.KEY_REJECTED
-            else -> CatalogueState.ERROR
-        }
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: Exception) {
-        CatalogueState.ERROR
     }
 }

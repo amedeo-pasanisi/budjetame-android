@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.AccountDto
-import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
 import com.budjetame.android.data.api.BudgetDto
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
@@ -40,6 +39,7 @@ import com.budjetame.android.data.transaction.TransactionDraft
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
 import com.budjetame.android.ui.shell.AppShell
 import org.junit.Assert.assertEquals
 import org.junit.Rule

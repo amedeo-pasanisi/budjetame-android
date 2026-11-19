@@ -44,8 +44,8 @@ private const val MAX_LISTED_MODELS = 50
  * is masked and never pre-filled.
  */
 @Composable
-fun AssistantSettingsSection(gateway: AssistantSettingsGateway) {
-    val viewModel: AssistantSettingsViewModel = viewModel { AssistantSettingsViewModel(gateway) }
+fun AssistantSettingsSection(assistantSettings: AssistantSettingsGateway) {
+    val viewModel: AssistantSettingsViewModel = viewModel { AssistantSettingsViewModel(assistantSettings) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     // The block is composed while the dialog shows: reload on opening, and
@@ -105,7 +105,8 @@ private fun statusLine(state: AssistantSettingsViewModel.UiState): String {
         state.loading -> "Loading…"
         status == null -> ""
         status.configured && status.provider != null ->
-            "Configured: ${status.provider.label} / ${status.model.orEmpty()}, key ends in …${status.last4.orEmpty()}"
+            "Configured: ${status.provider.label} / ${status.model ?: "provider's default"}, " +
+                "key ends in …${status.last4.orEmpty()}"
         else -> "Not configured."
     }
 }
