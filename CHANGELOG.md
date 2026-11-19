@@ -19,7 +19,7 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 - **Settings** — a **Language** choice (English / Italiano), stored on the Account so the web app and the phone agree; on an Italian device it is set to Italian automatically once. Under Italiano, amounts read `1.000,42 €` and month labels, trend labels and dates are in Italian; Dictation and Quick Dictation listen in the chosen language. Stored amounts, Export and Backup files are unchanged (#59).
 
-- **Language** — the app speaks Italian: with the Account's Language set to Italiano, the dashboard, transactions (including the Transaction form and Draft Transactions), wallets and Settings appear in Italian whatever the phone's language, using the same wording as the web app; switching in Settings takes effect at once. Recurring Costs and Incomes, Categories, Import, sign-in and the map picker follow it too; the sign-in screen opens in the last language used on the device, or the phone's own (#62, #63).
+- **Language** — the app speaks Italian: with the Account's Language set to Italiano, the dashboard, transactions (including the Transaction form and Draft Transactions), wallets and Settings appear in Italian whatever the phone's language, using the same wording as the web app; switching in Settings takes effect at once. Recurring Costs and Incomes, Categories, Import, sign-in and the map picker follow it too; the sign-in screen opens in the last language used on the device, or the phone's own. The Assistant, Dictation and Quick Dictation, every form error, Undo and Restore notice, and the server's known error messages are translated too; the Record Budjetame tile and shortcut follow the phone's language (#62, #63, #71).
 
 ### Changed
 
