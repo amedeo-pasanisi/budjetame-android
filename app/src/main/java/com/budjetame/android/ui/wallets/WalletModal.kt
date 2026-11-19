@@ -137,7 +137,7 @@ fun WalletModal(
                         text = if (modal.type == WalletType.CONTACT) {
                             "Contact wallets start at €0 — money moves only through transfers."
                         } else {
-                            "Money you already have. Defaults to €0.00."
+                            "Money you already have. Defaults to ${Money.formatEuros("0.00", locale)}."
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -171,7 +171,7 @@ fun WalletModal(
                             onFreeze = onFreeze,
                             disabledLabel = if (!modal.canFreeze) "Freeze requires ${Money.formatEuros("0.00", locale)} balance (currently ${Money.formatEuros(wallet.balance, locale)})" else null,
                             heading = "Freeze wallet",
-                            description = "Hides the wallet and makes it read-only. Only possible at €0.00 balance; its transactions stay visible.",
+                            description = "Hides the wallet and makes it read-only. Only possible at ${Money.formatEuros("0.00", locale)} balance; its transactions stay visible.",
                         )
                     }
                 }
