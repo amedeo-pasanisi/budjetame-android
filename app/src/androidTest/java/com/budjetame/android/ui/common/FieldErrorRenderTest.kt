@@ -79,7 +79,7 @@ class FieldErrorRenderTest {
     private val amountInError = SemanticsMatcher.keyIsDefined(SemanticsProperties.Error)
 
     @Test
-    fun a_valid_form_shows_no_Field_Error() {
+    fun no_Field_Error_shows_before_the_first_Save() {
         setForm()
 
         composeRule.onNodeWithText("Save").assertIsEnabled()
@@ -97,7 +97,8 @@ class FieldErrorRenderTest {
         // message: TalkBack reads it as part of the Amount field.
         composeRule.onNodeWithTag("amount").assert(amountInError)
         composeRule.onNode(hasSetTextAction() and hasText(AmountInputMessages.EMPTY)).assertExists()
-        // The message sits beneath the field's input line.
+        // The message sits beneath the field (below its label, the field's
+        // content line).
         val label = composeRule.onNodeWithText("Amount", useUnmergedTree = true).getUnclippedBoundsInRoot()
         val message = composeRule.onNodeWithText(AmountInputMessages.EMPTY, useUnmergedTree = true)
             .getUnclippedBoundsInRoot()

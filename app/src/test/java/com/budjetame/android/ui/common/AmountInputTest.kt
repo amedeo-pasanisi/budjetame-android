@@ -69,6 +69,8 @@ class AmountInputTest {
     }
 
     // --- The Amount Field Error ---
+    // The copy is pinned as literals, not AmountInputMessages: it is the
+    // user-visible contract shared word for word with the web.
 
     @Test
     fun `an empty amount asks for one`() {
