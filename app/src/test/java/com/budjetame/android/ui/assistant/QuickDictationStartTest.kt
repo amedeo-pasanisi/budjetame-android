@@ -74,4 +74,12 @@ class QuickDictationStartTest {
 
         assertEquals(QuickDictationStart.CannotRun(AssistantViewModel.CannotRun.OFFLINE), start())
     }
+
+    @Test
+    fun `a server failure cannot be reached either`() {
+        storage.save("token")
+        server.enqueue(MockResponse().setResponseCode(500).setBody("""{"detail":"boom"}"""))
+
+        assertEquals(QuickDictationStart.CannotRun(AssistantViewModel.CannotRun.OFFLINE), start())
+    }
 }

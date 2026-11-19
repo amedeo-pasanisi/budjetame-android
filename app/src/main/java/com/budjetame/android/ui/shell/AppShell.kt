@@ -122,7 +122,7 @@ fun AppShell(
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
     /** Quick Dictation's "open in app" (ticket #65): show the Transactions
-     * tab, its Drafts pinned at the top, then [onTransactionsShown]. */
+     * tab, its Draft Transactions pinned at the top, then [onTransactionsShown]. */
     showTransactions: Boolean = false,
     onTransactionsShown: () -> Unit = {},
 ) {

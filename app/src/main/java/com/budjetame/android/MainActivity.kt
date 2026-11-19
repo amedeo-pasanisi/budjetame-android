@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
         private fun Intent.wantsTransactions() = getBooleanExtra(EXTRA_SHOW_TRANSACTIONS, false)
 
         /** Open the app over its running task, if any: on the Transactions
-         * tab when [showTransactions] (the Drafts pinned at its top). */
+         * tab when [showTransactions] (the Draft Transactions pinned at its top). */
         fun open(context: Context, showTransactions: Boolean) {
             context.startActivity(
                 Intent(context, MainActivity::class.java)

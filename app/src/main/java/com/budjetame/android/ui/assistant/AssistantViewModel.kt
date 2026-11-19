@@ -8,7 +8,6 @@ import com.budjetame.android.data.assistant.AssistantSettingsGateway
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.dictation.recognitionLanguage
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -53,6 +52,14 @@ import kotlinx.serialization.json.JsonObject
  * was heard goes through [sendSentence] after the box's text; typing
  * ([onTextChange]), sending and closing drop it, silently and unsent. Only
  * a failure the user did not choose raises [UiState.dictationFailed].
+ *
+ * Quick Dictation (ticket #65; CONTEXT.md: Quick Dictation) runs the same
+ * conversation as a voice-only card from outside the app: open from the
+ * start, it listens again when a reply asks the Assistant's one question
+ * ([asksQuestion]) and closes itself [AUTO_CLOSE_MILLIS] after any other
+ * reply, unless the card is touched ([holdOpen]). What it cannot run past
+ * — a refused session, no Assistant Settings, no connection — becomes
+ * [UiState.cannotRun]: the Dictation is dropped, never kept for later.
  */
 class AssistantViewModel(
     private val turns: AssistantGateway,
@@ -156,16 +163,6 @@ class AssistantViewModel(
         }
     }
 
-    /** Quick Dictation: the failures the card cannot run past — a session
-     * the server refuses, Assistant Settings gone, no connection — or null
-     * for one that is only this turn's. */
-    private fun cannotRunFor(error: Exception): CannotRun? = when {
-        (error as? ApiException)?.status == 401 -> CannotRun.SIGNED_OUT
-        (error as? ApiException)?.status == 409 -> CannotRun.NO_ASSISTANT_SETTINGS
-        error is IOException -> CannotRun.OFFLINE
-        else -> null
-    }
-
     /** Quick Dictation: the card cannot run. A listening Dictation is
      * dropped unsent, and none starts again. */
     private fun cannotRun(reason: CannotRun) {
@@ -211,6 +208,9 @@ class AssistantViewModel(
         val recognizer = recognizer ?: return
         val state = _uiState.value
         if (!state.open || state.pending || state.cannotRun != null || dictation != null) return
+        // Quick Dictation listens only once it knows the Assistant can answer:
+        // no tone before a line saying it cannot run.
+        if (quick && !state.available) return
         val dictation = Dictation()
         this.dictation = dictation
         _uiState.update { it.copy(listening = true, dictationFailed = false) }

@@ -44,7 +44,12 @@ import com.budjetame.android.ui.theme.Slate500
  * tabs. A touch outside it closes it; [content] is what it shows.
  */
 @Composable
-fun QuickDictationFrame(onClose: () -> Unit, content: @Composable () -> Unit) {
+fun QuickDictationFrame(
+    onClose: () -> Unit,
+    /** Any touch on the card: it cancels the auto-close. */
+    onTouch: () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
     Box(modifier = Modifier.fillMaxSize()) {
         // The see-through rest of the screen, a sibling under the card so a
         // touch on the card never reaches it.
@@ -63,7 +68,14 @@ fun QuickDictationFrame(onClose: () -> Unit, content: @Composable () -> Unit) {
             tonalElevation = 2.dp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    // Watch every touch without taking it from the buttons.
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        onTouch()
+                    }
+                },
         ) {
             Column(
                 modifier = Modifier
@@ -102,7 +114,7 @@ fun QuickDictationCannotRun(reason: AssistantViewModel.CannotRun, onOpenApp: () 
             AssistantViewModel.CannotRun.SIGNED_OUT -> "You are signed out of Budjetame."
             AssistantViewModel.CannotRun.NO_ASSISTANT_SETTINGS ->
                 "The Assistant is not set up: add the Assistant Settings in the app's Settings."
-            AssistantViewModel.CannotRun.OFFLINE -> "Budjetame cannot be reached: check your connection."
+            AssistantViewModel.CannotRun.OFFLINE -> "Budjetame cannot be reached: check your connection and try again."
         },
         style = MaterialTheme.typography.bodyMedium,
     )
@@ -133,30 +145,22 @@ private fun OpenAppButton(onOpenApp: () -> Unit) {
 /**
  * The card at work: the reply lines, the microphone (tap to dictate again or
  * to end the Dictation listening) and "open in app"; no box to type in. A
- * Dictation starts as soon as the card shows; any touch on the card
- * ([onTouch]) cancels its auto-close.
+ * Dictation starts as soon as the card shows and the Assistant is known to
+ * answer.
  */
 @Composable
 fun QuickDictationContent(
     state: AssistantViewModel.UiState,
     onStartDictation: () -> Unit,
     onStopDictation: () -> Unit,
-    onTouch: () -> Unit,
     onOpenInApp: () -> Unit,
 ) {
     val dictate = rememberDictate(onStartDictation)
-    // The card starts a Dictation at once: once, as it shows.
-    LaunchedEffect(Unit) { dictate() }
+    // The card starts a Dictation at once, as soon as the Assistant is known
+    // to answer: once, as it shows.
+    LaunchedEffect(state.available) { if (state.available) dictate() }
 
-    Column(
-        modifier = Modifier.pointerInput(Unit) {
-            // Watch every touch without taking it from the buttons.
-            awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false)
-                onTouch()
-            }
-        },
-    ) {
+    Column {
         val listState = rememberLazyListState()
         LaunchedEffect(state.lines.size) {
             if (state.lines.isNotEmpty()) listState.animateScrollToItem(state.lines.size - 1)

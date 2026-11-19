@@ -24,7 +24,6 @@ import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -145,6 +144,7 @@ class QuickDictationTest {
 
     /** One Dictation from start to what was heard. */
     private fun dictate(heard: String) {
+        awaitState { it.available }
         viewModel.startDictation()
         listener.onReadyForSpeech()
         listener.onResult(heard)
@@ -205,20 +205,19 @@ class QuickDictationTest {
     }
 
     @Test
-    fun `without Assistant Settings the card cannot run and drops the Dictation unsent`() {
+    fun `without Assistant Settings the card cannot run and never listens`() {
         settingsResponse = { jsonResponse("""{"configured":false}""") }
         createQuickViewModel()
+        // Asked before the status is read: it waits for the Assistant to answer.
         viewModel.startDictation()
-        listener.onReadyForSpeech()
 
         val state = awaitState { it.cannotRun != null }
         assertEquals(AssistantViewModel.CannotRun.NO_ASSISTANT_SETTINGS, state.cannotRun)
         assertFalse(state.listening)
         assertTrue(state.open)
-        listener.onResult("trenta euro all'Esselunga con la carta")
         viewModel.startDictation()
         assertTrue(turnTexts.isEmpty())
-        assertEquals(listOf("start it-IT", "start tone", "cancel"), events)
+        assertTrue(events.isEmpty())
     }
 
     @Test

@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,7 +47,10 @@ class QuickDictationActivity : ComponentActivity() {
                 var start by remember { mutableStateOf<QuickDictationStart>(QuickDictationStart.Checking) }
                 LaunchedEffect(Unit) { start = quickDictationStart(container.authRepository) }
 
-                QuickDictationFrame(onClose = ::finish) {
+                // The card's ViewModel, once the Account is read: a touch on the
+                // card cancels its auto-close.
+                var onTouch by remember { mutableStateOf<() -> Unit>({}) }
+                QuickDictationFrame(onClose = ::finish, onTouch = { onTouch() }) {
                     when (val current = start) {
                         QuickDictationStart.Checking -> QuickDictationChecking()
                         is QuickDictationStart.CannotRun -> QuickDictationCannotRun(current.reason) { openApp(false) }
@@ -61,6 +65,7 @@ class QuickDictationActivity : ComponentActivity() {
                                     quick = true,
                                 )
                             }
+                            SideEffect { onTouch = assistant::holdOpen }
                             val state by assistant.uiState.collectAsStateWithLifecycle()
                             // The auto-close closes the Assistant: the card goes with it.
                             LaunchedEffect(state.open) { if (!state.open) finish() }
@@ -72,7 +77,6 @@ class QuickDictationActivity : ComponentActivity() {
                                     state = state,
                                     onStartDictation = assistant::startDictation,
                                     onStopDictation = assistant::stopDictation,
-                                    onTouch = assistant::holdOpen,
                                     onOpenInApp = { openApp(true) },
                                 )
                             }
