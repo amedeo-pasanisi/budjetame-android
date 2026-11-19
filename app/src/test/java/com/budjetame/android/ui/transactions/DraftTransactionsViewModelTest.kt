@@ -40,6 +40,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -160,7 +161,7 @@ class DraftTransactionsViewModelTest {
         val draft = draftStore.find { it.id == id }
             ?: return jsonResponse(403, """{"detail":"Draft transaction not found"}""")
         val fields = if (body.isBlank()) {
-            draftFields(draft)
+            draft
         } else {
             val create = json.decodeFromString<TransactionCreateRequest>(body)
             DraftTransactionDto(
@@ -194,8 +195,6 @@ class DraftTransactionsViewModelTest {
         draftStore.removeIf { it.id == id }
         return jsonResponse(201, json.encodeToString(created))
     }
-
-    private fun draftFields(draft: DraftTransactionDto) = draft
 
     private fun ruleError(fields: DraftTransactionDto): String? {
         if (fields.type == null) return "Type is required"
@@ -350,7 +349,9 @@ class DraftTransactionsViewModelTest {
         assertEquals(TransactionType.EXPENSE, modal.type)
         assertEquals("30.00", modal.amount)
         assertEquals("2026-11-18", modal.date)
-        assertNull(modal.walletId)
+        // The Wallet the Draft did not catch falls back to the new form's
+        // default (the web's seed rule); the banner names the rule.
+        assertEquals(1, modal.walletId)
         assertEquals("Esselunga", modal.description)
         assertEquals("Wallet is required", modal.error)
         // The Draft stays until the form's Save approves it.
@@ -427,11 +428,30 @@ class DraftTransactionsViewModelTest {
         assertEquals(TransactionType.TRANSFER, modal.type)
         assertEquals("50.00", modal.amount)
         assertEquals(1, modal.sourceWalletId)
-        assertNull(modal.destinationWalletId)
-        // A missing date starts at today, like a new Transaction's.
-        assertTrue(modal.date.isNotEmpty())
+        // A missing date stays empty, never silently today: Save waits for it.
+        assertEquals("", modal.date)
+        assertFalse(modal.canSubmit)
         assertNull(modal.error)
         assertEquals(before, calls.size)
+
+        viewModel.onDateChange("2026-11-17")
+        assertEquals("2026-11-17", viewModel.uiState.value.modal?.date)
+    }
+
+    @Test
+    fun `a frozen or unknown wallet on the draft falls back to the form's default`() = runBlocking {
+        walletStore.add(wallet(1, "Card"))
+        walletStore.add(wallet(2, "Old card", frozen = true))
+        draftStore.add(draft(5, walletId = 2))
+        draftStore.add(draft(6, walletId = 99))
+        createViewModel()
+        awaitState { it.drafts.size == 2 }
+
+        viewModel.editDraft(viewModel.uiState.value.drafts[0])
+        assertEquals(1, viewModel.uiState.value.modal?.walletId)
+        viewModel.closeModal()
+        viewModel.editDraft(viewModel.uiState.value.drafts[1])
+        assertEquals(1, viewModel.uiState.value.modal?.walletId)
     }
 
     @Test

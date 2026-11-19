@@ -246,12 +246,13 @@ class TransactionsViewModel(
 
         /** Mandatory fields gate Save: a strictly positive amount and the
          * Wallet(s) the type needs — a Transfer also needs two distinct
-         * Wallets. The date defaults to today in Europe/Rome and cannot be
-         * cleared, so it is always set. Save is also blocked while the GPS
+         * Wallets, and a date. A new form's date defaults to today in
+         * Europe/Rome and cannot be cleared; only a Draft's form whose Draft
+         * caught no date starts empty (ticket #67). Save is also blocked while the GPS
          * lookup is in flight (locating), mirroring the web form. */
         val canSubmit: Boolean
             get() {
-                if (busy || locating || parseAmount(amount) == null) return false
+                if (busy || locating || date.isEmpty() || parseAmount(amount) == null) return false
                 return if (isTransfer) {
                     sourceWalletId != null &&
                         destinationWalletId != null &&
@@ -1028,7 +1029,7 @@ class TransactionsViewModel(
                 // form opens pre-filled with the rule in its banner, and its
                 // Save goes back through Approve.
                 if (error.status == 422) {
-                    openDraftForm(draft, error.detail ?: apiErrorMessage(422, "", ""))
+                    openDraftForm(draft, approveRuleMessage(error))
                 } else {
                     onDraftApproveFailed()
                 }
@@ -1076,11 +1077,12 @@ class TransactionsViewModel(
     }
 
     /**
-     * The Transaction form pre-filled from a Draft: the create form (type
-     * and Wallets choosable), each field the Draft caught filled in and
-     * each missing one left empty for the user — the Save gate and the
-     * banner then point at what is left. A missing type starts as an
-     * Expense and a missing date as today, like a new Transaction's.
+     * The Transaction form pre-filled from a Draft (the web form's seed
+     * rules): the create form, type and Wallets choosable, each field the
+     * Draft caught filled in. A missing date stays empty for the Save gate
+     * to point at — never silently today; a missing type starts as an
+     * Expense; a Wallet the Draft did not catch, or one that is frozen or
+     * gone, falls back to the new form's default, like the web's.
      */
     private fun openDraftForm(draft: DraftTransactionDto, error: String?) {
         val type = when (draft.type) {
@@ -1090,15 +1092,30 @@ class TransactionsViewModel(
         }
         val transfer = type == TransactionType.TRANSFER
         _uiState.update { state ->
+            val active = activeWallets(state.wallets)
+            val offered = { id: Int? -> id?.takeIf { wanted -> active.any { it.id == wanted } } }
             state.copy(
                 modal = ModalState(
                     approving = draft,
                     type = type,
                     amount = draft.amount.orEmpty(),
-                    date = draft.date ?: Dates.toApiDay(Dates.todayInRome()),
-                    walletId = if (transfer) null else draft.wallet_id,
-                    sourceWalletId = if (transfer) draft.source_wallet_id else null,
-                    destinationWalletId = if (transfer) draft.destination_wallet_id else null,
+                    date = draft.date.orEmpty(),
+                    walletId = if (transfer) {
+                        null
+                    } else {
+                        offered(draft.wallet_id) ?: spendableWallets(state.wallets).firstOrNull()?.id
+                    },
+                    sourceWalletId = if (transfer) {
+                        offered(draft.source_wallet_id) ?: active.firstOrNull()?.id
+                    } else {
+                        null
+                    },
+                    destinationWalletId = if (transfer) {
+                        offered(draft.destination_wallet_id)
+                            ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id)
+                    } else {
+                        null
+                    },
                     categoryId = if (transfer) null else draft.category_id,
                     recurringCostId = draft.recurring_cost_id,
                     recurringIncomeId = draft.recurring_income_id,
@@ -1146,7 +1163,7 @@ class TransactionsViewModel(
                     it.copy(
                         submitting = false,
                         error = if (error.status == 422) {
-                            error.detail ?: apiErrorMessage(422, "", "")
+                            approveRuleMessage(error)
                         } else {
                             DRAFT_APPROVE_ERROR
                         },
@@ -1223,11 +1240,7 @@ class TransactionsViewModel(
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
-                        savedWarning = if (saved.warning) {
-                            "Saved — this made a Cash wallet negative."
-                        } else {
-                            null
-                        },
+                        savedWarning = savedWarningOf(saved),
                     )
                 }
             } catch (error: ApiException) {
@@ -1256,11 +1269,7 @@ class TransactionsViewModel(
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
-                        savedWarning = if (saved.warning) {
-                            "Saved — this made a Cash wallet negative."
-                        } else {
-                            null
-                        },
+                        savedWarning = savedWarningOf(saved),
                     )
                 }
             } catch (error: ApiException) {
@@ -1326,15 +1335,20 @@ class TransactionsViewModel(
         )
     }
 
+    /** The post-write Cash negative-balance banner of a save (ticket #20). */
+    private fun savedWarningOf(saved: TransactionDto): String? =
+        if (saved.warning) "Saved — this made a Cash wallet negative." else null
+
+    /** The message a 422 from Approve carries: the backend's rule as its
+     * `detail`, else the shared validation copy. */
+    private fun approveRuleMessage(error: ApiException): String =
+        error.detail ?: apiErrorMessage(error.status, "", "")
+
     /** The five panel filters reset to "all" (web issue #92's taxonomy) —
      * wallet, category, from-date, to-date, recurring. The search is
      * separate and untouched here: the panel footer's Clear all filters
      * clears exactly these, and the filtered line's Clear all clears the
      * search on top. */
-    /** The post-write Cash negative-balance banner of a save (ticket #20). */
-    private fun savedWarningOf(saved: TransactionDto): String? =
-        if (saved.warning) "Saved — this made a Cash wallet negative." else null
-
     private fun panelFiltersCleared(state: UiState): UiState = state.copy(
         filterWalletId = null,
         filterFromDate = null,
