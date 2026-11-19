@@ -11,6 +11,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Wallets** — freezing a Wallet works again: since the shared backend's latest update the Freeze button failed with "Only a frozen wallet can be deleted"; the app now uses the backend's dedicated freeze action, and Freeze behaves exactly as before (#70).
+
 ## [v1.9.0] — 2026-11-19
 
 ### Added
