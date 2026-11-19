@@ -26,7 +26,9 @@ import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.imports.ApiImportRepository
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.ui.categories.CategoryFields
+import com.budjetame.android.ui.common.AmountInputMessages
 import com.budjetame.android.ui.transactions.WalletFieldTarget
+import com.budjetame.android.ui.wallets.WalletFields
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -1460,6 +1462,29 @@ class ImportViewModelTest {
         assertEquals(0, callsFor("/api/categories").count { it.method == "POST" })
         val modal = viewModel.uiState.value.draft!!.rowCategoryCreate!!.modal
         assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), modal.fieldErrors)
+        assertNull(modal.error)
+    }
+
+    @Test
+    fun `saving the row wallet form with a blank name and a bad opening balance reveals both and creates nothing`() = runBlocking {
+        fixtureViewModel()
+        pickAndRead(content = mixedFile())
+
+        viewModel.openEditor(4)
+        viewModel.onRowWalletAdd(WalletFieldTarget.WALLET, "Mystery")
+        viewModel.onRowWalletCreateNameChange(" ")
+        viewModel.onRowWalletCreateOpeningBalanceChange("12abc")
+        viewModel.submitRowWalletCreate()
+
+        assertEquals(0, callsFor("/api/wallets").count { it.method == "POST" })
+        val modal = viewModel.uiState.value.draft!!.rowWalletCreate!!.modal
+        assertEquals(
+            mapOf(
+                WalletFields.NAME to "Enter a name",
+                WalletFields.OPENING_BALANCE to AmountInputMessages.INVALID,
+            ),
+            modal.fieldErrors,
+        )
         assertNull(modal.error)
     }
 

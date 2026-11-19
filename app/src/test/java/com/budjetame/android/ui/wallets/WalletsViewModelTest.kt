@@ -8,6 +8,7 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.WalletUpdateRequest
 import com.budjetame.android.data.wallet.ApiWalletRepository
+import com.budjetame.android.ui.common.AmountInputMessages
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -241,8 +242,80 @@ class WalletsViewModelTest {
         assertEquals("0.00", viewModel.uiState.value.wallets.first { it.name == "Pocket" }.balance)
     }
 
+    // --- Submit-and-validate (ADR-0009) ---
+
+    private fun postedCreates(): List<RecordedCall> =
+        calls.toList().filter { it.method == "POST" && it.path == "/api/wallets" }
+
     @Test
-    fun `create rejects a negative opening balance before calling the api`() = runBlocking {
+    fun `save on an empty name reveals a name field error and creates nothing`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("   ")
+        viewModel.submit()
+
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals(mapOf(WalletFields.NAME to "Enter a name"), modal.fieldErrors)
+        assertNull(modal.error)
+        assertFalse(modal.submitting)
+        assertTrue(postedCreates().isEmpty())
+    }
+
+    @Test
+    fun `save on a cleared name while editing reveals the name error and renames nothing`() = runBlocking {
+        seed(wallet(1, "Mine", WalletType.CASH, "0.00"))
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.wallets.first())
+        viewModel.onNameChange("")
+        viewModel.submit()
+
+        assertEquals(
+            mapOf(WalletFields.NAME to "Enter a name"),
+            viewModel.uiState.value.modal?.fieldErrors,
+        )
+        assertTrue(calls.toList().none { it.method == "PATCH" })
+    }
+
+    @Test
+    fun `the opening balance accepts a comma decimal and sends the canonical value`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Comma")
+        viewModel.onTypeChange(WalletType.CHECKING)
+        viewModel.onOpeningBalanceChange("1.000,5")
+        viewModel.submit()
+        awaitState { it.modal == null && it.wallets.any { wallet -> wallet.name == "Comma" } }
+
+        val create = json.decodeFromString<WalletCreateRequest>(call("POST", "/api/wallets").body)
+        assertEquals("1000.5", create.opening_balance)
+    }
+
+    @Test
+    fun `a malformed opening balance reveals the amount input error and creates nothing`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Typo")
+        viewModel.onTypeChange(WalletType.CASH)
+        viewModel.onOpeningBalanceChange("12abc")
+        viewModel.submit()
+
+        assertEquals(
+            mapOf(WalletFields.OPENING_BALANCE to AmountInputMessages.INVALID),
+            viewModel.uiState.value.modal?.fieldErrors,
+        )
+        assertTrue(postedCreates().isEmpty())
+    }
+
+    @Test
+    fun `a negative opening balance reveals the not-positive error and creates nothing`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
@@ -251,10 +324,78 @@ class WalletsViewModelTest {
         viewModel.onTypeChange(WalletType.CASH)
         viewModel.onOpeningBalanceChange("-1.00")
         viewModel.submit()
-        awaitState { it.modal?.error != null }
 
-        assertEquals("Enter an amount of €0 or more.", viewModel.uiState.value.modal?.error)
-        assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/wallets" })
+        assertEquals(
+            mapOf(WalletFields.OPENING_BALANCE to AmountInputMessages.NOT_POSITIVE),
+            viewModel.uiState.value.modal?.fieldErrors,
+        )
+        assertNull(viewModel.uiState.value.modal?.error)
+        assertTrue(postedCreates().isEmpty())
+    }
+
+    @Test
+    fun `every wrong field reveals its error at once`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onOpeningBalanceChange("abc")
+        viewModel.submit()
+
+        assertEquals(
+            mapOf(
+                WalletFields.NAME to "Enter a name",
+                WalletFields.OPENING_BALANCE to AmountInputMessages.INVALID,
+            ),
+            viewModel.uiState.value.modal?.fieldErrors,
+        )
+        assertTrue(postedCreates().isEmpty())
+    }
+
+    @Test
+    fun `field errors persist while typing and the next valid save clears them and creates`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.submit()
+        viewModel.onNameChange("Fixed")
+        assertEquals(
+            mapOf(WalletFields.NAME to "Enter a name"),
+            viewModel.uiState.value.modal?.fieldErrors,
+        )
+
+        viewModel.submit()
+        assertTrue(viewModel.uiState.value.modal?.fieldErrors.orEmpty().isEmpty())
+        awaitState { it.modal == null && it.wallets.any { wallet -> wallet.name == "Fixed" } }
+        assertEquals(1, postedCreates().size)
+    }
+
+    @Test
+    fun `a contact wallet skips the opening balance and starts at zero`() = runBlocking {
+        createViewModel()
+        awaitLoaded()
+
+        viewModel.openCreate()
+        viewModel.onNameChange("Anna")
+        viewModel.onTypeChange(WalletType.CONTACT)
+        viewModel.submit()
+        awaitState { it.modal == null && it.wallets.any { wallet -> wallet.name == "Anna" } }
+
+        val create = json.decodeFromString<WalletCreateRequest>(call("POST", "/api/wallets").body)
+        assertEquals(WalletType.CONTACT, create.type)
+        assertEquals("0.00", create.opening_balance)
+    }
+
+    @Test
+    fun `save is disabled only by in-flight work never by validation`() {
+        createViewModel()
+        viewModel.openCreate()
+
+        val empty = viewModel.uiState.value.modal!!
+        assertFalse(empty.busy)
+        assertTrue(empty.copy(submitting = true).busy)
+        assertTrue(empty.copy(freezing = true).busy)
     }
 
     @Test
@@ -279,6 +420,7 @@ class WalletsViewModelTest {
         awaitState { it.modal?.error != null }
 
         assertEquals("A wallet with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertTrue(viewModel.uiState.value.modal?.fieldErrors.orEmpty().isEmpty())
     }
 
     // --- Rename ---

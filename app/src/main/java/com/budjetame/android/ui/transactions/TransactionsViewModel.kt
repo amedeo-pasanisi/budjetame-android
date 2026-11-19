@@ -36,7 +36,8 @@ import com.budjetame.android.ui.common.parseAmountInput
 import com.budjetame.android.ui.undo.DeletedEntity
 import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.ui.wallets.WalletModalState
-import com.budjetame.android.ui.wallets.normalizeOpeningBalance
+import com.budjetame.android.ui.wallets.validateWalletForm
+import com.budjetame.android.ui.wallets.walletOpeningBalanceToSend
 import com.budjetame.android.util.Dates
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
@@ -821,16 +822,12 @@ class TransactionsViewModel(
     fun submitWalletCreate() {
         val create = _uiState.value.walletCreate ?: return
         val modal = create.modal
-        if (!modal.canSubmit) return
-        val openingBalance = if (modal.type == WalletType.CONTACT) {
-            "0.00"
-        } else {
-            normalizeOpeningBalance(modal.openingBalance)
-        }
-        if (openingBalance == null) {
-            updateWalletCreate { it.copy(error = "Enter an amount of €0 or more.") }
-            return
-        }
+        if (modal.busy) return
+        // Submit-and-validate (ADR-0009): the shared Wallet validator.
+        val fieldErrors = validateWalletForm(modal)
+        updateWalletCreate { it.copy(fieldErrors = fieldErrors) }
+        if (fieldErrors.isNotEmpty()) return
+        val openingBalance = walletOpeningBalanceToSend(modal)
         val target = create.target
         viewModelScope.launch {
             updateWalletCreate { it.copy(submitting = true, error = null) }
