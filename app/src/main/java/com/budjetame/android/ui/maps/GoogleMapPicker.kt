@@ -29,6 +29,8 @@ import com.budjetame.android.R
 import com.budjetame.android.data.transaction.DEFAULT_MAP_CENTER
 import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.transaction.Place
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.resolve
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
@@ -64,9 +66,7 @@ fun GoogleMapPicker(
     val context = LocalContext.current
     // The failure's reason sentence; the full message is resolved at render
     // time, in the Account Locale (ADR-0010).
-    var loadError by remember { mutableStateOf<String?>(null) }
-    val couldNotStart = stringResource(R.string.maps_reason_could_not_start)
-    val notReady = stringResource(R.string.maps_reason_not_ready)
+    var loadError by remember { mutableStateOf<UiText?>(null) }
 
     // Places.initialize is process-global and throws on a bad key; the
     // facade has already validated the key's presence, so a failure here is
@@ -171,7 +171,7 @@ fun GoogleMapPicker(
                     googleMap = map
                 }
             } catch (error: Exception) {
-                loadError = error.message ?: couldNotStart
+                loadError = error.message?.let(UiText::Raw) ?: UiText.of(R.string.maps_reason_could_not_start)
             }
         }
         // Fail loudly when the map never becomes ready (no Google Play
@@ -180,7 +180,7 @@ fun GoogleMapPicker(
         LaunchedEffect(mapView) {
             delay(MAP_READY_TIMEOUT_MILLIS)
             if (googleMap == null && loadError == null) {
-                loadError = notReady
+                loadError = UiText.of(R.string.maps_reason_not_ready)
             }
         }
 
@@ -189,7 +189,7 @@ fun GoogleMapPicker(
             when {
                 loadError != null -> {
                     Text(
-                        text = stringResource(R.string.maps_google_load_failed, loadError!!),
+                        text = stringResource(R.string.maps_google_load_failed, loadError!!.resolve()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier
