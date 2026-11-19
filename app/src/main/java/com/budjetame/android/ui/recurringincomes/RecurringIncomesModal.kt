@@ -67,11 +67,11 @@ import java.time.Instant
  * an empty one reveals "Choose a start date". Validation is
  * submit-and-validate (ADR-0009): Save is disabled by in-flight work only,
  * and Save on an invalid form writes nothing and shows each Field Error
- * inline under its field; server rejections stay in the banner below. Occurrences repeat on the start date's day
- * from there on (29–31 clamp to the last day of shorter months). The
- * definition itself never carries a Wallet or a Category: they are chosen
- * when a linked Income is recorded. The due-date override is gone
- * (ADR-0024).
+ * inline under its field; server rejections stay in the banner below.
+ * Occurrences repeat on the start date's day from there on (29–31 clamp
+ * to the last day of shorter months). The definition itself never carries
+ * a Wallet or a Category: they are chosen when a linked Income is
+ * recorded. The due-date override is gone (ADR-0024).
  *
  * Edit mode adds the Occurrences section (web ADR-0026): every non-Paid
  * Occurrence in the read's own order, each with its own Skip/Un-skip —
@@ -94,6 +94,9 @@ fun RecurringIncomesModal(
     onClose: () -> Unit,
 ) {
     val editing = modal.editing
+    val nameError = modal.fieldErrors[RecurringIncomeFields.NAME]
+    val amountError = modal.fieldErrors[RecurringIncomeFields.AMOUNT]
+    val intervalError = modal.fieldErrors[RecurringIncomeFields.INTERVAL]
 
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
@@ -110,8 +113,8 @@ fun RecurringIncomesModal(
                     label = { Text("Name") },
                     placeholder = { Text("e.g. Salary") },
                     singleLine = true,
-                    isError = modal.fieldErrors[RecurringIncomeFields.NAME] != null,
-                    supportingText = fieldErrorSupportingText(modal.fieldErrors[RecurringIncomeFields.NAME]),
+                    isError = nameError != null,
+                    supportingText = fieldErrorSupportingText(nameError),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("ri-name"),
@@ -124,8 +127,8 @@ fun RecurringIncomesModal(
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
-                    isError = modal.fieldErrors[RecurringIncomeFields.AMOUNT] != null,
-                    supportingText = fieldErrorSupportingText(modal.fieldErrors[RecurringIncomeFields.AMOUNT]),
+                    isError = amountError != null,
+                    supportingText = fieldErrorSupportingText(amountError),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp)
@@ -142,8 +145,8 @@ fun RecurringIncomesModal(
                         label = { Text("Repeats every") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        isError = modal.fieldErrors[RecurringIncomeFields.INTERVAL] != null,
-                        supportingText = fieldErrorSupportingText(modal.fieldErrors[RecurringIncomeFields.INTERVAL]),
+                        isError = intervalError != null,
+                        supportingText = fieldErrorSupportingText(intervalError),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("ri-interval"),
@@ -204,7 +207,7 @@ fun RecurringIncomesModal(
             }
         },
         confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.saveEnabled, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+            Button(onClick = onSubmit, enabled = modal.canSave, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
                         modal.submitting -> "Saving…"

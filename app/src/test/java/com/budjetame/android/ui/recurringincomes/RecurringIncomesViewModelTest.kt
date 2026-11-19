@@ -509,7 +509,7 @@ class RecurringIncomesViewModelTest {
         viewModel.onIntervalValueChange("0")
         // Submit-and-validate (ADR-0009): Save stays tappable on an invalid
         // form — only in-flight work disables it.
-        assertTrue(viewModel.uiState.value.modal!!.saveEnabled)
+        assertTrue(viewModel.uiState.value.modal!!.canSave)
         viewModel.submit()
 
         val modal = viewModel.uiState.value.modal!!
@@ -564,17 +564,30 @@ class RecurringIncomesViewModelTest {
             viewModel.uiState.value.modal!!.fieldErrors,
         )
 
-        viewModel.onIntervalValueChange("1.5")
-        viewModel.submit()
-        assertEquals(
-            mapOf(RecurringIncomeFields.INTERVAL to "The interval must be at least 1"),
-            viewModel.uiState.value.modal!!.fieldErrors,
-        )
+        // Digits only, like the web: neither a fraction nor a signed number
+        // is a whole number of units.
+        for (raw in listOf("1.5", "+3")) {
+            viewModel.onIntervalValueChange(raw)
+            viewModel.submit()
+            assertEquals(
+                mapOf(RecurringIncomeFields.INTERVAL to "The interval must be at least 1"),
+                viewModel.uiState.value.modal!!.fieldErrors,
+            )
+        }
         assertTrue(calls.toList().none { it.method == "POST" })
     }
 
     @Test
     fun `a Field Error stays while typing the fix and the next valid Save clears it and writes`() = runBlocking {
+        // The create's response is held until the cleared errors are
+        // asserted, so the modal is still open when the test looks.
+        val release = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.method == "POST") release.await(5, TimeUnit.SECONDS)
+                return route(request)
+            }
+        }
         createViewModel()
         awaitLoaded()
 
@@ -595,7 +608,8 @@ class RecurringIncomesViewModelTest {
 
         viewModel.submit()
         // The valid Save clears the errors before the write goes out.
-        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors ?: emptyMap<String, String>())
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal!!.fieldErrors)
+        release.countDown()
         awaitState { it.modal == null }
         assertEquals(1, calls.toList().count { it.method == "POST" })
     }
@@ -717,7 +731,7 @@ class RecurringIncomesViewModelTest {
         // The start date is mandatory while editing (ADR-0024): an empty one
         // is a Field Error on Save, never a silently lost date.
         viewModel.onStartDateChange("")
-        assertTrue(viewModel.uiState.value.modal!!.saveEnabled)
+        assertTrue(viewModel.uiState.value.modal!!.canSave)
         viewModel.submit()
 
         assertEquals(
@@ -922,9 +936,9 @@ class RecurringIncomesViewModelTest {
         assertEquals("Could not load the occurrences.", modal.occurrencesError)
         assertNull(modal.occurrences)
         // The modal itself stays usable: the fields are still editable.
-        assertTrue(modal.saveEnabled)
+        assertTrue(modal.canSave)
         viewModel.onNameChange("Salary (net)")
-        assertTrue(viewModel.uiState.value.modal!!.saveEnabled)
+        assertTrue(viewModel.uiState.value.modal!!.canSave)
     }
 
     @Test
@@ -1007,7 +1021,7 @@ class RecurringIncomesViewModelTest {
         // Save is disabled only by in-flight work — a row toggle is one
         // (the web form's `togglingDate !== null`).
         awaitState { it.modal?.togglingDate != null }
-        assertFalse(viewModel.uiState.value.modal!!.saveEnabled)
+        assertFalse(viewModel.uiState.value.modal!!.canSave)
         release.countDown()
         awaitState {
             it.modal?.occurrences?.first { row -> row.date == "2026-09-05" }?.skipped == true
@@ -1017,7 +1031,7 @@ class RecurringIncomesViewModelTest {
         // twice (skip then un-skip).
         assertEquals(1, occurrenceCalls().count { it.method == "PUT" })
         assertNull(viewModel.uiState.value.modal!!.togglingDate)
-        assertTrue(viewModel.uiState.value.modal!!.saveEnabled)
+        assertTrue(viewModel.uiState.value.modal!!.canSave)
     }
 
     @Test

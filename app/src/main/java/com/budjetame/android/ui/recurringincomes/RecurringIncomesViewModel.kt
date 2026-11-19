@@ -71,7 +71,7 @@ data class RecurringIncomeModalState(
     /** Submit-and-validate (ADR-0009): Save is disabled by in-flight work
      * only — a save, a freeze, or an Occurrence row's Skip/Un-skip (the web
      * form's `submitting || togglingDate !== null`) — never by validation. */
-    val saveEnabled: Boolean get() = !busy && togglingDate == null
+    val canSave: Boolean get() = !busy && togglingDate == null
 }
 
 /** The Recurring Income form's Field Error keys (ADR-0009): one per field a
@@ -94,7 +94,11 @@ object RecurringIncomeFields {
 fun validateRecurringIncomeForm(form: RecurringIncomeModalState): FieldErrors = buildMap {
     if (form.name.isBlank()) put(RecurringIncomeFields.NAME, "Enter a name")
     amountFieldError(form.amount)?.let { put(RecurringIncomeFields.AMOUNT, it) }
-    val interval = parseIntervalValue(form.intervalValue)
+    // Digits only, like the web's `^\d+$`: "+3" or "1.5" is not a whole
+    // number of units even where toIntOrNull would read it.
+    val interval = form.intervalValue.trim()
+        .takeIf { raw -> raw.isNotEmpty() && raw.all { it in '0'..'9' } }
+        ?.let(::parseIntervalValue)
     if (interval == null || interval < 1) {
         put(RecurringIncomeFields.INTERVAL, "The interval must be at least 1")
     }
@@ -203,7 +207,7 @@ class RecurringIncomesViewModel(
      */
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.saveEnabled) return
+        if (!modal.canSave) return
         val fieldErrors = validateRecurringIncomeForm(modal)
         updateModal { it.copy(fieldErrors = fieldErrors) }
         if (fieldErrors.isNotEmpty()) return
