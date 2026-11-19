@@ -19,6 +19,7 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
 import com.budjetame.android.data.api.BudgetDto
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
@@ -82,6 +83,7 @@ class TabPagerTest {
         composeRule.setContent {
             AppShell(
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
+                assistantSettingsRepository = NoAssistantSettingsGateway(),
                 walletRepository = walletRepository,
                 categoryRepository = categoryRepository,
                 dashboardRepository = EmptyDashboardGateway(),

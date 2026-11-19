@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.data.assistant.AssistantSettingsGateway
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.imports.ImportGateway
@@ -63,6 +66,7 @@ import com.budjetame.android.ui.categories.CategoriesScreen
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
+import com.budjetame.android.ui.settings.AssistantSettingsSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
@@ -85,6 +89,8 @@ private val TABS = Tab.entries
 @Composable
 fun AppShell(
     account: AccountDto,
+    /** The Assistant Settings block of the Settings dialog (ticket #66). */
+    assistantSettingsRepository: AssistantSettingsGateway,
     walletRepository: WalletGateway,
     categoryRepository: CategoryGateway,
     dashboardRepository: DashboardGateway,
@@ -204,6 +210,7 @@ fun AppShell(
     if (showSettings) {
         SettingsDialog(
             email = account.email,
+            assistantSettingsRepository = assistantSettingsRepository,
             onClose = { showSettings = false },
             onDeleteAccount = onDeleteAccount,
         )
@@ -307,6 +314,7 @@ private fun BottomTabs(pagerState: PagerState) {
 @Composable
 private fun SettingsDialog(
     email: String,
+    assistantSettingsRepository: AssistantSettingsGateway,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -319,12 +327,15 @@ private fun SettingsDialog(
         onDismissRequest = onClose,
         title = { Text("Settings") },
         text = {
-            Column {
+            // Scrolls: the Assistant Settings form can outgrow the screen.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = email,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                AssistantSettingsSection(assistantSettingsRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
                     text = "Delete account",

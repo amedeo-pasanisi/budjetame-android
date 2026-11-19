@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
 import com.budjetame.android.data.api.BudgetDto
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
@@ -68,6 +69,7 @@ class TransactionExportTest {
         composeRule.setContent {
             AppShell(
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
+                assistantSettingsRepository = NoAssistantSettingsGateway(),
                 walletRepository = FakeWalletGateway(),
                 categoryRepository = FakeCategoryGateway(),
                 dashboardRepository = FakeDashboardGateway(),
