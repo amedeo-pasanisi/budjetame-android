@@ -2,7 +2,9 @@ package com.budjetame.android.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.locale.LocaleGateway
+import com.budjetame.android.ui.common.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,10 +26,10 @@ class LanguageSettingsViewModel(private val gateway: LocaleGateway) : ViewModel(
         /** The Account's Locale code: `en` or `it`. */
         val locale: String,
         val saving: Boolean = false,
-        val error: String? = null,
+        val error: UiText? = null,
     )
 
-    private data class Write(val saving: Boolean = false, val error: String? = null)
+    private data class Write(val saving: Boolean = false, val error: UiText? = null)
 
     private val write = MutableStateFlow(Write())
 
@@ -50,7 +52,7 @@ class LanguageSettingsViewModel(private val gateway: LocaleGateway) : ViewModel(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                write.update { Write(error = "Could not change the language. Please try again.") }
+                write.update { Write(error = UiText.of(R.string.errors_settings_language)) }
             }
         }
     }

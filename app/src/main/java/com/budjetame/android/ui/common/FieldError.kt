@@ -15,7 +15,7 @@ import androidx.compose.runtime.Composable
  *    `"amount"`, `"name"`, `"wallet"`); an empty map means valid. Money
  *    fields use [amountFieldError].
  * 2. The modal state holds `fieldErrors: FieldErrors = emptyMap()` beside —
- *    never inside — the existing server `error: String?` banner.
+ *    never inside — the existing server `error: UiText?` banner.
  * 3. Submit runs the validator first: errors → store them and return without
  *    touching the repository; empty → clear them and submit exactly as
  *    before. Typing never clears or recomputes them; only the next Save does.
@@ -39,11 +39,12 @@ import androidx.compose.runtime.Composable
 
 /**
  * A form's **Field Errors**: field key → the message shown inline beneath
- * that field. Client-side only — server rejections (a duplicate name, a
+ * that field, a [UiText] so it renders in the Account's Locale (ADR-0010,
+ * issue #71). Client-side only — server rejections (a duplicate name, a
  * Transfer link that no longer qualifies) stay in the form's `error` banner
  * and are never Field Errors. An empty map is a valid form.
  */
-typealias FieldErrors = Map<String, String>
+typealias FieldErrors = Map<String, UiText>
 
 /**
  * The `supportingText` slot for a field whose Field Error is [message]: the
@@ -53,5 +54,5 @@ typealias FieldErrors = Map<String, String>
  * supporting text into the field's semantics, so TalkBack reads the message
  * as part of the field it belongs to.
  */
-fun fieldErrorSupportingText(message: String?): (@Composable () -> Unit)? =
-    message?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
+fun fieldErrorSupportingText(message: UiText?): (@Composable () -> Unit)? =
+    message?.let { { Text(it.resolve(), color = MaterialTheme.colorScheme.error) } }

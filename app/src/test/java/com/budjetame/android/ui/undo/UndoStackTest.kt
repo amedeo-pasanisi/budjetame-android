@@ -3,6 +3,7 @@ package com.budjetame.android.ui.undo
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.ui.common.english
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -160,7 +161,7 @@ class UndoStackTest {
         runCurrent()
 
         val entry = undo.state.value.entries.single()
-        assertEquals("The Occurrence was already paid.", entry.error)
+        assertEquals("The Occurrence was already paid.", entry.error?.english())
         assertEquals(false, entry.undoing)
         assertNull(undo.restored.value)
     }
@@ -173,7 +174,7 @@ class UndoStackTest {
         undo.undo(undo.state.value.entries.single().key)
         runCurrent()
 
-        assertEquals("Could not undo.", undo.state.value.entries.single().error)
+        assertEquals("Could not undo.", undo.state.value.entries.single().error?.english())
     }
 
     @Test
@@ -193,7 +194,7 @@ class UndoStackTest {
 
         advanceTimeBy(UNDO_ERROR_GRACE_MILLIS - 1)
         runCurrent()
-        assertEquals("Wallet not found", undo.state.value.entries.single().error)
+        assertEquals("Wallet not found", undo.state.value.entries.single().error?.english())
 
         advanceTimeBy(1)
         runCurrent()

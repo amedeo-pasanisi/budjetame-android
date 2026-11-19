@@ -1,10 +1,12 @@
 package com.budjetame.android.ui.imports
 
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.ui.transactions.NON_CONTACT_WALLET_TYPES
 import com.budjetame.android.ui.transactions.WalletFieldTarget
@@ -47,20 +49,20 @@ object ImportRowFields {
  */
 fun validateImportRow(input: ImportRowInput): FieldErrors = buildMap {
     amountFieldError(input.amount)?.let { put(ImportRowFields.AMOUNT, it) }
-    if (input.date.isBlank()) put(ImportRowFields.DATE, "Choose a date")
+    if (input.date.isBlank()) put(ImportRowFields.DATE, UiText.of(R.string.field_error_date_empty))
     if (input.type == TransactionType.TRANSFER) {
         val source = input.source_wallet
         val destination = input.destination_wallet
-        if (source == null) put(ImportRowFields.SOURCE, "Choose the source wallet.")
-        if (destination == null) put(ImportRowFields.DESTINATION, "Choose the destination wallet.")
+        if (source == null) put(ImportRowFields.SOURCE, UiText.of(R.string.field_error_source_wallet))
+        if (destination == null) put(ImportRowFields.DESTINATION, UiText.of(R.string.field_error_destination_wallet))
         if (source != null && source == destination) {
             // Both legs are equally wrong: the same message under each.
-            val sameWallet = "Source and destination must be different wallets."
+            val sameWallet = UiText.of(R.string.field_error_same_wallet)
             put(ImportRowFields.SOURCE, sameWallet)
             put(ImportRowFields.DESTINATION, sameWallet)
         }
     } else if (input.wallet == null) {
-        put(ImportRowFields.WALLET, "Choose a wallet.")
+        put(ImportRowFields.WALLET, UiText.of(R.string.field_error_wallet))
     }
 }
 

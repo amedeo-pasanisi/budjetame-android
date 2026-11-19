@@ -8,11 +8,11 @@ import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringOccurrenceDto
-import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.ui.common.FieldErrors
 import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.apiErrorMessage
 import com.budjetame.android.ui.common.parseAmountInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +36,7 @@ data class RecurringCostModalState(
     val intervalValue: String = "1",
     val intervalUnit: IntervalUnit = IntervalUnit.MONTHS,
     val startDate: String = "",
-    val error: String? = null,
+    val error: UiText? = null,
     /** The last Save attempt's Field Errors (ADR-0009), keyed by
      * [RecurringCostFields] — client-side only, never mixed with the
      * server [error] banner. Typing leaves them; the next Save refreshes. */
@@ -202,9 +202,9 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                         confirmingFreeze = false,
                         freezing = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not freeze the recurring cost.",
+                            UiText.of(R.string.errors_recurring_cost_freeze),
                         ),
                     )
                 }
@@ -213,7 +213,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                     it.copy(
                         confirmingFreeze = false,
                         freezing = false,
-                        error = "Could not freeze the recurring cost.",
+                        error = UiText.of(R.string.errors_recurring_cost_freeze),
                     )
                 }
             }
@@ -241,9 +241,9 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                     it.copy(
                         freezing = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not unfreeze the recurring cost.",
+                            UiText.of(R.string.errors_recurring_cost_unfreeze),
                         ),
                     )
                 }
@@ -251,7 +251,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                 updateModal {
                     it.copy(
                         freezing = false,
-                        error = "Could not unfreeze the recurring cost.",
+                        error = UiText.of(R.string.errors_recurring_cost_unfreeze),
                     )
                 }
             }
@@ -360,14 +360,14 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not create the recurring cost.",
+                            UiText.of(R.string.errors_recurring_cost_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not create the recurring cost.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_recurring_cost_create)) }
             }
         }
     }
@@ -391,14 +391,14 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not save the recurring cost.",
+                            UiText.of(R.string.errors_recurring_cost_save),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not save the recurring cost.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_recurring_cost_save)) }
             }
         }
     }
@@ -451,6 +451,6 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         const val NAME_MAX_LENGTH = 80
 
         /** The web app's exact duplicate-name message (409 contract). */
-        const val CONFLICT_MESSAGE = "A recurring cost with this name already exists."
+        val CONFLICT_MESSAGE: UiText = UiText.of(R.string.errors_recurring_cost_conflict)
     }
 }

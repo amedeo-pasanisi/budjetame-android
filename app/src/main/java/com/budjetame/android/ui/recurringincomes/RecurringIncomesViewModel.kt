@@ -8,12 +8,12 @@ import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.RecurringOccurrenceDto
-import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.ui.common.FieldErrors
 import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
+import com.budjetame.android.ui.common.apiErrorMessage
 import com.budjetame.android.ui.common.parseAmountInput
 import com.budjetame.android.ui.recurringcosts.parseIntervalValue
 import com.budjetame.android.ui.recurringcosts.sortByNextDue
@@ -42,7 +42,7 @@ data class RecurringIncomeModalState(
     val startDate: String = "",
     /** The server's rejection — the form-level banner, never mixed with
      * [fieldErrors]. */
-    val error: String? = null,
+    val error: UiText? = null,
     /** The last Save attempt's Field Errors (ADR-0009), keyed by
      * [RecurringIncomeFields]: set only by [RecurringIncomesViewModel.submit],
      * never cleared by typing. */
@@ -94,7 +94,7 @@ object RecurringIncomeFields {
  * becoming today.
  */
 fun validateRecurringIncomeForm(form: RecurringIncomeModalState): FieldErrors = buildMap {
-    if (form.name.isBlank()) put(RecurringIncomeFields.NAME, "Enter a name")
+    if (form.name.isBlank()) put(RecurringIncomeFields.NAME, UiText.of(R.string.field_error_name_empty))
     amountFieldError(form.amount)?.let { put(RecurringIncomeFields.AMOUNT, it) }
     // Digits only, like the web's `^\d+$`: "+3" or "1.5" is not a whole
     // number of units even where toIntOrNull would read it.
@@ -102,10 +102,10 @@ fun validateRecurringIncomeForm(form: RecurringIncomeModalState): FieldErrors = 
         .takeIf { raw -> raw.isNotEmpty() && raw.all { it in '0'..'9' } }
         ?.let(::parseIntervalValue)
     if (interval == null || interval < 1) {
-        put(RecurringIncomeFields.INTERVAL, "The interval must be at least 1")
+        put(RecurringIncomeFields.INTERVAL, UiText.of(R.string.field_error_interval))
     }
     if (form.editing && form.startDate.isBlank()) {
-        put(RecurringIncomeFields.START, "Choose a start date")
+        put(RecurringIncomeFields.START, UiText.of(R.string.field_error_start_date))
     }
 }
 
@@ -242,9 +242,9 @@ class RecurringIncomesViewModel(
                         confirmingFreeze = false,
                         freezing = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not freeze the recurring income.",
+                            UiText.of(R.string.errors_recurring_income_freeze),
                         ),
                     )
                 }
@@ -253,7 +253,7 @@ class RecurringIncomesViewModel(
                     it.copy(
                         confirmingFreeze = false,
                         freezing = false,
-                        error = "Could not freeze the recurring income.",
+                        error = UiText.of(R.string.errors_recurring_income_freeze),
                     )
                 }
             }
@@ -281,9 +281,9 @@ class RecurringIncomesViewModel(
                     it.copy(
                         freezing = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not unfreeze the recurring income.",
+                            UiText.of(R.string.errors_recurring_income_unfreeze),
                         ),
                     )
                 }
@@ -291,7 +291,7 @@ class RecurringIncomesViewModel(
                 updateModal {
                     it.copy(
                         freezing = false,
-                        error = "Could not unfreeze the recurring income.",
+                        error = UiText.of(R.string.errors_recurring_income_unfreeze),
                     )
                 }
             }
@@ -402,14 +402,14 @@ class RecurringIncomesViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not create the recurring income.",
+                            UiText.of(R.string.errors_recurring_income_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not create the recurring income.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_recurring_income_create)) }
             }
         }
     }
@@ -433,14 +433,14 @@ class RecurringIncomesViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
+                            error,
                             CONFLICT_MESSAGE,
-                            "Could not save the recurring income.",
+                            UiText.of(R.string.errors_recurring_income_save),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not save the recurring income.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_recurring_income_save)) }
             }
         }
     }
@@ -492,6 +492,6 @@ class RecurringIncomesViewModel(
         const val NAME_MAX_LENGTH = 80
 
         /** The web's exact duplicate-name message (409 contract). */
-        const val CONFLICT_MESSAGE = "A recurring income with this name already exists."
+        val CONFLICT_MESSAGE: UiText = UiText.of(R.string.errors_recurring_income_conflict)
     }
 }

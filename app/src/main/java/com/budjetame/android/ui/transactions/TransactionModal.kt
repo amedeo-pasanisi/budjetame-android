@@ -64,9 +64,11 @@ import com.budjetame.android.data.transaction.formatLocation
 import com.budjetame.android.data.transaction.mapLink
 import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.LocalDisplayLocale
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.common.parseAmountInput
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.maps.MapPickerDialog
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
@@ -375,7 +377,7 @@ internal fun TransactionForm(
             location = modal.location,
             place = modal.place,
             locating = modal.locating,
-            gpsError = modal.gpsError,
+            gpsError = modal.gpsError?.resolve(),
             showingPicker = modal.showingPicker,
             onRemove = onRemoveLocation,
             onUseMyLocation = onUseMyLocation,
@@ -386,7 +388,7 @@ internal fun TransactionForm(
 
         modal.error?.let { error ->
             Text(
-                text = error,
+                text = error.resolve(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 12.dp),
@@ -464,7 +466,7 @@ private fun SingleWalletField(
     wallets: List<WalletDto>,
     type: TransactionType,
     value: WalletDto?,
-    error: String?,
+    error: UiText?,
     enabled: Boolean,
     onChange: (Int) -> Unit,
     onAdd: () -> Unit,
@@ -547,8 +549,8 @@ private fun TransferWalletFields(
     wallets: List<WalletDto>,
     sourceWalletId: Int?,
     destinationWalletId: Int?,
-    sourceError: String?,
-    destinationError: String?,
+    sourceError: UiText?,
+    destinationError: UiText?,
     enabled: Boolean,
     onSourceChange: (Int) -> Unit,
     onDestinationChange: (Int) -> Unit,
@@ -590,7 +592,7 @@ private fun WalletSelectField(
     label: String,
     wallets: List<WalletDto>,
     value: Int?,
-    error: String?,
+    error: UiText?,
     enabled: Boolean,
     onChange: (Int) -> Unit,
     onAdd: () -> Unit,
@@ -1100,7 +1102,7 @@ private fun LocationSection(
 @Composable
 private fun FormDateField(
     value: String,
-    error: String?,
+    error: UiText?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {

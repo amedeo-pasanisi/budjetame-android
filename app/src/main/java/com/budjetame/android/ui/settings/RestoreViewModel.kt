@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.budjetame.android.data.api.ApiException
+import com.budjetame.android.R
 import com.budjetame.android.data.backup.BackupGateway
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.serverMessage
+import com.budjetame.android.ui.common.serverMessageOr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,14 +52,16 @@ class RestoreViewModel(
 
         data object Restoring : RestoreStep
 
-        /** The restore landed, but the Backup came from another Account. */
-        data class Warning(val message: String) : RestoreStep
+        /** The restore landed, but the Backup came from another Account: the
+         * server's warning through the error catalogue. */
+        data class Warning(val message: UiText) : RestoreStep
 
         data object Done : RestoreStep
 
-        /** The restore failed and nothing changed: the server's message,
+        /** The restore failed and nothing changed: the server's message
+         * through the error catalogue,
          * or a fallback when it sent none. */
-        data class Error(val message: String) : RestoreStep
+        data class Error(val message: UiText) : RestoreStep
     }
 
     data class UiState(val step: RestoreStep = RestoreStep.Idle)
@@ -107,11 +112,11 @@ class RestoreViewModel(
             val outcome = try {
                 val result = backups.restore(filename, content)
                 onRestored()
-                result.warning?.let { RestoreStep.Warning(it) } ?: RestoreStep.Done
+                result.warning?.let { RestoreStep.Warning(serverMessage(it)) } ?: RestoreStep.Done
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                RestoreStep.Error((error as? ApiException)?.detail ?: RESTORE_FAILED)
+                RestoreStep.Error(error.serverMessageOr(RESTORE_FAILED))
             }
             if (run == generation) setStep(outcome)
         }
@@ -144,8 +149,8 @@ class RestoreViewModel(
 
     private companion object {
         /** The web's restore fallback when the server sent no detail. */
-        const val RESTORE_FAILED = "Could not restore backup"
-        const val UNREADABLE_FILE = "Could not read the file."
+        val RESTORE_FAILED: UiText = UiText.of(R.string.errors_restore_failed)
+        val UNREADABLE_FILE: UiText = UiText.of(R.string.errors_read_file)
     }
 }
 

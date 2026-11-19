@@ -84,7 +84,7 @@ class FieldErrorRenderTest {
 
         composeRule.onNodeWithText("Save").assertIsEnabled()
         composeRule.onNodeWithTag("amount").assert(!amountInError)
-        composeRule.onNodeWithText(AmountInputMessages.EMPTY).assertDoesNotExist()
+        composeRule.onNodeWithText(AmountInputMessages.EMPTY.deviceText()).assertDoesNotExist()
     }
 
     @Test
@@ -96,11 +96,11 @@ class FieldErrorRenderTest {
         // The field is marked in error, and its merged semantics carry the
         // message: TalkBack reads it as part of the Amount field.
         composeRule.onNodeWithTag("amount").assert(amountInError)
-        composeRule.onNode(hasSetTextAction() and hasText(AmountInputMessages.EMPTY)).assertExists()
+        composeRule.onNode(hasSetTextAction() and hasText(AmountInputMessages.EMPTY.deviceText())).assertExists()
         // The message sits beneath the field (below its label, the field's
         // content line).
         val label = composeRule.onNodeWithText("Amount", useUnmergedTree = true).getUnclippedBoundsInRoot()
-        val message = composeRule.onNodeWithText(AmountInputMessages.EMPTY, useUnmergedTree = true)
+        val message = composeRule.onNodeWithText(AmountInputMessages.EMPTY.deviceText(), useUnmergedTree = true)
             .getUnclippedBoundsInRoot()
         assertTrue("the Field Error renders below the field", message.top > label.bottom)
         assertEquals(emptyList<String>(), submitted)
@@ -111,16 +111,16 @@ class FieldErrorRenderTest {
         setForm()
         composeRule.onNodeWithTag("amount").performTextInput("abc")
         composeRule.onNodeWithText("Save").performClick()
-        composeRule.onNodeWithText(AmountInputMessages.INVALID, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(AmountInputMessages.INVALID.deviceText(), useUnmergedTree = true).assertExists()
 
         // Fixing the field does not clear the error: only Save does.
         composeRule.onNodeWithTag("amount").performTextClearance()
         composeRule.onNodeWithTag("amount").performTextInput("17,5")
-        composeRule.onNodeWithText(AmountInputMessages.INVALID, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(AmountInputMessages.INVALID.deviceText(), useUnmergedTree = true).assertExists()
 
         composeRule.onNodeWithText("Save").performClick()
 
-        composeRule.onNodeWithText(AmountInputMessages.INVALID, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText(AmountInputMessages.INVALID.deviceText(), useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithTag("amount").assert(!amountInError)
         assertEquals(listOf("17.5"), submitted)
     }

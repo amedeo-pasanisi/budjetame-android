@@ -2,7 +2,9 @@
 <resources>
     <string name="app_name">Budjetame</string>
     <!-- Quick Dictation (ticket #65): the tile, the shortcut and the second
-         launcher entry "Ok Google, open Record Budjetame" names. Fixed in
-         the APK: it does not follow the Account Locale. -->
+         launcher entry "Ok Google, open Record Budjetame" names. Read by
+         the system, so it follows the device language (values-it has the
+         Italian); inside the Quick Dictation card it follows the Account
+         Locale like any in-app string (ADR-0010). -->
     <string name="record_label">Record Budjetame</string>
 </resources>

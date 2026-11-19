@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Error messages (ADR-0010, issue #71).
+
+     errors_<area>_*: the client's own error lines, built by the ViewModels
+     (load, save and write failures, network fallbacks).
+
+     errors_server_*: the client-side error catalogue (ServerMessages.kt,
+     mirroring web #118): each English entry is, character for character,
+     a `detail` the backend sends, so under `en` the server text shows as it
+     always did. The API stays English; the Italian lives in values-it. -->
+<resources>
+    <!-- Generic -->
+    <string name="errors_check_fields">Check the fields and try again.</string>
+    <string name="errors_read_file">Could not read the file.</string>
+    <string name="errors_joined" translatable="false">%1$s; %2$s</string>
+
+    <!-- Dashboard -->
+    <string name="errors_dashboard_load">Could not load your dashboard.</string>
+    <string name="errors_dashboard_budget">Could not load the budget.</string>
+    <string name="errors_dashboard_trend">Could not load the trend.</string>
+
+    <!-- Transactions -->
+    <string name="errors_transactions_load">Could not load your data.</string>
+    <string name="errors_transactions_load_more">Could not load more transactions.</string>
+    <string name="errors_transactions_export">Could not export transactions.</string>
+    <string name="errors_transactions_conflict">A wallet or category with this name already exists.</string>
+    <string name="errors_transactions_create">Could not create the transaction.</string>
+    <string name="errors_transactions_save">Could not save the transaction.</string>
+    <string name="errors_transactions_delete">Could not delete the transaction.</string>
+    <string name="errors_transactions_gps">Couldn\'t get your location — check permissions or pick it on the map.</string>
+    <string name="errors_drafts_approve">Could not approve the draft.</string>
+    <string name="errors_drafts_discard">Could not discard the draft.</string>
+
+    <!-- Wallets -->
+    <string name="errors_wallets_load">Could not load your wallets.</string>
+    <string name="errors_wallets_conflict">A wallet with this name already exists.</string>
+    <string name="errors_wallets_create">Could not create the wallet.</string>
+    <string name="errors_wallets_rename">Could not rename the wallet.</string>
+    <string name="errors_wallets_freeze">Could not freeze the wallet.</string>
+    <string name="errors_wallets_freeze_balance">A wallet can only be frozen when its balance is exactly €0.00.</string>
+    <string name="errors_wallets_unfreeze">Could not unfreeze the wallet.</string>
+
+    <!-- Categories -->
+    <string name="errors_categories_conflict">A category with this name already exists.</string>
+    <string name="errors_categories_create">Could not create the category.</string>
+    <string name="errors_categories_save">Could not save the category.</string>
+    <string name="errors_categories_delete">Could not delete the category.</string>
+    <string name="errors_categories_merge">Could not merge the categories.</string>
+
+    <!-- Recurring -->
+    <string name="errors_recurring_cost_conflict">A recurring cost with this name already exists.</string>
+    <string name="errors_recurring_cost_create">Could not create the recurring cost.</string>
+    <string name="errors_recurring_cost_save">Could not save the recurring cost.</string>
+    <string name="errors_recurring_cost_freeze">Could not freeze the recurring cost.</string>
+    <string name="errors_recurring_cost_unfreeze">Could not unfreeze the recurring cost.</string>
+    <string name="errors_recurring_income_conflict">A recurring income with this name already exists.</string>
+    <string name="errors_recurring_income_create">Could not create the recurring income.</string>
+    <string name="errors_recurring_income_save">Could not save the recurring income.</string>
+    <string name="errors_recurring_income_freeze">Could not freeze the recurring income.</string>
+    <string name="errors_recurring_income_unfreeze">Could not unfreeze the recurring income.</string>
+
+    <!-- Import -->
+    <string name="errors_imports_validate_row">Could not validate the row.</string>
+    <string name="errors_imports_revalidate">Could not re-validate the rows.</string>
+    <string name="errors_imports_confirm">Could not confirm the import.</string>
+
+
+    <!-- Settings -->
+    <string name="errors_settings_language">Could not change the language. Please try again.</string>
+    <string name="errors_settings_assistant_load">Could not load the Assistant Settings.</string>
+    <string name="errors_settings_assistant_save">Could not save the Assistant Settings.</string>
+    <string name="errors_settings_assistant_remove">Could not remove the Assistant Settings.</string>
+    <string name="errors_backup_export">Could not export the backup.</string>
+    <string name="errors_backup_save">Could not save the backup file.</string>
+    <string name="errors_backup_share">Could not share the backup file.</string>
+    <string name="errors_restore_failed">Could not restore backup</string>
+
+    <!-- ===== Server error catalogue (exact backend `detail`s) ===== -->
+
+    <!-- Transaction rules (services/transactions.py) -->
+    <string name="errors_server_occurrence_already_paid">This Occurrence was already paid by another Transaction</string>
+    <string name="errors_server_frozen_wallets_read_only">Frozen Wallets are read-only</string>
+    <string name="errors_server_transfer_needs_wallets">Transfers need source and destination Wallets</string>
+    <string name="errors_server_transfer_cost_link">A Transfer may carry a Recurring Cost link only when its destination is a Contact Wallet</string>
+    <string name="errors_server_transfer_income_link">A Transfer may carry a Recurring Income link only when its source is a Contact Wallet</string>
+    <string name="errors_server_transfer_contacts_no_link">Transfers between two Contact Wallets never carry a recurring link</string>
+    <string name="errors_server_category_type">A Category attaches only to Transactions of its Type</string>
+    <string name="errors_server_type_invalid">Type must be expense, income, or transfer</string>
+    <string name="errors_server_wallet_required">wallet_id is required for Expense and Income</string>
+    <string name="errors_server_legs_only_transfers">source and destination Wallets are only for Transfers</string>
+    <string name="errors_server_income_on_contact">Incomes can\'t be recorded on Contact Wallets</string>
+    <string name="errors_server_opening_balance_read_only">Opening Balance Transactions are read-only</string>
+    <string name="errors_server_transaction_id_exists">Transaction id already exists</string>
+    <string name="errors_server_transfer_shape">Transfers use source and destination Wallets and never carry a Category</string>
+    <string name="errors_server_same_wallet">Source and Destination must be different Wallets</string>
+    <string name="errors_server_only_expenses_cost">Only Expenses can be linked to a Recurring Cost</string>
+    <string name="errors_server_only_incomes_income">Only Incomes can be linked to a Recurring Income</string>
+    <string name="errors_server_transfer_no_category">Transfers never carry a Category</string>
+    <string name="errors_server_location_pair">latitude and longitude must be set together</string>
+
+    <!-- Draft approval rules (services/draft_transactions.py) -->
+    <string name="errors_server_draft_type_required">A type is required: expense, income, or transfer</string>
+    <string name="errors_server_draft_amount_required">An amount is required</string>
+    <string name="errors_server_draft_date_required">A date is required</string>
+
+    <!-- Wallets -->
+    <string name="errors_server_wallet_not_freezable">Only a Wallet with balance exactly €0.00 can be frozen</string>
+    <string name="errors_server_wallet_delete_frozen_only">Only a frozen wallet can be deleted — freeze it first</string>
+    <plurals name="errors_server_wallet_has_transactions">
+        <item quantity="one">This wallet has %1$d transaction</item>
+        <item quantity="other">This wallet has %1$d transactions</item>
+    </plurals>
+    <string name="errors_server_wallet_name_taken">A Wallet with this name already exists</string>
+    <string name="errors_server_wallet_undo_exists">This wallet already exists</string>
+    <string name="errors_server_wallet_undo_name_taken">Undo failed: a Wallet with this name now exists</string>
+    <string name="errors_server_contact_opening_balance">Contact Wallets start at €0: money moves only via Transfers</string>
+
+    <!-- Categories -->
+    <string name="errors_server_category_name_taken">A Category with this name already exists</string>
+    <string name="errors_server_category_merge_type">A merge target must be another Category of the same Type</string>
+
+    <!-- Recurring definitions (recurring.py, services/recurring.py, services/occurrences.py) -->
+    <string name="errors_server_recurring_cost_name_taken">A Recurring Cost with this name already exists</string>
+    <string name="errors_server_recurring_income_name_taken">A Recurring Income with this name already exists</string>
+    <string name="errors_server_recurring_cost_undo_exists">This Recurring Cost already exists</string>
+    <string name="errors_server_recurring_income_undo_exists">This Recurring Income already exists</string>
+    <string name="errors_server_recurring_cost_undo_name_taken">Undo failed: a Recurring Cost with this name now exists</string>
+    <string name="errors_server_recurring_income_undo_name_taken">Undo failed: a Recurring Income with this name now exists</string>
+    <string name="errors_server_recurring_cost_named_exists">A Recurring Cost named \"%1$s\" already exists — rename it first.</string>
+    <string name="errors_server_recurring_income_named_exists">A Recurring Income named \"%1$s\" already exists — rename it first.</string>
+    <string name="errors_server_recurring_cost_frozen_edit">A frozen recurring cost cannot be edited. Unfreeze it first.</string>
+    <string name="errors_server_recurring_income_frozen_edit">A frozen recurring income cannot be edited. Unfreeze it first.</string>
+    <string name="errors_server_recurring_cost_delete_frozen_only">Only a frozen recurring cost can be deleted — freeze it first</string>
+    <string name="errors_server_recurring_income_delete_frozen_only">Only a frozen recurring income can be deleted — freeze it first</string>
+    <plurals name="errors_server_recurring_cost_linked">
+        <item quantity="one">%1$d transaction is linked to this recurring cost — unlink it first</item>
+        <item quantity="other">%1$d transactions are linked to this recurring cost — unlink them first</item>
+    </plurals>
+    <plurals name="errors_server_recurring_income_linked">
+        <item quantity="one">%1$d transaction is linked to this recurring income — unlink it first</item>
+        <item quantity="other">%1$d transactions are linked to this recurring income — unlink them first</item>
+    </plurals>
+    <string name="errors_server_recurring_cost_start_date">A recurring cost always carries a start date — it can be changed, never unset.</string>
+    <string name="errors_server_recurring_income_start_date">A recurring income always carries a start date — it can be changed, never unset.</string>
+    <string name="errors_server_occurrence_frozen">A frozen recurring definition has no Occurrences to skip. Unfreeze it first.</string>
+    <string name="errors_server_occurrence_not_a_date">This date is not one of the definition\'s Occurrences.</string>
+    <string name="errors_server_occurrence_paid_skip">A paid occurrence can never be skipped.</string>
+    <string name="errors_server_occurrence_bad_date">%1$s is not a calendar day (YYYY-MM-DD).</string>
+
+    <!-- Not found -->
+    <string name="errors_server_wallet_not_found">Wallet not found</string>
+    <string name="errors_server_category_not_found">Category not found</string>
+    <string name="errors_server_transaction_not_found">Transaction not found</string>
+    <string name="errors_server_recurring_cost_not_found">Recurring Cost not found</string>
+    <string name="errors_server_recurring_income_not_found">Recurring Income not found</string>
+    <string name="errors_server_draft_not_found">Draft transaction not found</string>
+    <string name="errors_server_reference_not_found">Wallet, Category, Recurring Cost, or Recurring Income not found</string>
+
+    <!-- Auth -->
+    <string name="errors_server_account_exists">An Account with this email already exists</string>
+    <string name="errors_server_incorrect_credentials">Incorrect email or password</string>
+    <string name="errors_server_google_invalid">Invalid Google sign-in</string>
+    <string name="errors_server_reset_link_invalid">This reset link is invalid or has expired</string>
+
+    <!-- Import (services/imports.py): file, row resolution and row parse errors -->
+    <string name="errors_server_import_file_empty">The file is empty</string>
+    <string name="errors_server_import_unknown_rows">Unknown target row(s): %1$s</string>
+    <string name="errors_server_import_unsupported">Only .csv and .xlsx files are supported</string>
+    <string name="errors_server_import_missing_columns">Missing required column(s): %1$s</string>
+    <string name="errors_server_import_unknown_wallet">Unknown wallet \'%1$s\'</string>
+    <string name="errors_server_import_unknown_expense_category">Unknown expense category \'%1$s\'</string>
+    <string name="errors_server_import_unknown_income_category">Unknown income category \'%1$s\'</string>
+    <string name="errors_server_import_wallet_frozen">Wallet \'%1$s\' is frozen</string>
+    <string name="errors_server_import_category_expense_not_income">Category \'%1$s\' is a expense category, not income</string>
+    <string name="errors_server_import_category_income_not_expense">Category \'%1$s\' is a income category, not expense</string>
+    <string name="errors_server_import_legs_only_transfers">source and destination wallets are only for Transfers</string>
+    <string name="errors_server_import_transfer_legs">Transfer rows use source wallet and destination wallet, not wallet</string>
+    <string name="errors_server_import_transfer_no_category">Transfers never carry a category</string>
+    <string name="errors_server_import_row_duplicate">Row %1$s duplicates an existing transaction</string>
+    <string name="errors_server_import_type_got">Type must be expense, income, or transfer (got \'%1$s\')</string>
+    <string name="errors_server_import_date_required">Date is required</string>
+    <string name="errors_server_import_date_invalid">Invalid date \'%1$s\' (use YYYY-MM-DD)</string>
+    <string name="errors_server_import_amount_required">Amount is required</string>
+    <string name="errors_server_import_amount_invalid">Invalid amount \'%1$s\'</string>
+    <string name="errors_server_import_amount_not_positive">Amount must be positive (got \'%1$s\')</string>
+    <string name="errors_server_import_amount_too_large">Amount is too large (got \'%1$s\')</string>
+    <string name="errors_server_import_description_too_long">Description is too long (max 500 characters)</string>
+    <string name="errors_server_import_location_invalid">Invalid location \'%1$s\' (use \'lat,lon\')</string>
+
+    <!-- Restore (services/backup.py) -->
+    <string name="errors_server_restore_failed">Restore failed: the backup data could not be applied</string>
+    <string name="errors_server_restore_unparseable">Could not parse workbook: %1$s</string>
+    <string name="errors_server_restore_missing_sheets">Missing sheets: %1$s</string>
+    <string name="errors_server_restore_metadata_empty">Metadata sheet is empty</string>
+    <string name="errors_server_restore_sheet_empty">%1$s sheet is empty (no header)</string>
+    <string name="errors_server_restore_sheet_columns">Sheet %1$s has %2$s columns, expected %3$s</string>
+    <string name="errors_server_restore_sheet_column">Sheet %1$s column %2$s: expected %3$s, got %4$s</string>
+    <string name="errors_server_restore_wallet_empty_name">Wallets sheet has a row with empty name</string>
+    <string name="errors_server_restore_category_empty">Categories sheet has row with empty name or type</string>
+    <string name="errors_server_restore_recurring_cost_empty_name">Recurring Costs sheet has row with empty name</string>
+    <string name="errors_server_restore_recurring_income_empty_name">Recurring Incomes sheet has row with empty name</string>
+    <string name="errors_server_restore_duplicate_wallet">Duplicate wallet name in backup: %1$s</string>
+    <string name="errors_server_restore_duplicate_expense_category">Duplicate category in backup: %1$s (expense)</string>
+    <string name="errors_server_restore_duplicate_income_category">Duplicate category in backup: %1$s (income)</string>
+    <string name="errors_server_restore_duplicate_recurring_cost">Duplicate recurring cost name in backup: %1$s</string>
+    <string name="errors_server_restore_duplicate_recurring_income">Duplicate recurring income name in backup: %1$s</string>
+    <string name="errors_server_restore_invalid_decimal">Invalid decimal value: %1$s</string>
+    <string name="errors_server_restore_invalid_boolean">Invalid boolean value: %1$s</string>
+    <string name="errors_server_restore_invalid_location">Invalid location in Transactions: %1$s</string>
+    <string name="errors_server_restore_origin_mismatch">Backup was exported from %1$s, not from %2$s. Proceeding will replace all data with the backup\'s contents.</string>
+
+    <!-- Assistant and Assistant Settings -->
+    <string name="errors_server_assistant_key_empty">The Assistant Key cannot be empty</string>
+    <string name="errors_server_assistant_key_rejected">The provider rejected the Assistant Key: check the key in Settings</string>
+    <string name="errors_server_assistant_models_unavailable">The provider\'s model list is unavailable right now: type a model id or try again later</string>
+    <string name="errors_server_assistant_not_configured">Assistant Settings are not configured</string>
+    <string name="errors_server_assistant_no_settings">No Assistant Settings: choose a provider first</string>
+    <string name="errors_server_assistant_models_key_required">%1$s lists its models with a key: enter the Assistant Key first</string>
+    <string name="errors_server_assistant_no_adapter">No adapter for the provider %1$s yet</string>
+    <string name="errors_server_assistant_provider_error">Assistant provider error: %1$s</string>
+</resources>

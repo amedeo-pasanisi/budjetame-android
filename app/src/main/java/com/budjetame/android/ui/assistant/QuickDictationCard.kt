@@ -33,9 +33,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.budjetame.android.R
 import com.budjetame.android.ui.theme.Slate500
 
 /**
@@ -84,13 +86,13 @@ fun QuickDictationFrame(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Record Budjetame",
+                        text = stringResource(R.string.record_label),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onClose) {
-                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Close")
+                        Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 }
                 content()
@@ -102,7 +104,7 @@ fun QuickDictationFrame(
 /** The card's one line while the signed-in Account is read. */
 @Composable
 fun QuickDictationChecking() {
-    StatusText("Opening Budjetame…")
+    StatusText(stringResource(R.string.quick_dictation_checking))
 }
 
 /** The card cannot run: one line saying why, and a way into the app. The
@@ -110,12 +112,13 @@ fun QuickDictationChecking() {
 @Composable
 fun QuickDictationCannotRun(reason: AssistantViewModel.CannotRun, onOpenApp: () -> Unit) {
     Text(
-        text = when (reason) {
-            AssistantViewModel.CannotRun.SIGNED_OUT -> "You are signed out of Budjetame."
-            AssistantViewModel.CannotRun.NO_ASSISTANT_SETTINGS ->
-                "The Assistant is not set up: add the Assistant Settings in the app's Settings."
-            AssistantViewModel.CannotRun.OFFLINE -> "Budjetame cannot be reached: check your connection and try again."
-        },
+        text = stringResource(
+            when (reason) {
+                AssistantViewModel.CannotRun.SIGNED_OUT -> R.string.quick_dictation_signed_out
+                AssistantViewModel.CannotRun.NO_ASSISTANT_SETTINGS -> R.string.quick_dictation_no_assistant_settings
+                AssistantViewModel.CannotRun.OFFLINE -> R.string.quick_dictation_offline
+            },
+        ),
         style = MaterialTheme.typography.bodyMedium,
     )
     OpenAppButton(onOpenApp)
@@ -125,7 +128,7 @@ fun QuickDictationCannotRun(reason: AssistantViewModel.CannotRun, onOpenApp: () 
 @Composable
 fun QuickDictationNoRecognizer(onOpenApp: () -> Unit) {
     Text(
-        text = "This phone cannot take dictation: type the sentence in the app.",
+        text = stringResource(R.string.quick_dictation_no_recognizer),
         style = MaterialTheme.typography.bodyMedium,
     )
     OpenAppButton(onOpenApp)
@@ -138,7 +141,7 @@ private fun OpenAppButton(onOpenApp: () -> Unit) {
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.padding(top = 12.dp),
     ) {
-        Text("Open Budjetame")
+        Text(stringResource(R.string.quick_dictation_open_app))
     }
 }
 
@@ -166,7 +169,7 @@ fun QuickDictationContent(
             if (state.lines.isNotEmpty()) listState.animateScrollToItem(state.lines.size - 1)
         }
         if (state.lines.isEmpty() && !state.listening) {
-            StatusText("Say what you spent or received: it lands as a Draft Transaction on the Transactions tab.")
+            StatusText(stringResource(R.string.quick_dictation_empty))
         }
         LazyColumn(
             state = listState,
@@ -176,10 +179,10 @@ fun QuickDictationContent(
             items(state.lines) { line -> LineBubble(line) }
         }
         when {
-            state.listening -> StatusText("Listening…")
-            state.pending -> StatusText("The Assistant is writing…")
+            state.listening -> StatusText(stringResource(R.string.assistant_listening))
+            state.pending -> StatusText(stringResource(R.string.assistant_writing))
             state.dictationFailed -> Text(
-                text = "Dictation did not work. Tap the microphone to try again.",
+                text = stringResource(R.string.quick_dictation_failed),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 8.dp),
@@ -198,7 +201,7 @@ fun QuickDictationContent(
             )
             Spacer(modifier = Modifier.weight(1f))
             TextButton(onClick = onOpenInApp) {
-                Text("Open in app")
+                Text(stringResource(R.string.quick_dictation_open_in_app))
             }
         }
     }

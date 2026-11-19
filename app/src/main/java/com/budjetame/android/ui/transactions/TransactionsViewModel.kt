@@ -2,6 +2,7 @@ package com.budjetame.android.ui.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
@@ -13,7 +14,6 @@ import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
-import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
 import com.budjetame.android.data.location.DeviceLocation
@@ -32,7 +32,10 @@ import com.budjetame.android.ui.categories.CategoryModalState
 import com.budjetame.android.ui.categories.validateCategoryForm
 import com.budjetame.android.ui.common.FieldErrors
 import com.budjetame.android.ui.common.LedgerJump
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.apiErrorMessage
 import com.budjetame.android.ui.common.parseAmountInput
+import com.budjetame.android.ui.common.serverMessage
 import com.budjetame.android.ui.undo.DeletedEntity
 import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.ui.wallets.WalletModalState
@@ -113,7 +116,7 @@ class TransactionsViewModel(
 
     data class UiState(
         val loading: Boolean = true,
-        val loadError: String? = null,
+        val loadError: UiText? = null,
         val wallets: List<WalletDto> = emptyList(),
         val categories: List<CategoryDto> = emptyList(),
         /** The Recurring Cost definitions the filter bar's Recurring select
@@ -134,10 +137,10 @@ class TransactionsViewModel(
         val drafts: List<DraftTransactionDto> = emptyList(),
         /** The last failed Approve or Discard on a Draft row, shown in the
          * Drafts block; null = none. Cleared by the next Draft action. */
-        val draftError: String? = null,
+        val draftError: UiText? = null,
         val nextCursor: String? = null,
         val loadingMore: Boolean = false,
-        val loadMoreError: String? = null,
+        val loadMoreError: UiText? = null,
         val ledgerEmpty: Boolean = false,
         val filtersOpen: Boolean = false,
         val filterWalletId: Int? = null,
@@ -150,7 +153,7 @@ class TransactionsViewModel(
         val filterRecurring: RecurringFilter? = null,
         val search: String = "",
         val searchNeedle: String = "",
-        val savedWarning: String? = null,
+        val savedWarning: UiText? = null,
         /** True while the export request is in flight — the chips line's and
          * the panel footer's Export to Excel buttons show "Exporting…" and a
          * second press cannot fire a concurrent request (web parity: one
@@ -158,7 +161,7 @@ class TransactionsViewModel(
         val exporting: Boolean = false,
         /** A failed export's message (the web screen's export error line),
          * null = no failure. Cleared by the next Export press. */
-        val exportError: String? = null,
+        val exportError: UiText? = null,
         /** The fetched workbook, waiting for the screen to hand it to the
          * system share sheet (ticket #28). The screen shares it once and
          * reports back through `onExportHandled`, which clears it — a file
@@ -183,11 +186,11 @@ class TransactionsViewModel(
             get() = wallets.find { it.id == filterWalletId }
 
         /** The empty-list message the screen shows, exactly like the web. */
-        val emptyMessage: String
+        val emptyMessage: UiText
             get() = when {
-                searchNeedle.isNotEmpty() -> "No transactions match your search."
-                filtersActive -> "No transactions match these filters."
-                else -> "Nothing here yet."
+                searchNeedle.isNotEmpty() -> UiText.of(R.string.transactions_empty_search)
+                filtersActive -> UiText.of(R.string.transactions_empty_filters)
+                else -> UiText.of(R.string.transactions_empty)
             }
     }
 
@@ -237,7 +240,7 @@ class TransactionsViewModel(
         val locating: Boolean = false,
         /** Inline GPS failure message (denied, timeout, unavailable),
          * cleared by a successful GPS pick, a map pick, or a Remove. */
-        val gpsError: String? = null,
+        val gpsError: UiText? = null,
         /** True while the map picker dialog is open (the seam content). */
         val showingPicker: Boolean = false,
         /** True while the platform location-permission prompt is pending:
@@ -245,7 +248,7 @@ class TransactionsViewModel(
          * reports the answer back through `onLocationPermissionResult`. */
         val requestingLocationPermission: Boolean = false,
         /** The server's rejection banner — never a Field Error. */
-        val error: String? = null,
+        val error: UiText? = null,
         /** The Field Errors the last Save revealed (ADR-0009), field key
          * ([TransactionFields]) → message; empty = none shown. Typing never
          * clears them — only the next Save refreshes them. */
@@ -508,7 +511,7 @@ class TransactionsViewModel(
             } catch (_: Exception) {
                 if (gen != generation) return@launch
                 _uiState.update {
-                    it.copy(loadingMore = false, loadMoreError = "Could not load more transactions.")
+                    it.copy(loadingMore = false, loadMoreError = UiText.of(R.string.errors_transactions_load_more))
                 }
             }
         }
@@ -852,14 +855,14 @@ class TransactionsViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A wallet with this name already exists.",
-                            "Could not create the wallet.",
+                            error,
+                            UiText.of(R.string.errors_wallets_conflict),
+                            UiText.of(R.string.errors_wallets_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateWalletCreate { it.copy(submitting = false, error = "Could not create the wallet.") }
+                updateWalletCreate { it.copy(submitting = false, error = UiText.of(R.string.errors_wallets_create)) }
             }
         }
     }
@@ -937,14 +940,14 @@ class TransactionsViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A category with this name already exists.",
-                            "Could not create the category.",
+                            error,
+                            UiText.of(R.string.errors_categories_conflict),
+                            UiText.of(R.string.errors_categories_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateCategoryCreate { it.copy(submitting = false, error = "Could not create the category.") }
+                updateCategoryCreate { it.copy(submitting = false, error = UiText.of(R.string.errors_categories_create)) }
             }
         }
     }
@@ -979,14 +982,14 @@ class TransactionsViewModel(
                     it.copy(
                         exporting = false,
                         exportError = apiErrorMessage(
-                            error.status,
-                            "Could not export transactions.",
-                            "Could not export transactions.",
+                            error,
+                            UiText.of(R.string.errors_transactions_export),
+                            UiText.of(R.string.errors_transactions_export),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                _uiState.update { it.copy(exporting = false, exportError = "Could not export transactions.") }
+                _uiState.update { it.copy(exporting = false, exportError = UiText.of(R.string.errors_transactions_export)) }
             }
         }
     }
@@ -1000,7 +1003,7 @@ class TransactionsViewModel(
     /** A client-side failure while saving or sharing the fetched file (the
      * export request itself succeeded): surface it as the export error
      * line, the same place a failed request reports. */
-    fun onExportError(message: String) {
+    fun onExportError(message: UiText) {
         _uiState.update { it.copy(exportError = message) }
     }
 
@@ -1079,7 +1082,7 @@ class TransactionsViewModel(
      * Expense; a Wallet the Draft did not catch, or one that is frozen or
      * gone, falls back to the new form's default, like the web's.
      */
-    private fun openDraftForm(draft: DraftTransactionDto, error: String?) {
+    private fun openDraftForm(draft: DraftTransactionDto, error: UiText?) {
         val type = when (draft.type) {
             TransactionType.INCOME -> TransactionType.INCOME
             TransactionType.TRANSFER -> TransactionType.TRANSFER
@@ -1210,7 +1213,7 @@ class TransactionsViewModel(
                     state.copy(
                         modal = null,
                         savedWarning = if (result.warning) {
-                            "Deleted — this made a Cash wallet negative."
+                            UiText.of(R.string.transactions_deleted_cash_negative)
                         } else {
                             null
                         },
@@ -1221,9 +1224,9 @@ class TransactionsViewModel(
                     it.copy(
                         deleting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A wallet or category with this name already exists.",
-                            "Could not delete the transaction.",
+                            error,
+                            UiText.of(R.string.errors_transactions_conflict),
+                            UiText.of(R.string.errors_transactions_delete),
                         ),
                     )
                 }
@@ -1231,7 +1234,7 @@ class TransactionsViewModel(
                 updateModal {
                     it.copy(
                         deleting = false,
-                        error = "Could not delete the transaction.",
+                        error = UiText.of(R.string.errors_transactions_delete),
                     )
                 }
             }
@@ -1255,14 +1258,14 @@ class TransactionsViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A wallet or category with this name already exists.",
-                            "Could not create the transaction.",
+                            error,
+                            UiText.of(R.string.errors_transactions_conflict),
+                            UiText.of(R.string.errors_transactions_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not create the transaction.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_transactions_create)) }
             }
         }
     }
@@ -1284,14 +1287,14 @@ class TransactionsViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A wallet or category with this name already exists.",
-                            "Could not save the transaction.",
+                            error,
+                            UiText.of(R.string.errors_transactions_conflict),
+                            UiText.of(R.string.errors_transactions_save),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not save the transaction.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_transactions_save)) }
             }
         }
     }
@@ -1346,13 +1349,13 @@ class TransactionsViewModel(
     }
 
     /** The post-write Cash negative-balance banner of a save (ticket #20). */
-    private fun savedWarningOf(saved: TransactionDto): String? =
-        if (saved.warning) "Saved — this made a Cash wallet negative." else null
+    private fun savedWarningOf(saved: TransactionDto): UiText? =
+        if (saved.warning) UiText.of(R.string.transactions_saved_cash_negative) else null
 
     /** The message a 422 from Approve carries: the backend's rule as its
-     * `detail`, else the shared validation copy. */
-    private fun approveRuleMessage(error: ApiException): String =
-        error.detail ?: apiErrorMessage(error.status, "", "")
+     * `detail` through the error catalogue, else the shared validation copy. */
+    private fun approveRuleMessage(error: ApiException): UiText =
+        error.detail?.let(::serverMessage) ?: UiText.of(R.string.errors_check_fields)
 
     /** The five panel filters reset to "all" (web issue #92's taxonomy) —
      * wallet, category, from-date, to-date, recurring. The search is
@@ -1463,7 +1466,7 @@ class TransactionsViewModel(
                     // failed background refetch keeps the held data (the
                     // `loading` flag tells the two apart).
                     if (state.loading) {
-                        state.copy(loading = false, loadError = "Could not load your data.")
+                        state.copy(loading = false, loadError = UiText.of(R.string.errors_transactions_load))
                     } else {
                         state.copy(loading = false)
                     }
@@ -1537,10 +1540,10 @@ class TransactionsViewModel(
         const val SEARCH_DEBOUNCE_MILLIS = 300L
 
         /** A failed Approve that is not a rule error (the web's copy). */
-        const val DRAFT_APPROVE_ERROR = "Could not approve the draft."
+        val DRAFT_APPROVE_ERROR: UiText = UiText.of(R.string.errors_drafts_approve)
 
         /** A failed Discard (the web's copy). */
-        const val DRAFT_DISCARD_ERROR = "Could not discard the draft."
+        val DRAFT_DISCARD_ERROR: UiText = UiText.of(R.string.errors_drafts_discard)
 
         /** The Description field's cap (CONTEXT.md: up to 500 characters). */
         const val DESCRIPTION_MAX_LENGTH = 500
@@ -1548,7 +1551,7 @@ class TransactionsViewModel(
         /** The inline GPS failure line (the web form's exact copy): a
          * denied, timed-out, or unavailable fix — the map picker stays one
          * tap away. */
-        const val GPS_ERROR_TEXT =
-            "Couldn't get your location — check permissions or pick it on the map."
+        val GPS_ERROR_TEXT: UiText =
+            UiText.of(R.string.errors_transactions_gps)
     }
 }

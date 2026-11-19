@@ -2,25 +2,27 @@ package com.budjetame.android.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.BudgetDto
 import com.budjetame.android.data.api.CategorySliceDto
-import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.DashboardSummaryDto
+import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.TrendDto
 import com.budjetame.android.data.api.TrendKind
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.util.Dates
 import java.time.YearMonth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 
 /** The pie card's two sides, selected with the Expenses/Incomes toggle. */
 enum class PieSide { EXPENSE, INCOME }
@@ -53,7 +55,7 @@ class DashboardViewModel(
 
     data class UiState(
         val loading: Boolean = true,
-        val loadError: String? = null,
+        val loadError: UiText? = null,
         val requestedMonth: YearMonth,
         val summary: DashboardSummaryDto? = null,
         val pieSide: PieSide = PieSide.EXPENSE,
@@ -61,10 +63,10 @@ class DashboardViewModel(
         val trendFrom: YearMonth,
         val trendTo: YearMonth,
         val trend: LoadedTrend? = null,
-        val trendError: String? = null,
+        val trendError: UiText? = null,
         val budgetMonth: YearMonth,
         val budget: BudgetDto? = null,
-        val budgetError: String? = null,
+        val budgetError: UiText? = null,
         /** Whether the account has any Recurring definitions at all — the
          * Budget card's hide rule (web issue #66). Null while unknown:
          * the card only hides once both Recurring lists have loaded and
@@ -225,7 +227,7 @@ class DashboardViewModel(
                 if (state.requestedMonth != month) {
                     state
                 } else if (state.summary == null) {
-                    state.copy(loadError = "Could not load your dashboard.", loading = false)
+                    state.copy(loadError = UiText.of(R.string.errors_dashboard_load), loading = false)
                 } else {
                     state.copy(requestedMonth = state.loadedMonth ?: month, loading = false)
                 }
@@ -245,7 +247,7 @@ class DashboardViewModel(
             val loaded = dashboard.fetchBudget(month.toString())
             _uiState.update { it.copy(budget = loaded, budgetError = null) }
         } catch (_: Exception) {
-            _uiState.update { it.copy(budgetError = "Could not load the budget.") }
+            _uiState.update { it.copy(budgetError = UiText.of(R.string.errors_dashboard_budget)) }
         }
     }
 
@@ -317,7 +319,7 @@ class DashboardViewModel(
                     current.trendFrom.toString() == from &&
                     current.trendTo.toString() == to
                 ) {
-                    current.copy(trendError = "Could not load the trend.")
+                    current.copy(trendError = UiText.of(R.string.errors_dashboard_trend))
                 } else {
                     current
                 }

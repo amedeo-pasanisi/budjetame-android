@@ -7,11 +7,11 @@ import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
-import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.category.CategoryMergeConflict
 import com.budjetame.android.ui.common.FieldErrors
 import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.apiErrorMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,7 +49,7 @@ data class CategoryModalState(
     val type: CategoryType = CategoryType.EXPENSE,
     val icon: String = "",
     val color: String = CATEGORY_PRESET_COLORS.first(),
-    val error: String? = null,
+    val error: UiText? = null,
     val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingDelete: Boolean = false,
@@ -76,7 +76,7 @@ object CategoryFields {
  * Shared by every host of the Category modal.
  */
 fun validateCategoryForm(form: CategoryModalState): FieldErrors = buildMap {
-    if (form.name.isBlank()) put(CategoryFields.NAME, "Enter a name")
+    if (form.name.isBlank()) put(CategoryFields.NAME, UiText.of(R.string.field_error_name_empty))
 }
 
 /**
@@ -186,15 +186,15 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
                         confirmingDelete = false,
                         deleting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A category with this name already exists.",
-                            "Could not delete the category.",
+                            error,
+                            UiText.of(R.string.errors_categories_conflict),
+                            UiText.of(R.string.errors_categories_delete),
                         ),
                     )
                 }
             } catch (_: Exception) {
                 updateModal {
-                    it.copy(confirmingDelete = false, deleting = false, error = "Could not delete the category.")
+                    it.copy(confirmingDelete = false, deleting = false, error = UiText.of(R.string.errors_categories_delete))
                 }
             }
         }
@@ -229,15 +229,15 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
                         confirmingMerge = false,
                         merging = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A category with this name already exists.",
-                            "Could not merge the categories.",
+                            error,
+                            UiText.of(R.string.errors_categories_conflict),
+                            UiText.of(R.string.errors_categories_merge),
                         ),
                     )
                 }
             } catch (_: Exception) {
                 updateModal {
-                    it.copy(confirmingMerge = false, merging = false, error = "Could not merge the categories.")
+                    it.copy(confirmingMerge = false, merging = false, error = UiText.of(R.string.errors_categories_merge))
                 }
             }
         }
@@ -267,14 +267,14 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A category with this name already exists.",
-                            "Could not create the category.",
+                            error,
+                            UiText.of(R.string.errors_categories_conflict),
+                            UiText.of(R.string.errors_categories_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not create the category.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_categories_create)) }
             }
         }
     }
@@ -305,14 +305,14 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A category with this name already exists.",
-                            "Could not save the category.",
+                            error,
+                            UiText.of(R.string.errors_categories_conflict),
+                            UiText.of(R.string.errors_categories_save),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not save the category.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_categories_save)) }
             }
         }
     }

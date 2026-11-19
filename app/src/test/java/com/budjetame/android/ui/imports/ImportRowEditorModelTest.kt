@@ -5,6 +5,7 @@ import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.ui.common.english
 import com.budjetame.android.ui.transactions.WalletFieldTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -60,15 +61,15 @@ class ImportRowEditorModelTest {
     fun `an invalid amount gets the amount input's message`() {
         assertEquals(
             mapOf(ImportRowFields.AMOUNT to "Enter an amount"),
-            validateImportRow(edited(amount = "  ")),
+            validateImportRow(edited(amount = "  "))?.english(),
         )
         assertEquals(
             mapOf(ImportRowFields.AMOUNT to "Amount must be a positive number"),
-            validateImportRow(edited(amount = "0")),
+            validateImportRow(edited(amount = "0"))?.english(),
         )
         assertEquals(
             mapOf(ImportRowFields.AMOUNT to "That doesn't look like an amount — use digits and one . or , for decimals"),
-            validateImportRow(edited(amount = "12abc")),
+            validateImportRow(edited(amount = "12abc")).english(),
         )
     }
 
@@ -79,7 +80,7 @@ class ImportRowEditorModelTest {
                 ImportRowFields.DATE to "Choose a date",
                 ImportRowFields.WALLET to "Choose a wallet.",
             ),
-            validateImportRow(edited(date = "", wallet = "  ")),
+            validateImportRow(edited(date = "", wallet = "  "))?.english(),
         )
     }
 
@@ -90,14 +91,14 @@ class ImportRowEditorModelTest {
                 ImportRowFields.SOURCE to "Choose the source wallet.",
                 ImportRowFields.DESTINATION to "Choose the destination wallet.",
             ),
-            validateImportRow(edited(type = TransactionType.TRANSFER, wallet = "Checking")),
+            validateImportRow(edited(type = TransactionType.TRANSFER, wallet = "Checking"))?.english(),
         )
         val same = "Source and destination must be different wallets."
         assertEquals(
             mapOf(ImportRowFields.SOURCE to same, ImportRowFields.DESTINATION to same),
             validateImportRow(
                 edited(type = TransactionType.TRANSFER, sourceWallet = " Checking ", destinationWallet = "Checking"),
-            ),
+            )?.english(),
         )
         // The names are compared raw (case-sensitively), as on the web: two
         // spellings of one Wallet pass, and the re-validation then rejects

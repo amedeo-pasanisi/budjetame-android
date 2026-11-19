@@ -74,23 +74,23 @@ class AmountInputTest {
 
     @Test
     fun `an empty amount asks for one`() {
-        assertEquals("Enter an amount", amountFieldError(""))
-        assertEquals("Enter an amount", amountFieldError("   "))
+        assertEquals("Enter an amount", amountFieldError("")?.english())
+        assertEquals("Enter an amount", amountFieldError("   ")?.english())
     }
 
     @Test
     fun `text that is not a number explains the Amount Input`() {
         val message = "That doesn't look like an amount — use digits and one . or , for decimals"
-        assertEquals(message, amountFieldError("abc"))
-        assertEquals(message, amountFieldError("1.2.3"))
+        assertEquals(message, amountFieldError("abc")?.english())
+        assertEquals(message, amountFieldError("1.2.3")?.english())
     }
 
     @Test
     fun `a zero or negative number must be positive`() {
         val message = "Amount must be a positive number"
-        assertEquals(message, amountFieldError("0"))
-        assertEquals(message, amountFieldError("0,00"))
-        assertEquals(message, amountFieldError("-5"))
+        assertEquals(message, amountFieldError("0")?.english())
+        assertEquals(message, amountFieldError("0,00")?.english())
+        assertEquals(message, amountFieldError("-5")?.english())
     }
 
     @Test

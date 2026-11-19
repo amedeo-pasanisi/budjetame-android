@@ -5,6 +5,7 @@ import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.backup.BackupFile
 import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.data.backup.RestoreResult
+import com.budjetame.android.ui.common.english
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -79,7 +80,7 @@ class BackupViewModelTest {
         backups.pending.completeExceptionally(ApiException(status = 500, detail = "boom", message = "boom"))
         awaitState { !it.downloading }
 
-        assertEquals("Could not export the backup.", viewModel.uiState.value.error)
+        assertEquals("Could not export the backup.", viewModel.uiState.value.error?.english())
         assertNull(viewModel.uiState.value.backup)
 
         backups.pending = CompletableDeferred()
@@ -98,7 +99,7 @@ class BackupViewModelTest {
 
         viewModel.onDeliveryFailed(BackupDeliveryFailure.SAVE)
 
-        assertEquals("Could not save the backup file.", viewModel.uiState.value.error)
+        assertEquals("Could not save the backup file.", viewModel.uiState.value.error?.english())
         assertEquals("budjetame-backup-2026-11-19.xlsx", viewModel.uiState.value.backup?.filename)
     }
 

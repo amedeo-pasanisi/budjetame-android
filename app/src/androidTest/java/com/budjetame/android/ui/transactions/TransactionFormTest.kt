@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.IntervalUnit
@@ -28,6 +29,8 @@ import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.AmountInputMessages
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.deviceText
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -279,11 +282,11 @@ class TransactionFormTest {
         // Never gated on validation (ADR-0009): nothing shows before a Save.
         composeRule.onNodeWithText("Save transaction").assertIsEnabled()
         composeRule.onNodeWithTag("tx-amount").assert(!inError)
-        composeRule.onNodeWithText(AmountInputMessages.EMPTY, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText(AmountInputMessages.EMPTY.deviceText(), useUnmergedTree = true).assertDoesNotExist()
 
         composeRule.onNodeWithText("Save transaction").performClick()
 
-        composeRule.onNodeWithTag("tx-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY))
+        composeRule.onNodeWithTag("tx-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY.deviceText()))
         composeRule.onNodeWithTag("tx-wallet").assert(inError).assert(hasText("Choose a wallet."))
         assertEquals(0, submitted)
     }
@@ -297,18 +300,18 @@ class TransactionFormTest {
         )
         composeRule.onNodeWithTag("tx-amount").performTextInput("0")
         composeRule.onNodeWithText("Save transaction").performClick()
-        composeRule.onNodeWithTag("tx-amount").assert(hasText(AmountInputMessages.NOT_POSITIVE))
+        composeRule.onNodeWithTag("tx-amount").assert(hasText(AmountInputMessages.NOT_POSITIVE.deviceText()))
 
         // Typing the fix leaves the error in place: only Save refreshes it.
         composeRule.onNodeWithTag("tx-amount").performTextClearance()
         composeRule.onNodeWithTag("tx-amount").performTextInput("17,5")
-        composeRule.onNodeWithTag("tx-amount").assert(hasText(AmountInputMessages.NOT_POSITIVE))
+        composeRule.onNodeWithTag("tx-amount").assert(hasText(AmountInputMessages.NOT_POSITIVE.deviceText()))
         // The tolerant amount already drives the Balance preview.
         composeRule.onNodeWithText("Cash: €100.00 → €82.50").assertIsDisplayed()
 
         composeRule.onNodeWithText("Save transaction").performClick()
 
-        composeRule.onNodeWithText(AmountInputMessages.NOT_POSITIVE, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText(AmountInputMessages.NOT_POSITIVE.deviceText(), useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithTag("tx-amount").assert(!inError)
         assertEquals(1, submitted)
     }
@@ -372,10 +375,10 @@ class TransactionFormTest {
             TransactionsViewModel.ModalState(
                 type = TransactionType.EXPENSE,
                 walletId = 1,
-                error = "Amount is required",
+                error = UiText.Raw("Amount is required"),
                 fieldErrors = mapOf(
                     TransactionFields.AMOUNT to AmountInputMessages.EMPTY,
-                    TransactionFields.DATE to "Choose a date",
+                    TransactionFields.DATE to UiText.of(R.string.field_error_date_empty),
                 ),
             ),
             wallets = listOf(cash),
@@ -383,7 +386,7 @@ class TransactionFormTest {
         )
 
         composeRule.onNodeWithText("Amount is required").assertIsDisplayed()
-        composeRule.onNodeWithTag("tx-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY))
+        composeRule.onNodeWithTag("tx-amount").assert(inError).assert(hasText(AmountInputMessages.EMPTY.deviceText()))
         composeRule.onNodeWithTag("tx-date").assert(inError).assert(hasText("Choose a date"))
     }
 

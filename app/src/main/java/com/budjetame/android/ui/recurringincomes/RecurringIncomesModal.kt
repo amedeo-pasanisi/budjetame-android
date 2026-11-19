@@ -49,6 +49,7 @@ import com.budjetame.android.R
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.ui.common.AccountLocaleResources
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.common.resolve
@@ -197,7 +198,7 @@ fun RecurringIncomesModal(
 
                 modal.error?.let { error ->
                     Text(
-                        text = error,
+                        text = error.resolve(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 12.dp),
@@ -293,7 +294,7 @@ private fun StartDateField(
     value: String,
     onSelect: (String) -> Unit,
     clearable: Boolean,
-    error: String?,
+    error: UiText?,
     modifier: Modifier = Modifier,
 ) {
     var pickerOpen by remember { mutableStateOf(false) }

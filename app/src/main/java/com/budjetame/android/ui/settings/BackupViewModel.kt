@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.backup.BackupFile
 import com.budjetame.android.data.backup.BackupGateway
+import com.budjetame.android.ui.common.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +18,9 @@ import kotlinx.coroutines.launch
 
 /** How handing a held Backup to the device can fail, with the line the
  * Backup section shows. */
-enum class BackupDeliveryFailure(val message: String) {
-    SAVE("Could not save the backup file."),
-    SHARE("Could not share the backup file."),
+enum class BackupDeliveryFailure(val message: UiText) {
+    SAVE(UiText.of(R.string.errors_backup_save)),
+    SHARE(UiText.of(R.string.errors_backup_share)),
 }
 
 /**
@@ -41,7 +43,7 @@ class BackupViewModel(private val backups: BackupGateway) : ViewModel() {
         /** The downloaded Backup, ready to save or share; null before Export
          * all, after a failed download, and once the dialog closed. */
         val backup: BackupFile? = null,
-        val error: String? = null,
+        val error: UiText? = null,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -61,7 +63,7 @@ class BackupViewModel(private val backups: BackupGateway) : ViewModel() {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                _uiState.value = UiState(error = "Could not export the backup.")
+                _uiState.value = UiState(error = UiText.of(R.string.errors_backup_export))
             }
         }
     }

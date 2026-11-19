@@ -26,6 +26,7 @@ import com.budjetame.android.data.transaction.ApiTransactionRepository
 import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.ui.common.AmountInputMessages
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -328,7 +329,7 @@ class DraftTransactionsViewModelTest {
         viewModel.approveDraft(viewModel.uiState.value.drafts.single())
 
         awaitState { it.savedWarning != null }
-        assertEquals("Saved — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning)
+        assertEquals("Saved — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning?.english())
     }
 
     @Test
@@ -353,7 +354,7 @@ class DraftTransactionsViewModelTest {
         // default (the web's seed rule); the banner names the rule.
         assertEquals(1, modal.walletId)
         assertEquals("Esselunga", modal.description)
-        assertEquals("Wallet is required", modal.error)
+        assertEquals("Wallet is required", modal.error?.english())
         // The Draft stays until the form's Save approves it.
         assertEquals(listOf(7), viewModel.uiState.value.drafts.map { it.id })
         assertTrue(viewModel.uiState.value.transactions.isEmpty())
@@ -372,13 +373,13 @@ class DraftTransactionsViewModelTest {
         val modal = viewModel.uiState.value.modal!!
         // The rule message stays the banner; the Field Errors point at
         // what is left to fill, at once, without a Save first.
-        assertEquals("Amount is required", modal.error)
+        assertEquals("Amount is required", modal.error?.english())
         assertEquals(
             mapOf(
-                TransactionFields.AMOUNT to AmountInputMessages.EMPTY,
+                TransactionFields.AMOUNT to AmountInputMessages.EMPTY.english(),
                 TransactionFields.DATE to "Choose a date",
             ),
-            modal.fieldErrors,
+            modal.fieldErrors?.english(),
         )
         assertEquals(1, callsTo("POST", "/api/draft-transactions/7/approve").size)
 
@@ -434,7 +435,7 @@ class DraftTransactionsViewModelTest {
         viewModel.submit()
 
         awaitState { it.modal?.error != null && it.modal?.submitting == false }
-        assertEquals("Frozen Wallets are read-only", viewModel.uiState.value.modal?.error)
+        assertEquals("Frozen Wallets are read-only", viewModel.uiState.value.modal?.error?.english())
         assertEquals(7, viewModel.uiState.value.modal?.approving?.id)
         assertEquals(listOf(7), viewModel.uiState.value.drafts.map { it.id })
         assertTrue(transactionStore.isEmpty())
@@ -519,7 +520,7 @@ class DraftTransactionsViewModelTest {
         viewModel.approveDraft(viewModel.uiState.value.drafts.single())
 
         awaitState { it.draftError != null && it.drafts.isEmpty() }
-        assertEquals("Could not approve the draft.", viewModel.uiState.value.draftError)
+        assertEquals("Could not approve the draft.", viewModel.uiState.value.draftError?.english())
         assertNull(viewModel.uiState.value.modal)
     }
 
@@ -563,7 +564,7 @@ class DraftTransactionsViewModelTest {
         viewModel.discardDraft(viewModel.uiState.value.drafts.first())
 
         awaitState { it.draftError != null }
-        assertEquals("Could not discard the draft.", viewModel.uiState.value.draftError)
+        assertEquals("Could not discard the draft.", viewModel.uiState.value.draftError?.english())
         assertEquals(listOf(7, 8), viewModel.uiState.value.drafts.map { it.id })
     }
 

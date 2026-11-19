@@ -94,6 +94,7 @@ import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.imports.ImportScreen
@@ -102,8 +103,8 @@ import com.budjetame.android.ui.theme.Slate400
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.theme.Slate700
-import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.ui.undo.UndoSink
+import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Dates
 import java.io.File
 import java.time.Instant
@@ -256,7 +257,7 @@ fun TransactionsScreen(
         val file = exportFile ?: return@LaunchedEffect
         val uri = withContext(Dispatchers.IO) { cacheExportFile(context, file) }
         if (uri == null) {
-            viewModel.onExportError(context.getString(R.string.transactions_export_save_error))
+            viewModel.onExportError(UiText.of(R.string.transactions_export_save_error))
         } else {
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = EXPORT_MIME_TYPE
@@ -269,7 +270,7 @@ fun TransactionsScreen(
                 // No app on the device can take the file (a bare test
                 // harness): the error line reports it and the export is
                 // consumed, so a later press fetches afresh.
-                viewModel.onExportError(context.getString(R.string.transactions_export_share_error))
+                viewModel.onExportError(UiText.of(R.string.transactions_export_share_error))
             }
         }
         viewModel.onExportHandled()
@@ -343,7 +344,7 @@ fun TransactionsScreen(
 
         state.exportError?.let { error ->
             Text(
-                text = error,
+                text = error.resolve(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -352,7 +353,7 @@ fun TransactionsScreen(
 
         state.savedWarning?.let { warning ->
             WarningBanner(
-                text = warning,
+                text = warning.resolve(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -366,7 +367,7 @@ fun TransactionsScreen(
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
-                message = loadError,
+                message = loadError.resolve(),
                 onRetry = viewModel::retry,
                 modifier = Modifier.weight(1f),
             )
@@ -543,7 +544,7 @@ private fun Ledger(
                             drafts = state.drafts,
                             wallets = state.wallets,
                             categories = state.categories,
-                            error = state.draftError,
+                            error = state.draftError?.resolve(),
                             onApprove = viewModel::approveDraft,
                             onEdit = viewModel::editDraft,
                             onDiscard = viewModel::discardDraft,
@@ -555,7 +556,7 @@ private fun Ledger(
 
             if (state.transactions.isEmpty()) {
                 item(key = "empty") {
-                    MessageBody(text = state.emptyMessage)
+                    MessageBody(text = state.emptyMessage.resolve())
                 }
             } else {
                 items(state.transactions, key = { it.id }) { transaction ->
@@ -569,7 +570,7 @@ private fun Ledger(
                     item(key = "load-more") {
                         LoadMoreSentinel(
                             loading = state.loadingMore,
-                            error = state.loadMoreError,
+                            error = state.loadMoreError?.resolve(),
                             onAppear = viewModel::loadMore,
                             onRetry = viewModel::retryLoadMore,
                         )

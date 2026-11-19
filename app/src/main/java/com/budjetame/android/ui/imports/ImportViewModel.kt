@@ -2,6 +2,7 @@ package com.budjetame.android.ui.imports
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.ImportPreviewDto
@@ -12,14 +13,16 @@ import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletType
-import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
 import com.budjetame.android.ui.categories.validateCategoryForm
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.apiErrorMessage
 import com.budjetame.android.ui.common.parseAmountInput
+import com.budjetame.android.ui.common.serverMessageOr
 import com.budjetame.android.ui.transactions.WalletFieldTarget
 import com.budjetame.android.ui.wallets.WalletModalState
 import com.budjetame.android.ui.wallets.validateWalletForm
@@ -73,7 +76,7 @@ data class ImportDraft(
     val busy: Boolean = false,
     /** The flow-level error (a failed read's or confirm's message); shown
      * on the phase's screen. */
-    val error: String? = null,
+    val error: UiText? = null,
     val imported: Int = 0,
     /** True when any created Transaction carries the Cash negative-balance
      * warning: the import succeeded but a Cash Wallet went negative. */
@@ -83,7 +86,7 @@ data class ImportDraft(
     val editorSaving: Boolean = false,
     /** The editor's own error — a failed re-validation call — shown inside
      * the open editor, leaving the draft untouched. */
-    val editorError: String? = null,
+    val editorError: UiText? = null,
     /** The editor's Field Errors (ADR-0009): set by a Save on an invalid
      * row, which re-validates nothing; refreshed only by the next Save,
      * cleared with the editor. Never mixed with [editorError]. */
@@ -211,7 +214,7 @@ class ImportViewModel(
                         draft = it.copy(
                             fileName = null,
                             fileSizeBytes = 0,
-                            error = "Could not read the file.",
+                            error = UiText.of(R.string.errors_read_file),
                             busy = false,
                         ),
                     )
@@ -281,7 +284,7 @@ class ImportViewModel(
                 if (gen != generation) return@launch
                 _uiState.update { state ->
                     state.draft?.let {
-                        state.copy(draft = it.copy(busy = false, error = draftError(cause, "Could not read the file.")))
+                        state.copy(draft = it.copy(busy = false, error = cause.serverMessageOr(UiText.of(R.string.errors_read_file))))
                     } ?: state
                 }
             }
@@ -433,7 +436,7 @@ class ImportViewModel(
                     state.copy(
                         draft = current.copy(
                             editorSaving = false,
-                            editorError = draftError(cause, "Could not validate the row."),
+                            editorError = cause.serverMessageOr(UiText.of(R.string.errors_imports_validate_row)),
                         ),
                     )
                 }
@@ -519,7 +522,7 @@ class ImportViewModel(
                 if (gen != generation) return@launch
                 _uiState.update { state ->
                     state.draft?.let {
-                        state.copy(draft = it.copy(error = draftError(cause, "Could not re-validate the rows.")))
+                        state.copy(draft = it.copy(error = cause.serverMessageOr(UiText.of(R.string.errors_imports_revalidate))))
                     } ?: state
                 }
             } finally {
@@ -659,15 +662,15 @@ class ImportViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A wallet with this name already exists.",
-                            "Could not create the wallet.",
+                            error,
+                            UiText.of(R.string.errors_wallets_conflict),
+                            UiText.of(R.string.errors_wallets_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
                 if (gen != generation) return@launch
-                updateRowWalletCreate { it.copy(submitting = false, error = "Could not create the wallet.") }
+                updateRowWalletCreate { it.copy(submitting = false, error = UiText.of(R.string.errors_wallets_create)) }
             }
         }
     }
@@ -755,15 +758,15 @@ class ImportViewModel(
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A category with this name already exists.",
-                            "Could not create the category.",
+                            error,
+                            UiText.of(R.string.errors_categories_conflict),
+                            UiText.of(R.string.errors_categories_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
                 if (gen != generation) return@launch
-                updateRowCategoryCreate { it.copy(submitting = false, error = "Could not create the category.") }
+                updateRowCategoryCreate { it.copy(submitting = false, error = UiText.of(R.string.errors_categories_create)) }
             }
         }
     }
@@ -833,7 +836,7 @@ class ImportViewModel(
                 if (gen != generation) return@launch
                 _uiState.update { state ->
                     state.draft?.let {
-                        state.copy(draft = it.copy(busy = false, error = draftError(cause, "Could not confirm the import.")))
+                        state.copy(draft = it.copy(busy = false, error = cause.serverMessageOr(UiText.of(R.string.errors_imports_confirm))))
                     } ?: state
                 }
             }
@@ -887,11 +890,6 @@ class ImportViewModel(
         pickedContent = null
         _uiState.value = UiState()
     }
-
-    /** The web transport's readDetail mapping for the import endpoints:
-     * the backend's detail verbatim when it had one, else the fallback. */
-    private fun draftError(cause: Throwable, fallback: String): String =
-        (cause as? ApiException)?.detail ?: fallback
 }
 
 /** A draft row as an ImportRowInput for the wire, or null when it has no

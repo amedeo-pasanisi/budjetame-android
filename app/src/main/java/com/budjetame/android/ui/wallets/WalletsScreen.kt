@@ -22,9 +22,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,8 +37,9 @@ import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.LocalDisplayLocale
-import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.common.RowEditButton
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate700
 import com.budjetame.android.util.Money
@@ -76,7 +77,7 @@ fun WalletsScreen(
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
-                message = loadError,
+                message = loadError.resolve(),
                 onRetry = viewModel::retry,
                 modifier = Modifier.weight(1f),
             )
@@ -165,7 +166,7 @@ private fun WalletsList(
                 FrozenSection(
                     frozenWallets = state.frozenWallets,
                     expanded = state.frozenExpanded,
-                    unfreezeError = state.unfreezeError,
+                    unfreezeError = state.unfreezeError?.resolve(),
                     onToggle = viewModel::toggleFrozenExpanded,
                     onUnfreeze = viewModel::unfreeze,
                     onEdit = viewModel::openEdit,

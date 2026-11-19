@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Quick Dictation (tickets #65, #71): the tile, the shortcut and the
+         second launcher entry ("Ok Google, apri Registra Budjetame"). Read by
+         the system, so it follows the device language. -->
+    <string name="record_label">Registra Budjetame</string>
+</resources>

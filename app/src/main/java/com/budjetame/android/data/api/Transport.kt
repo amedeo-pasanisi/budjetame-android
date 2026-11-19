@@ -52,17 +52,6 @@ open class ApiException(
     message: String,
 ) : Exception(message)
 
-/**
- * Human message for an API failure, shared by every screen (ported from the
- * web transport's `apiErrorMessage`): the status codes are part of the API
- * contract (409 duplicate name, 422 validation).
- */
-fun apiErrorMessage(status: Int?, conflictMessage: String, fallback: String): String = when (status) {
-    409 -> conflictMessage
-    422 -> "Check the fields and try again."
-    else -> fallback
-}
-
 /** Map a Retrofit HttpException to an ApiException with the parsed detail. */
 fun HttpException.toApiException(): ApiException {
     val response = response()

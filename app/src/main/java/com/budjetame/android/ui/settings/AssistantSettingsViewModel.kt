@@ -1,12 +1,16 @@
 package com.budjetame.android.ui.settings
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.AssistantModelDto
 import com.budjetame.android.data.api.AssistantProvider
 import com.budjetame.android.data.api.AssistantSettingsDto
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.serverMessageOr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,15 +21,15 @@ import kotlinx.coroutines.launch
 
 /** The model list's state, with the line the picker shows under itself
  * (the web block's messages, keyed by the listing's status). */
-enum class CatalogueState(val message: String?) {
+enum class CatalogueState(@StringRes val message: Int?) {
     IDLE(null),
-    LOADING("Loading the models…"),
+    LOADING(R.string.settings_assistant_models_loading),
     READY(null),
     /** 409: the provider lists its models only with a key. */
-    KEY_NEEDED("Enter the Assistant Key to list this provider's models, or type a model id."),
+    KEY_NEEDED(R.string.settings_assistant_models_key_needed),
     /** 422: the provider rejected the key. */
-    KEY_REJECTED("The provider rejected the Assistant Key: check it, or type a model id."),
-    ERROR("The model list is unavailable right now: type a model id or try again later."),
+    KEY_REJECTED(R.string.settings_assistant_models_key_rejected),
+    ERROR(R.string.settings_assistant_models_error),
 }
 
 /**
@@ -53,8 +57,8 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
         val model: String = "",
         val models: List<AssistantModelDto> = emptyList(),
         val catalogue: CatalogueState = CatalogueState.IDLE,
-        val keyError: String? = null,
-        val error: String? = null,
+        val keyError: UiText? = null,
+        val error: UiText? = null,
         val saving: Boolean = false,
     ) {
         val configured: Boolean get() = status?.configured == true
@@ -80,7 +84,7 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                _uiState.update { it.copy(loading = false, error = "Could not load the Assistant Settings.") }
+                _uiState.update { it.copy(loading = false, error = UiText.of(R.string.errors_settings_assistant_load)) }
             }
         }
     }
@@ -136,10 +140,10 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
     fun save() {
         val state = _uiState.value
         if (state.key.isBlank()) {
-            _uiState.update { it.copy(keyError = "Enter the Assistant Key.") }
+            _uiState.update { it.copy(keyError = UiText.of(R.string.field_error_assistant_key)) }
             return
         }
-        write(failure = "Could not save the Assistant Settings.") {
+        write(failure = UiText.of(R.string.errors_settings_assistant_save)) {
             val saved = gateway.save(state.provider, state.key, state.model)
             cancelListing()
             _uiState.update { stateFor(saved) }
@@ -147,7 +151,7 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
     }
 
     fun remove() {
-        write(failure = "Could not remove the Assistant Settings.") {
+        write(failure = UiText.of(R.string.errors_settings_assistant_remove)) {
             gateway.remove()
             _uiState.update { stateFor(AssistantSettingsDto(configured = false)) }
             listModels()
@@ -155,15 +159,16 @@ class AssistantSettingsViewModel(private val gateway: AssistantSettingsGateway) 
     }
 
     /** One Save or Remove at a time. A rejection shows the server's message
+     * (through the error catalogue)
      * when it sent one (a string detail), else [failure]. */
-    private fun write(failure: String, block: suspend () -> Unit) {
+    private fun write(failure: UiText, block: suspend () -> Unit) {
         if (_uiState.value.saving) return
         writeJob = viewModelScope.launch {
             _uiState.update { it.copy(saving = true, error = null) }
             try {
                 block()
             } catch (error: ApiException) {
-                _uiState.update { it.copy(saving = false, error = error.detail ?: failure) }
+                _uiState.update { it.copy(saving = false, error = error.serverMessageOr(failure)) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

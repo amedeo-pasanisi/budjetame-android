@@ -26,12 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.budjetame.android.R
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.theme.Indigo600
 import com.budjetame.android.ui.theme.Red600
 import com.budjetame.android.ui.theme.Slate400
@@ -83,6 +86,7 @@ private fun UndoToast(
     onUndo: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val headline = entry.deleted.headline.resolve()
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -95,7 +99,7 @@ private fun UndoToast(
                 Text(
                     text = buildAnnotatedString {
                         withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
-                            append(entry.deleted.headline)
+                            append(headline)
                         }
                         entry.deleted.label?.let { append(" · $it") }
                     },
@@ -118,12 +122,12 @@ private fun UndoToast(
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     modifier = Modifier.height(32.dp),
                 ) {
-                    Text("Undo", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.undo_undo), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "Dismiss",
+                        contentDescription = stringResource(R.string.undo_dismiss),
                         tint = Slate400,
                         modifier = Modifier.size(16.dp),
                     )
@@ -131,7 +135,7 @@ private fun UndoToast(
             }
             entry.error?.let { error ->
                 Text(
-                    text = error,
+                    text = error.resolve(),
                     fontSize = 12.sp,
                     color = Red600,
                     modifier = Modifier.padding(end = 12.dp, bottom = 4.dp),

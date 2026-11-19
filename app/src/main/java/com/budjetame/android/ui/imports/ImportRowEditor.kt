@@ -53,6 +53,7 @@ import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.transactions.TypeSelector
@@ -373,7 +374,7 @@ private fun NameSelectField(
     options: List<Pair<String, String>>,
     onChange: (String) -> Unit,
     tag: String,
-    error: String?,
+    error: UiText?,
     onAdd: (prefillName: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -519,7 +520,7 @@ internal fun displayedEntityName(value: String, options: List<Pair<String, Strin
 @Composable
 private fun EditorDateField(
     value: String,
-    error: String?,
+    error: UiText?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {

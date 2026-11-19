@@ -47,4 +47,9 @@
     <string name="drafts_missing_destination">Destinazione mancante</string>
     <string name="drafts_approve">Approva</string>
     <string name="drafts_discard">Scarta</string>
+    <string name="transactions_empty">Ancora nessuna transazione.</string>
+    <string name="transactions_empty_search">Nessuna transazione corrisponde alla ricerca.</string>
+    <string name="transactions_empty_filters">Nessuna transazione corrisponde a questi filtri.</string>
+    <string name="transactions_saved_cash_negative">Salvato — questo ha reso negativo un portafoglio Contanti.</string>
+    <string name="transactions_deleted_cash_negative">Eliminato — questo ha reso negativo un portafoglio Contanti.</string>
 </resources>

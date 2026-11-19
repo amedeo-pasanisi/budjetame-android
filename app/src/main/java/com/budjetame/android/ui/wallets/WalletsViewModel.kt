@@ -2,14 +2,16 @@ package com.budjetame.android.ui.wallets
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
-import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
+import com.budjetame.android.ui.common.apiErrorMessage
 import com.budjetame.android.ui.common.parseAmountInput
 import java.math.BigDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,14 +33,14 @@ data class WalletModalState(
     val openingBalance: String = "",
     /** The server's rejection — the form-level banner, never mixed with
      * [fieldErrors]. */
-    val error: String? = null,
+    val error: UiText? = null,
     /** The last Save attempt's Field Errors (ADR-0009), keyed by
      * [WalletFields]: set only by a host's submit, never cleared by typing. */
     val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingFreeze: Boolean = false,
     val freezing: Boolean = false,
-    val freezeError: String? = null,
+    val freezeError: UiText? = null,
 ) {
     val editing: Boolean get() = wallet != null
 
@@ -69,7 +71,7 @@ object WalletFields {
  * drift between the Wallets screen and the inline creates (ADR-0013).
  */
 fun validateWalletForm(form: WalletModalState): FieldErrors = buildMap {
-    if (form.name.isBlank()) put(WalletFields.NAME, "Enter a name")
+    if (form.name.isBlank()) put(WalletFields.NAME, UiText.of(R.string.field_error_name_empty))
     if (!form.editing && form.type != WalletType.CONTACT && form.openingBalance.isNotBlank()) {
         amountFieldError(form.openingBalance)?.let { put(WalletFields.OPENING_BALANCE, it) }
     }
@@ -98,10 +100,10 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
 
     data class UiState(
         val loading: Boolean = true,
-        val loadError: String? = null,
+        val loadError: UiText? = null,
         val wallets: List<WalletDto> = emptyList(),
         val frozenExpanded: Boolean = false,
-        val unfreezeError: String? = null,
+        val unfreezeError: UiText? = null,
         val modal: WalletModalState? = null,
     ) {
         val sections: List<WalletSection> get() = walletSections(wallets)
@@ -150,7 +152,7 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
                 }
             } catch (_: Exception) {
                 _uiState.update { state ->
-                    state.copy(unfreezeError = "Could not unfreeze the wallet.")
+                    state.copy(unfreezeError = UiText.of(R.string.errors_wallets_unfreeze))
                 }
             }
         }
@@ -210,15 +212,15 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
                         confirmingFreeze = false,
                         freezing = false,
                         freezeError = if (error.status == 422) {
-                            "A wallet can only be frozen when its balance is exactly €0.00."
+                            UiText.of(R.string.errors_wallets_freeze_balance)
                         } else {
-                            "Could not freeze the wallet."
+                            UiText.of(R.string.errors_wallets_freeze)
                         },
                     )
                 }
             } catch (_: Exception) {
                 updateModal {
-                    it.copy(confirmingFreeze = false, freezing = false, freezeError = "Could not freeze the wallet.")
+                    it.copy(confirmingFreeze = false, freezing = false, freezeError = UiText.of(R.string.errors_wallets_freeze))
                 }
             }
         }
@@ -241,7 +243,7 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
                     )
                 }
             } catch (_: Exception) {
-                _uiState.update { it.copy(unfreezeError = "Could not unfreeze the wallet.") }
+                _uiState.update { it.copy(unfreezeError = UiText.of(R.string.errors_wallets_unfreeze)) }
             }
         }
     }
@@ -267,14 +269,14 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A wallet with this name already exists.",
-                            "Could not create the wallet.",
+                            error,
+                            UiText.of(R.string.errors_wallets_conflict),
+                            UiText.of(R.string.errors_wallets_create),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not create the wallet.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_wallets_create)) }
             }
         }
     }
@@ -298,14 +300,14 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
                     it.copy(
                         submitting = false,
                         error = apiErrorMessage(
-                            error.status,
-                            "A wallet with this name already exists.",
-                            "Could not rename the wallet.",
+                            error,
+                            UiText.of(R.string.errors_wallets_conflict),
+                            UiText.of(R.string.errors_wallets_rename),
                         ),
                     )
                 }
             } catch (_: Exception) {
-                updateModal { it.copy(submitting = false, error = "Could not rename the wallet.") }
+                updateModal { it.copy(submitting = false, error = UiText.of(R.string.errors_wallets_rename)) }
             }
         }
     }
@@ -321,7 +323,7 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
         } catch (_: Exception) {
             _uiState.update { state ->
                 if (state.wallets.isEmpty()) {
-                    state.copy(loadError = "Could not load your wallets.", loading = false)
+                    state.copy(loadError = UiText.of(R.string.errors_wallets_load), loading = false)
                 } else {
                     state.copy(loading = false)
                 }

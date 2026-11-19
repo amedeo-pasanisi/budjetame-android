@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.budjetame.android.R
 import com.budjetame.android.data.backup.BackupGateway
 import com.budjetame.android.ui.common.localized
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.imports.readPickedFile
 import com.budjetame.android.ui.settings.RestoreViewModel.RestoreStep
 import kotlinx.coroutines.Dispatchers
@@ -188,7 +189,7 @@ private fun RestoreStepDialog(
             title = localized { Text(stringResource(R.string.settings_restore_warning_title)) },
             text = localized {
                 Column {
-                    Text(step.message)
+                    Text(step.message.resolve())
                     Text(
                         text = stringResource(R.string.settings_restore_warning_text),
                         style = MaterialTheme.typography.labelSmall,
@@ -218,7 +219,7 @@ private fun RestoreStepDialog(
             title = localized { Text(stringResource(R.string.settings_restore_error_title)) },
             text = localized {
                 Column {
-                    Text(step.message, color = MaterialTheme.colorScheme.error)
+                    Text(step.message.resolve(), color = MaterialTheme.colorScheme.error)
                     Text(
                         text = stringResource(R.string.settings_restore_error_text),
                         style = MaterialTheme.typography.labelSmall,

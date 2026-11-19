@@ -18,6 +18,10 @@
     <string name="settings_assistant_model">Modello</string>
     <string name="settings_assistant_model_placeholder">Predefinito del provider</string>
     <string name="settings_assistant_model_free">%1$s (gratuito)</string>
+    <string name="settings_assistant_models_loading">Caricamento dei modelli…</string>
+    <string name="settings_assistant_models_key_needed">Inserisci la chiave dell\'Assistente per elencare i modelli di questo provider, o digita l\'id di un modello.</string>
+    <string name="settings_assistant_models_key_rejected">Il provider ha rifiutato la chiave dell\'Assistente: controllala, o digita l\'id di un modello.</string>
+    <string name="settings_assistant_models_error">L\'elenco dei modelli non è disponibile ora: digita l\'id di un modello o riprova più tardi.</string>
 
     <!-- Backup: Export all -->
     <string name="settings_export_all">Esporta tutto</string>

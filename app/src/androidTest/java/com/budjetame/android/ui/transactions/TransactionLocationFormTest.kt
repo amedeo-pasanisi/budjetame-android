@@ -24,6 +24,7 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.transaction.Place
 import com.budjetame.android.data.transaction.mapLink
+import com.budjetame.android.ui.common.deviceText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -189,7 +190,7 @@ class TransactionLocationFormTest {
             ),
         )
 
-        composeRule.onNodeWithText(TransactionsViewModel.GPS_ERROR_TEXT).assertIsDisplayed()
+        composeRule.onNodeWithText(TransactionsViewModel.GPS_ERROR_TEXT.deviceText()).assertIsDisplayed()
     }
 
     @Test

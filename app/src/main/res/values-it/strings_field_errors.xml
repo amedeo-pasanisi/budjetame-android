@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="field_error_amount_empty">Inserisci un importo</string>
+    <string name="field_error_amount_invalid">Non sembra un importo valido — usa cifre e un . o , per i decimali</string>
+    <string name="field_error_amount_not_positive">L\'importo deve essere un numero positivo</string>
+    <string name="field_error_name_empty">Inserisci un nome</string>
+    <string name="field_error_date_empty">Scegli una data</string>
+    <string name="field_error_source_wallet">Scegli il portafoglio di origine.</string>
+    <string name="field_error_destination_wallet">Scegli il portafoglio di destinazione.</string>
+    <string name="field_error_same_wallet">Origine e destinazione devono essere diversi.</string>
+    <string name="field_error_wallet">Scegli un portafoglio.</string>
+    <string name="field_error_income_on_contact">Le entrate non possono essere registrate su portafogli contatto.</string>
+    <string name="field_error_interval">L\'intervallo deve essere almeno 1</string>
+    <string name="field_error_start_date">Scegli una data di inizio</string>
+    <string name="field_error_assistant_key">Inserisci la chiave dell\'Assistente.</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Field Errors (ADR-0009, issue #71): the messages the client-side
+     validators put beneath a field. One key per message, shared by every
+     form that says the same thing. -->
+<resources>
+    <string name="field_error_amount_empty">Enter an amount</string>
+    <string name="field_error_amount_invalid">That doesn\'t look like an amount — use digits and one . or , for decimals</string>
+    <string name="field_error_amount_not_positive">Amount must be a positive number</string>
+    <string name="field_error_name_empty">Enter a name</string>
+    <string name="field_error_date_empty">Choose a date</string>
+    <string name="field_error_source_wallet">Choose the source wallet.</string>
+    <string name="field_error_destination_wallet">Choose the destination wallet.</string>
+    <string name="field_error_same_wallet">Source and destination must be different wallets.</string>
+    <string name="field_error_wallet">Choose a wallet.</string>
+    <string name="field_error_income_on_contact">Incomes can\'t be recorded on contact wallets.</string>
+    <string name="field_error_interval">The interval must be at least 1</string>
+    <string name="field_error_start_date">Choose a start date</string>
+    <string name="field_error_assistant_key">Enter the Assistant Key.</string>
+</resources>

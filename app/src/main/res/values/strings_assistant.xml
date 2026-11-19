@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Assistant, Dictation and Quick Dictation (ADR-0010, issue #71).
+     The Assistant's replies come from the server already in the Account's
+     Locale and are never translated here. The Quick Dictation card's title
+     is record_label (strings.xml), the name the system shows on the tile and
+     the shortcut. -->
+<resources>
+    <string name="assistant_title">Assistant</string>
+    <string name="assistant_close_cd">Close the Assistant</string>
+    <string name="assistant_empty_dictation">Say or type what you spent or received: each Draft Transaction lands on the Transactions tab.</string>
+    <string name="assistant_empty_typing">Type what you spent or received: each Draft Transaction lands on the Transactions tab.</string>
+    <string name="assistant_writing">The Assistant is writing…</string>
+    <string name="assistant_listening">Listening…</string>
+    <string name="assistant_dictation_failed">Dictation did not work. Type the sentence instead.</string>
+    <string name="assistant_input_placeholder">e.g. 30 euro at the supermarket with the card</string>
+    <string name="assistant_send">Send</string>
+    <string name="assistant_sending">Sending…</string>
+    <string name="assistant_dictate_cd">Dictate</string>
+    <string name="assistant_stop_dictating_cd">Stop dictating</string>
+    <string name="assistant_speaker_you">You</string>
+    <string name="assistant_line_cd" translatable="false">%1$s: %2$s</string>
+    <string name="assistant_could_not_answer">The Assistant could not answer. Try again.</string>
+    <string name="assistant_hourly_limit">You have reached the hourly limit of Assistant requests. Try again later.</string>
+
+    <string name="quick_dictation_checking">Opening Budjetame…</string>
+    <string name="quick_dictation_signed_out">You are signed out of Budjetame.</string>
+    <string name="quick_dictation_no_assistant_settings">The Assistant is not set up: add the Assistant Settings in the app\'s Settings.</string>
+    <string name="quick_dictation_offline">Budjetame cannot be reached: check your connection and try again.</string>
+    <string name="quick_dictation_no_recognizer">This phone cannot take dictation: type the sentence in the app.</string>
+    <string name="quick_dictation_open_app">Open Budjetame</string>
+    <string name="quick_dictation_empty">Say what you spent or received: it lands as a Draft Transaction on the Transactions tab.</string>
+    <string name="quick_dictation_failed">Dictation did not work. Tap the microphone to try again.</string>
+    <string name="quick_dictation_open_in_app">Open in app</string>
+</resources>

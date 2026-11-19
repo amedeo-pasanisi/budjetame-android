@@ -13,6 +13,7 @@ import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringOccurrenceUpdateRequest
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
 import com.budjetame.android.ui.common.AmountInputMessages
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -141,7 +142,8 @@ class RecurringCostsViewModelTest {
             method == "POST" && path == "/api/recurring-costs" -> when {
                 createStatus != 201 -> jsonResponse(
                     createStatus,
-                    """{"detail":"A Recurring Cost with this name already exists"}""",
+                    // A 409 is the duplicate name; a 422 a rule the catalogue does not know.
+                    if (createStatus == 409) """{"detail":"A Recurring Cost with this name already exists"}""" else """{"detail":"Some rule"}""",
                 )
                 else -> {
                     val create = json.decodeFromString<RecurringCostCreateRequest>(body)
@@ -515,10 +517,10 @@ class RecurringCostsViewModelTest {
         assertEquals(
             mapOf(
                 RecurringCostFields.NAME to "Enter a name",
-                RecurringCostFields.AMOUNT to AmountInputMessages.INVALID,
+                RecurringCostFields.AMOUNT to AmountInputMessages.INVALID.english(),
                 RecurringCostFields.INTERVAL to "The interval must be at least 1",
             ),
-            modal.fieldErrors,
+            modal.fieldErrors?.english(),
         )
         // Field Errors never mix with the server banner.
         assertNull(modal.error)
@@ -563,7 +565,7 @@ class RecurringCostsViewModelTest {
             assertEquals(
                 "'$typed'",
                 mapOf(RecurringCostFields.INTERVAL to "The interval must be at least 1"),
-                viewModel.uiState.value.modal!!.fieldErrors,
+                viewModel.uiState.value.modal!!.fieldErrors?.english(),
             )
         }
         assertTrue(calls.toList().none { it.method == "POST" })
@@ -619,7 +621,7 @@ class RecurringCostsViewModelTest {
         awaitState { it.modal?.error != null }
 
         val modal = viewModel.uiState.value.modal!!
-        assertEquals("Check the fields and try again.", modal.error)
+        assertEquals("Check the fields and try again.", modal.error?.english())
         assertTrue(modal.fieldErrors.isEmpty())
     }
 
@@ -637,7 +639,7 @@ class RecurringCostsViewModelTest {
 
         assertEquals(
             "A recurring cost with this name already exists.",
-            viewModel.uiState.value.modal?.error,
+            viewModel.uiState.value.modal?.error?.english(),
         )
         assertEquals(1, viewModel.uiState.value.costs.size)
     }
@@ -708,7 +710,7 @@ class RecurringCostsViewModelTest {
                 RecurringCostFields.NAME to "Enter a name",
                 RecurringCostFields.START_DATE to "Choose a start date",
             ),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "PATCH" })
 
@@ -734,7 +736,7 @@ class RecurringCostsViewModelTest {
 
         assertEquals(
             "A recurring cost with this name already exists.",
-            viewModel.uiState.value.modal?.error,
+            viewModel.uiState.value.modal?.error?.english(),
         )
         assertEquals("Netflix", viewModel.uiState.value.costs.first { it.id == 2 }.name)
     }
@@ -777,7 +779,7 @@ class RecurringCostsViewModelTest {
         viewModel.onFreezeTap()
         awaitState { it.modal?.error != null }
 
-        assertEquals("Could not freeze the recurring cost.", viewModel.uiState.value.modal?.error)
+        assertEquals("Could not freeze the recurring cost.", viewModel.uiState.value.modal?.error?.english())
         assertEquals(1, viewModel.uiState.value.costs.size)
         assertFalse(viewModel.uiState.value.costs.first { it.id == 1 }.frozen)
     }

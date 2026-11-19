@@ -80,12 +80,4 @@ class ApiErrorMappingTest {
         assertNull(error.detail)
         assertTrue(error.message!!.contains("500"))
     }
-
-    @Test
-    fun `apiErrorMessage maps the contract statuses`() {
-        assertEquals("Name taken", apiErrorMessage(409, "Name taken", "Failed"))
-        assertEquals("Check the fields and try again.", apiErrorMessage(422, "Name taken", "Failed"))
-        assertEquals("Failed", apiErrorMessage(500, "Name taken", "Failed"))
-        assertEquals("Failed", apiErrorMessage(null, "Name taken", "Failed"))
-    }
 }

@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.transactions
 
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.RecurringCostDto
@@ -8,6 +9,7 @@ import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.util.Money
 import java.math.BigDecimal
@@ -178,26 +180,26 @@ fun validateTransactionForm(
     wallets: List<WalletDto>,
 ): FieldErrors = buildMap {
     amountFieldError(form.amount)?.let { put(TransactionFields.AMOUNT, it) }
-    if (form.date.isBlank()) put(TransactionFields.DATE, "Choose a date")
+    if (form.date.isBlank()) put(TransactionFields.DATE, UiText.of(R.string.field_error_date_empty))
     if (form.isTransfer) {
         val source = form.sourceWalletId
         val destination = form.destinationWalletId
-        if (source == null) put(TransactionFields.SOURCE, "Choose the source wallet.")
-        if (destination == null) put(TransactionFields.DESTINATION, "Choose the destination wallet.")
+        if (source == null) put(TransactionFields.SOURCE, UiText.of(R.string.field_error_source_wallet))
+        if (destination == null) put(TransactionFields.DESTINATION, UiText.of(R.string.field_error_destination_wallet))
         if (source != null && source == destination) {
             // Both legs are equally wrong: the same message under each.
-            val sameWallet = "Source and destination must be different wallets."
+            val sameWallet = UiText.of(R.string.field_error_same_wallet)
             put(TransactionFields.SOURCE, sameWallet)
             put(TransactionFields.DESTINATION, sameWallet)
         }
     } else {
         val walletId = form.walletId
         if (walletId == null) {
-            put(TransactionFields.WALLET, "Choose a wallet.")
+            put(TransactionFields.WALLET, UiText.of(R.string.field_error_wallet))
         } else if (form.type == TransactionType.INCOME &&
             wallets.find { it.id == walletId }?.type == WalletType.CONTACT
         ) {
-            put(TransactionFields.WALLET, "Incomes can't be recorded on contact wallets.")
+            put(TransactionFields.WALLET, UiText.of(R.string.field_error_income_on_contact))
         }
     }
 }

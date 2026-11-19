@@ -1,6 +1,5 @@
 package com.budjetame.android.ui.recurringincomes
 
-import com.budjetame.android.ui.common.english
 import com.budjetame.android.MainDispatcherRule
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.DataVersion
@@ -12,6 +11,7 @@ import com.budjetame.android.data.api.RecurringIncomeUpdateRequest
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.data.api.RecurringOccurrenceUpdateRequest
 import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -142,7 +142,8 @@ class RecurringIncomesViewModelTest {
             method == "POST" && path == "/api/recurring-incomes" -> when {
                 createStatus != 201 -> jsonResponse(
                     createStatus,
-                    """{"detail":"A Recurring Income with this name already exists"}""",
+                    // A 409 is the duplicate name; a 422 a rule the catalogue does not know.
+                    if (createStatus == 409) """{"detail":"A Recurring Income with this name already exists"}""" else """{"detail":"Some rule"}""",
                 )
                 else -> {
                     val create = json.decodeFromString<RecurringIncomeCreateRequest>(body)
@@ -521,7 +522,7 @@ class RecurringIncomesViewModelTest {
                     "That doesn't look like an amount — use digits and one . or , for decimals",
                 RecurringIncomeFields.INTERVAL to "The interval must be at least 1",
             ),
-            modal.fieldErrors,
+            modal.fieldErrors?.english(),
         )
         // Field Errors never leak into the server banner.
         assertNull(modal.error)
@@ -538,14 +539,14 @@ class RecurringIncomesViewModelTest {
         viewModel.submit()
         assertEquals(
             mapOf(RecurringIncomeFields.AMOUNT to "Enter an amount"),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
 
         viewModel.onAmountChange("0")
         viewModel.submit()
         assertEquals(
             mapOf(RecurringIncomeFields.AMOUNT to "Amount must be a positive number"),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "POST" })
     }
@@ -562,7 +563,7 @@ class RecurringIncomesViewModelTest {
         viewModel.submit()
         assertEquals(
             mapOf(RecurringIncomeFields.INTERVAL to "The interval must be at least 1"),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
 
         // Digits only, like the web: neither a fraction nor a signed number
@@ -572,7 +573,7 @@ class RecurringIncomesViewModelTest {
             viewModel.submit()
             assertEquals(
                 mapOf(RecurringIncomeFields.INTERVAL to "The interval must be at least 1"),
-                viewModel.uiState.value.modal!!.fieldErrors,
+                viewModel.uiState.value.modal!!.fieldErrors?.english(),
             )
         }
         assertTrue(calls.toList().none { it.method == "POST" })
@@ -597,14 +598,14 @@ class RecurringIncomesViewModelTest {
         viewModel.submit()
         assertEquals(
             mapOf(RecurringIncomeFields.NAME to "Enter a name"),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
 
         // Typing never clears or recomputes the errors — only Save does.
         viewModel.onNameChange("Salary")
         assertEquals(
             mapOf(RecurringIncomeFields.NAME to "Enter a name"),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
 
         viewModel.submit()
@@ -654,7 +655,7 @@ class RecurringIncomesViewModelTest {
 
         assertEquals(
             "A recurring income with this name already exists.",
-            viewModel.uiState.value.modal?.error,
+            viewModel.uiState.value.modal?.error?.english(),
         )
         // A server rejection is the form-level banner, never a Field Error.
         assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors)
@@ -671,7 +672,7 @@ class RecurringIncomesViewModelTest {
         viewModel.onNameChange("Salary")
         viewModel.onAmountChange("2500.00")
         viewModel.submit()
-        awaitState { it.modal?.error == "Check the fields and try again." }
+        awaitState { it.modal?.error?.english() == "Check the fields and try again." }
     }
 
     // --- Edit ---
@@ -737,7 +738,7 @@ class RecurringIncomesViewModelTest {
 
         assertEquals(
             mapOf(RecurringIncomeFields.START to "Choose a start date"),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "PATCH" })
 
@@ -765,7 +766,7 @@ class RecurringIncomesViewModelTest {
                 RecurringIncomeFields.NAME to "Enter a name",
                 RecurringIncomeFields.AMOUNT to "Enter an amount",
             ),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "PATCH" })
     }
@@ -783,7 +784,7 @@ class RecurringIncomesViewModelTest {
 
         assertEquals(
             "A recurring income with this name already exists.",
-            viewModel.uiState.value.modal?.error,
+            viewModel.uiState.value.modal?.error?.english(),
         )
         assertEquals("Freelance", viewModel.uiState.value.incomes.first { it.id == 2 }.name)
     }
@@ -826,7 +827,7 @@ class RecurringIncomesViewModelTest {
         viewModel.onFreezeTap()
         awaitState { it.modal?.error != null }
 
-        assertEquals("Could not freeze the recurring income.", viewModel.uiState.value.modal?.error)
+        assertEquals("Could not freeze the recurring income.", viewModel.uiState.value.modal?.error?.english())
         assertEquals(1, viewModel.uiState.value.incomes.size)
         assertFalse(viewModel.uiState.value.incomes.first { it.id == 1 }.frozen)
     }

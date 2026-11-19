@@ -27,6 +27,8 @@ import com.budjetame.android.data.imports.ApiImportRepository
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.ui.categories.CategoryFields
 import com.budjetame.android.ui.common.AmountInputMessages
+import com.budjetame.android.ui.common.UiText
+import com.budjetame.android.ui.common.english
 import com.budjetame.android.ui.transactions.WalletFieldTarget
 import com.budjetame.android.ui.wallets.WalletFields
 import java.math.BigDecimal
@@ -988,7 +990,7 @@ class ImportViewModelTest {
             editedRowInput(4, TransactionType.EXPENSE, "7.00", "2026-08-03", wallet = "Checking", sourceWallet = "", destinationWallet = "", category = "", description = "dinner", latitude = "", longitude = ""),
         )
         val draft = awaitDraft { it.editorError != null }
-        assertEquals("boom", draft.editorError)
+        assertEquals("boom", draft.editorError?.english())
         // A server rejection is the editor's banner, never a Field Error.
         assertEquals(emptyMap<String, String>(), draft.editorFieldErrors)
         assertEquals(4, draft.editingRow)
@@ -1012,7 +1014,7 @@ class ImportViewModelTest {
                 ImportRowFields.DATE to "Choose a date",
                 ImportRowFields.WALLET to "Choose a wallet.",
             ),
-            draft.editorFieldErrors,
+            draft.editorFieldErrors?.english(),
         )
         // No write: the editor stays open, idle, the row untouched.
         assertEquals(0, callsFor("/api/import/validate-row").size)
@@ -1035,7 +1037,7 @@ class ImportViewModelTest {
         val same = "Source and destination must be different wallets."
         assertEquals(
             mapOf(ImportRowFields.SOURCE to same, ImportRowFields.DESTINATION to same),
-            viewModel.uiState.value.draft!!.editorFieldErrors,
+            viewModel.uiState.value.draft!!.editorFieldErrors?.english(),
         )
         assertEquals(0, callsFor("/api/import/validate-row").size)
     }
@@ -1121,7 +1123,7 @@ class ImportViewModelTest {
         viewModel.confirm()
         val draft = awaitDraft { it.error != null }
         assertEquals(ImportPhase.PREVIEW, draft.phase)
-        assertEquals("Row 2 duplicates an existing transaction", draft.error)
+        assertEquals("Row 2 duplicates an existing transaction", draft.error?.english())
         assertFalse(draft.busy)
         assertEquals(setOf(2), draft.selected)
         assertEquals(1, stored.size) // nothing was inserted
@@ -1245,7 +1247,7 @@ class ImportViewModelTest {
         viewModel.readFile()
         val draft = awaitDraft { it.error != null }
         assertEquals(ImportPhase.PICK, draft.phase)
-        assertEquals("Missing required column(s): date", draft.error)
+        assertEquals("Missing required column(s): date", draft.error?.english())
         assertFalse(draft.busy)
         assertEquals("rows.csv", draft.fileName)
     }
@@ -1366,7 +1368,7 @@ class ImportViewModelTest {
 
         viewModel.recheckProblems()
         val draft = awaitDraft { it.error != null }
-        assertEquals("boom", draft.error)
+        assertEquals("boom", draft.error?.english())
         val row = draft.preview!!.rows.first { it.row == 4 }
         assertEquals(ImportRowStatus.ERROR, row.status)
         assertEquals("Unknown wallet 'Mystery'", row.error)
@@ -1563,7 +1565,7 @@ class ImportViewModelTest {
 
         assertEquals(0, callsFor("/api/categories").count { it.method == "POST" })
         val modal = viewModel.uiState.value.draft!!.rowCategoryCreate!!.modal
-        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), modal.fieldErrors)
+        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), modal.fieldErrors?.english())
         assertNull(modal.error)
     }
 
@@ -1583,9 +1585,9 @@ class ImportViewModelTest {
         assertEquals(
             mapOf(
                 WalletFields.NAME to "Enter a name",
-                WalletFields.OPENING_BALANCE to AmountInputMessages.INVALID,
+                WalletFields.OPENING_BALANCE to AmountInputMessages.INVALID.english(),
             ),
-            modal.fieldErrors,
+            modal.fieldErrors?.english(),
         )
         assertNull(modal.error)
     }
@@ -1603,7 +1605,7 @@ class ImportViewModelTest {
         val draft = awaitDraft { it.rowWalletCreate?.modal?.error != null }
         // The shared 409 mapping surfaces the web's conflict copy inside the
         // stacked form; the row editor's draft is untouched beneath it.
-        assertEquals("A wallet with this name already exists.", draft.rowWalletCreate?.modal?.error)
+        assertEquals("A wallet with this name already exists.", draft.rowWalletCreate?.modal?.error?.english())
         assertFalse(draft.rowWalletCreate!!.modal.submitting)
         assertEquals(4, draft.editingRow)
         assertEquals(0, callsFor("/api/import/revalidate-rows").size)

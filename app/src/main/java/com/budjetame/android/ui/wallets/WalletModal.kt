@@ -1,10 +1,10 @@
 package com.budjetame.android.ui.wallets
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -43,6 +43,7 @@ import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.UnfreezeSection
 import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.ui.common.localized
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.util.Money
 
 /**
@@ -166,7 +167,7 @@ fun WalletModal(
 
                 modal.error?.let { error ->
                     Text(
-                        text = error,
+                        text = error.resolve(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 12.dp),
@@ -186,7 +187,7 @@ fun WalletModal(
                             canFreeze = modal.canFreeze,
                             isFreezing = modal.freezing,
                             confirmingFreeze = modal.confirmingFreeze,
-                            freezeError = modal.freezeError,
+                            freezeError = modal.freezeError?.resolve(),
                             onFreeze = onFreeze,
                             disabledLabel = if (!modal.canFreeze) {
                                 stringResource(

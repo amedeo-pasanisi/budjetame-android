@@ -5,6 +5,7 @@ import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.AssistantProvider
 import com.budjetame.android.data.api.AssistantSettingsApi
 import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
+import com.budjetame.android.ui.common.english
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -252,7 +253,7 @@ class AssistantSettingsViewModelTest {
         viewModel.onKeyChange("   ")
         viewModel.save()
 
-        assertEquals("Enter the Assistant Key.", viewModel.uiState.value.keyError)
+        assertEquals("Enter the Assistant Key.", viewModel.uiState.value.keyError?.english())
         assertTrue(calls.none { it.method == "PUT" })
     }
 
@@ -268,7 +269,7 @@ class AssistantSettingsViewModelTest {
         awaitState { it.error != null }
 
         val state = viewModel.uiState.value
-        assertEquals("The Assistant Key is empty", state.error)
+        assertEquals("The Assistant Key is empty", state.error?.english())
         assertFalse(state.configured)
         assertTrue(state.editing)
         assertFalse(state.saving)

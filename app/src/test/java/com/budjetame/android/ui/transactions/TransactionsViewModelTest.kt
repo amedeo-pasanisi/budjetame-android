@@ -58,6 +58,7 @@ import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryFields
 import com.budjetame.android.ui.common.AmountInputMessages
 import com.budjetame.android.ui.common.LedgerJump
+import com.budjetame.android.ui.common.english
 import com.budjetame.android.ui.undo.DeletedEntity
 import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.ui.undo.UndoStack
@@ -1176,7 +1177,7 @@ class TransactionsViewModelTest {
             ),
         )
         assertTrue(viewModel.uiState.value.filtersActive)
-        assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage)
+        assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage?.english())
     }
 
     @Test
@@ -1257,7 +1258,7 @@ class TransactionsViewModelTest {
         assertNull(last.query["recurring_income_id"])
         assertNull(last.query["cursor"])
         assertTrue(viewModel.uiState.value.filtersActive)
-        assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage)
+        assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage?.english())
 
         // Picking the same-id Salary income narrows to its own linked
         // Income and sends the income key instead.
@@ -1425,7 +1426,7 @@ class TransactionsViewModelTest {
         assertEquals("2", last.query["wallet_id"])
         assertEquals("coffee", last.query["q"])
         assertEquals(listOf(2), viewModel.uiState.value.transactions.map { it.id })
-        assertEquals("No transactions match your search.", viewModel.uiState.value.emptyMessage)
+        assertEquals("No transactions match your search.", viewModel.uiState.value.emptyMessage?.english())
 
         // Clearing the search restores the filtered list, not the whole ledger.
         viewModel.onSearchChange("")
@@ -1709,14 +1710,14 @@ class TransactionsViewModelTest {
         exportStatus = 500
         viewModel.export()
         awaitState { it.exportError != null }
-        assertEquals("Could not export transactions.", viewModel.uiState.value.exportError)
+        assertEquals("Could not export transactions.", viewModel.uiState.value.exportError?.english())
         assertNull(viewModel.uiState.value.exportFile)
         assertFalse(viewModel.uiState.value.exporting)
 
         // A 422 speaks the fields message like every screen's mapping.
         exportStatus = 422
         viewModel.export()
-        awaitState { it.exportError == "Check the fields and try again." }
+        awaitState { it.exportError?.english() == "Check the fields and try again." }
         assertNull(viewModel.uiState.value.exportFile)
 
         // The error clears on the next press, and a success lands the file.
@@ -1787,7 +1788,7 @@ class TransactionsViewModelTest {
         createViewModel()
         awaitLoaded()
         assertTrue(viewModel.uiState.value.ledgerEmpty)
-        assertEquals("Nothing here yet.", viewModel.uiState.value.emptyMessage)
+        assertEquals("Nothing here yet.", viewModel.uiState.value.emptyMessage?.english())
         assertFalse(viewModel.uiState.value.filtersActive)
 
         viewModel.onFilterWalletChange(1)
@@ -1798,7 +1799,7 @@ class TransactionsViewModelTest {
         // filtered miss stays a filter miss (search bar stays hidden either
         // way until an unfiltered fetch says otherwise).
         assertTrue(viewModel.uiState.value.ledgerEmpty)
-        assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage)
+        assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage?.english())
         assertTrue(viewModel.uiState.value.filtersActive)
     }
 
@@ -1809,7 +1810,7 @@ class TransactionsViewModelTest {
         listStatus = 500
         createViewModel()
         awaitLoaded()
-        assertEquals("Could not load your data.", viewModel.uiState.value.loadError)
+        assertEquals("Could not load your data.", viewModel.uiState.value.loadError?.english())
 
         listStatus = 200
         seedWallets(wallet(1, "Cash", WalletType.CASH, "0.00"))
@@ -1835,7 +1836,7 @@ class TransactionsViewModelTest {
         viewModel.loadMore()
         awaitState { it.loadMoreError != null }
 
-        assertEquals("Could not load more transactions.", viewModel.uiState.value.loadMoreError)
+        assertEquals("Could not load more transactions.", viewModel.uiState.value.loadMoreError?.english())
         assertEquals(50, viewModel.uiState.value.transactions.size)
 
         // A failed load-more never auto-retries from the same trigger.
@@ -1943,10 +1944,10 @@ class TransactionsViewModelTest {
         val modal = viewModel.uiState.value.modal!!
         assertEquals(
             mapOf(
-                TransactionFields.AMOUNT to AmountInputMessages.EMPTY,
+                TransactionFields.AMOUNT to AmountInputMessages.EMPTY.english(),
                 TransactionFields.WALLET to "Choose a wallet.",
             ),
-            modal.fieldErrors,
+            modal.fieldErrors?.english(),
         )
         // Field Errors are never the server banner.
         assertNull(modal.error)
@@ -2035,7 +2036,7 @@ class TransactionsViewModelTest {
         val same = "Source and destination must be different wallets."
         assertEquals(
             mapOf(TransactionFields.SOURCE to same, TransactionFields.DESTINATION to same),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
     }
@@ -2055,7 +2056,7 @@ class TransactionsViewModelTest {
                 TransactionFields.SOURCE to "Choose the source wallet.",
                 TransactionFields.DESTINATION to "Choose the destination wallet.",
             ),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
     }
@@ -2080,7 +2081,7 @@ class TransactionsViewModelTest {
         viewModel.submit()
         assertEquals(
             mapOf(TransactionFields.WALLET to "Incomes can't be recorded on contact wallets."),
-            viewModel.uiState.value.modal!!.fieldErrors,
+            viewModel.uiState.value.modal!!.fieldErrors?.english(),
         )
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/transactions" })
 
@@ -2167,7 +2168,7 @@ class TransactionsViewModelTest {
         viewModel.onDeleteTap()
         awaitState { it.modal == null && !it.transactions.any { t -> t.id == 1 } }
 
-        assertEquals("Deleted — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning)
+        assertEquals("Deleted — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning?.english())
         assertEquals(1, calls.toList().count { it.method == "DELETE" && it.path == "/api/transactions/1" })
     }
 
@@ -2261,7 +2262,7 @@ class TransactionsViewModelTest {
         stack.undo(stack.state.value.entries.single().key)
         withTimeout(5_000) { stack.state.first { s -> s.entries.single().error != null } }
 
-        assertEquals(PIN_TAKEN, stack.state.value.entries.single().error)
+        assertEquals(PIN_TAKEN, stack.state.value.entries.single().error?.english())
         assertNull(stack.restored.value)
         assertFalse(transactionStore.any { it.id == held.id })
         assertFalse(viewModel.uiState.value.transactions.any { it.id == held.id })
@@ -2286,7 +2287,7 @@ class TransactionsViewModelTest {
         viewModel.submit()
         awaitState { it.modal == null && it.transactions.any { t -> t.id == 1 } }
 
-        assertEquals("Saved — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning)
+        assertEquals("Saved — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning?.english())
     }
 
     @Test
@@ -2300,7 +2301,7 @@ class TransactionsViewModelTest {
         viewModel.onAmountChange("5.00")
         viewModel.submit()
         awaitState { it.modal?.error != null }
-        assertEquals("A wallet or category with this name already exists.", viewModel.uiState.value.modal?.error)
+        assertEquals("A wallet or category with this name already exists.", viewModel.uiState.value.modal?.error?.english())
         // A server rejection is the banner, never a Field Error.
         assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors)
 
@@ -2308,7 +2309,7 @@ class TransactionsViewModelTest {
         viewModel.openCreate()
         viewModel.onAmountChange("5.00")
         viewModel.submit()
-        awaitState { it.modal?.error == "Check the fields and try again." }
+        awaitState { it.modal?.error?.english() == "Check the fields and try again." }
         viewModel.closeModal()
 
         updateStatus = 500
@@ -2318,7 +2319,7 @@ class TransactionsViewModelTest {
         viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
         viewModel.onAmountChange("6.00")
         viewModel.submit()
-        awaitState { it.modal?.error == "Could not save the transaction." }
+        awaitState { it.modal?.error?.english() == "Could not save the transaction." }
     }
 
     // --- The Recurring Cost link (web issue #57, ticket #22) ---
@@ -3159,7 +3160,7 @@ class TransactionsViewModelTest {
         viewModel.onWalletCreateNameChange("Cash")
         viewModel.submitWalletCreate()
         awaitState { it.walletCreate?.modal?.error != null }
-        assertEquals("A wallet with this name already exists.", viewModel.uiState.value.walletCreate?.modal?.error)
+        assertEquals("A wallet with this name already exists.", viewModel.uiState.value.walletCreate?.modal?.error?.english())
         assertFalse(viewModel.uiState.value.walletCreate!!.modal.submitting)
         // The outer Transaction draft is untouched and still open.
         assertEquals("5.00", viewModel.uiState.value.modal?.amount)
@@ -3171,7 +3172,7 @@ class TransactionsViewModelTest {
         viewModel.onCategoryCreateNameChange("Food")
         viewModel.submitCategoryCreate()
         awaitState { it.categoryCreate?.modal?.error != null }
-        assertEquals("A category with this name already exists.", viewModel.uiState.value.categoryCreate?.modal?.error)
+        assertEquals("A category with this name already exists.", viewModel.uiState.value.categoryCreate?.modal?.error?.english())
         assertEquals("5.00", viewModel.uiState.value.modal?.amount)
     }
 
@@ -3192,9 +3193,9 @@ class TransactionsViewModelTest {
         assertEquals(
             mapOf(
                 WalletFields.NAME to "Enter a name",
-                WalletFields.OPENING_BALANCE to AmountInputMessages.NOT_POSITIVE,
+                WalletFields.OPENING_BALANCE to AmountInputMessages.NOT_POSITIVE.english(),
             ),
-            create.modal.fieldErrors,
+            create.modal.fieldErrors?.english(),
         )
         assertNull(create.modal.error)
         // The Transaction draft beneath is untouched and judged separately.
@@ -3226,7 +3227,7 @@ class TransactionsViewModelTest {
 
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/categories" })
         val create = viewModel.uiState.value.categoryCreate!!
-        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), create.modal.fieldErrors)
+        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), create.modal.fieldErrors?.english())
         assertNull(create.modal.error)
         // The Transaction draft beneath is untouched and judged separately.
         assertEquals("5.00", viewModel.uiState.value.modal?.amount)
@@ -3236,7 +3237,7 @@ class TransactionsViewModelTest {
         viewModel.onCategoryCreateNameChange("Groceries")
         assertEquals(
             mapOf(CategoryFields.NAME to "Enter a name"),
-            viewModel.uiState.value.categoryCreate!!.modal.fieldErrors,
+            viewModel.uiState.value.categoryCreate!!.modal.fieldErrors?.english(),
         )
         viewModel.submitCategoryCreate()
         awaitState { it.categoryCreate == null && it.modal?.categoryId == 1 }

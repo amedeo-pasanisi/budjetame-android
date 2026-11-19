@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="assistant_title">Assistente</string>
+    <string name="assistant_close_cd">Chiudi l\'Assistente</string>
+    <string name="assistant_empty_dictation">Di\' o scrivi cosa hai speso o ricevuto: ogni bozza finisce nella scheda Transazioni.</string>
+    <string name="assistant_empty_typing">Scrivi cosa hai speso o ricevuto: ogni bozza finisce nella scheda Transazioni.</string>
+    <string name="assistant_writing">L\'Assistente sta scrivendo…</string>
+    <string name="assistant_listening">In ascolto…</string>
+    <string name="assistant_dictation_failed">La dettatura non ha funzionato. Scrivi la frase.</string>
+    <string name="assistant_input_placeholder">es. 30 euro al supermercato con la carta</string>
+    <string name="assistant_send">Invia</string>
+    <string name="assistant_sending">Invio…</string>
+    <string name="assistant_dictate_cd">Detta</string>
+    <string name="assistant_stop_dictating_cd">Ferma la dettatura</string>
+    <string name="assistant_speaker_you">Tu</string>
+    <string name="assistant_could_not_answer">L\'Assistente non ha potuto rispondere. Riprova.</string>
+    <string name="assistant_hourly_limit">Hai raggiunto il limite orario di richieste all\'Assistente. Riprova più tardi.</string>
+
+    <string name="quick_dictation_checking">Apertura di Budjetame…</string>
+    <string name="quick_dictation_signed_out">Non hai effettuato l\'accesso a Budjetame.</string>
+    <string name="quick_dictation_no_assistant_settings">L\'Assistente non è configurato: aggiungi le impostazioni dell\'Assistente nelle Impostazioni dell\'app.</string>
+    <string name="quick_dictation_offline">Budjetame non è raggiungibile: controlla la connessione e riprova.</string>
+    <string name="quick_dictation_no_recognizer">Questo telefono non supporta la dettatura: scrivi la frase nell\'app.</string>
+    <string name="quick_dictation_open_app">Apri Budjetame</string>
+    <string name="quick_dictation_empty">Di\' cosa hai speso o ricevuto: diventa una bozza nella scheda Transazioni.</string>
+    <string name="quick_dictation_failed">La dettatura non ha funzionato. Tocca il microfono per riprovare.</string>
+    <string name="quick_dictation_open_in_app">Apri nell\'app</string>
+</resources>

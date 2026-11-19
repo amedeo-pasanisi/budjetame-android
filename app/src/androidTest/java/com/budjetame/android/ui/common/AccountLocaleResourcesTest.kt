@@ -72,13 +72,13 @@ class AccountLocaleResourcesTest {
 
     @Test
     fun `a key values-it lacks falls back to English`() {
-        // record_label is deliberately English-only (the system-drawn tile label).
+        // app_name (the brand) has no values-it entry: Italian falls back to it.
         composeRule.setContent {
             Device(Locale.US) {
-                ProvideAccountLocale("it") { Text(stringResource(R.string.record_label)) }
+                ProvideAccountLocale("it") { Text(stringResource(R.string.app_name)) }
             }
         }
-        composeRule.onNodeWithText("Record Budjetame").assertExists()
+        composeRule.onNodeWithText("Budjetame").assertExists()
     }
 
     @Test
