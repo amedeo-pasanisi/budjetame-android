@@ -63,8 +63,9 @@ object WalletFields {
  * `validate()`): one Field Error per wrong field of [form], empty when it
  * may save. Name is required in create and edit. The Opening balance
  * (create only) is an optional tolerant Amount Input: blank stays valid —
- * the Wallet starts at €0 — and a Contact Wallet's disabled field is never
- * judged. Shared by every host of the Wallet modal, so the rule cannot
+ * the Wallet starts at €0 — while a typed value must be a positive amount,
+ * so an explicit "0" is rejected like the web's (leave it blank instead);
+ * a Contact Wallet's disabled field is never judged. Shared by every host of the Wallet modal, so the rule cannot
  * drift between the Wallets screen and the inline creates (ADR-0013).
  */
 fun validateWalletForm(form: WalletModalState): FieldErrors = buildMap {

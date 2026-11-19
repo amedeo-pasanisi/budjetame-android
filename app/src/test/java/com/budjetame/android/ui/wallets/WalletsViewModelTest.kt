@@ -315,7 +315,7 @@ class WalletsViewModelTest {
     }
 
     @Test
-    fun `a negative opening balance reveals the not-positive error and creates nothing`() = runBlocking {
+    fun `a negative or zero opening balance reveals the not-positive error and creates nothing`() = runBlocking {
         createViewModel()
         awaitLoaded()
 
@@ -325,6 +325,15 @@ class WalletsViewModelTest {
         viewModel.onOpeningBalanceChange("-1.00")
         viewModel.submit()
 
+        assertEquals(
+            mapOf(WalletFields.OPENING_BALANCE to AmountInputMessages.NOT_POSITIVE),
+            viewModel.uiState.value.modal?.fieldErrors,
+        )
+
+        // A typed zero is not an amount either (web parity): blank is the
+        // way to start at €0.
+        viewModel.onOpeningBalanceChange("0,00")
+        viewModel.submit()
         assertEquals(
             mapOf(WalletFields.OPENING_BALANCE to AmountInputMessages.NOT_POSITIVE),
             viewModel.uiState.value.modal?.fieldErrors,
