@@ -56,8 +56,8 @@ class UndoStackTest {
         runCurrent()
 
         val entry = undo.state.value.entries.single()
-        assertEquals(UndoKind.TRANSACTION, entry.kind)
-        assertEquals("Coffee", entry.label)
+        assertEquals(UndoKind.TRANSACTION, entry.deleted.kind)
+        assertEquals("Coffee", entry.deleted.label)
         assertEquals(10, undo.state.value.remainingSeconds(entry))
     }
 
@@ -68,7 +68,7 @@ class UndoStackTest {
         undo.pushDeleted(deleted(1, "  "))
         undo.pushDeleted(deleted(2, null))
 
-        assertEquals(listOf(null, null), undo.state.value.entries.map { it.label })
+        assertEquals(listOf(null, null), undo.state.value.entries.map { it.deleted.label })
     }
 
     @Test
@@ -174,6 +174,30 @@ class UndoStackTest {
         runCurrent()
 
         assertEquals("Could not undo.", undo.state.value.entries.single().error)
+    }
+
+    @Test
+    fun `a failure at the end of the window keeps its message readable for a few seconds`() = runTest {
+        val answer = CompletableDeferred<DeletedEntity>()
+        val undo = stack(replay = { answer.await() })
+        undo.pushDeleted(deleted(5))
+        runCurrent()
+
+        advanceTimeBy(9_500)
+        runCurrent()
+        undo.undo(undo.state.value.entries.single().key)
+        advanceTimeBy(1_000)
+        runCurrent()
+        answer.completeExceptionally(ApiException(403, "Wallet not found", message = "403"))
+        runCurrent()
+
+        advanceTimeBy(UNDO_ERROR_GRACE_MILLIS - 1)
+        runCurrent()
+        assertEquals("Wallet not found", undo.state.value.entries.single().error)
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertTrue(undo.state.value.entries.isEmpty())
     }
 
     @Test

@@ -33,6 +33,9 @@ sealed interface DeletedEntity {
     /** The entity's id, unique within its kind. */
     val id: Int
 
+    /** The headline the entry opens with (the web's undoToast copy). */
+    val headline: String
+
     /** What the entry names beside its kind's headline, or null. */
     val label: String?
 
@@ -41,6 +44,7 @@ sealed interface DeletedEntity {
     data class Transaction(val row: TransactionDto) : DeletedEntity {
         override val kind: UndoKind get() = UndoKind.TRANSACTION
         override val id: Int get() = row.id
+        override val headline: String get() = "Transaction deleted"
         override val label: String? get() = row.description?.takeIf { it.isNotBlank() }
     }
 }
@@ -68,9 +72,6 @@ data class UndoEntry(
      * one), shown on the entry; null = none. */
     val error: String? = null,
 ) {
-    val kind: UndoKind get() = deleted.kind
-    val label: String? get() = deleted.label
-
     /** The entry's identity: ids are unique only within a kind. */
     val key: String get() = keyOf(deleted)
 
@@ -103,6 +104,10 @@ const val UNDO_WINDOW_MILLIS = 10_000L
 
 /** The message a failed Undo shows when the server gave no `detail`. */
 const val UNDO_ERROR = "Could not undo."
+
+/** A failed Undo's entry stays at least this long after the failure, so
+ * its message can be read even when the window was about to close. */
+const val UNDO_ERROR_GRACE_MILLIS = 3_000L
 
 private fun keyOf(deleted: DeletedEntity): String = "${deleted.kind}:${deleted.id}"
 
@@ -171,7 +176,17 @@ class UndoStack(
                 throw cancelled
             } catch (failure: Exception) {
                 val message = (failure as? ApiException)?.detail ?: UNDO_ERROR
-                updateEntry(key) { it.copy(undoing = false, error = message) }
+                // A failure near or past the window's end still leaves
+                // its message on screen long enough to read.
+                val readableFrom = clock() + UNDO_ERROR_GRACE_MILLIS - UNDO_WINDOW_MILLIS
+                updateEntry(key) {
+                    it.copy(
+                        undoing = false,
+                        error = message,
+                        createdAtMillis = maxOf(it.createdAtMillis, readableFrom),
+                    )
+                }
+                startTicker()
             }
         }
     }

@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,11 +36,6 @@ import com.budjetame.android.ui.theme.Indigo600
 import com.budjetame.android.ui.theme.Red600
 import com.budjetame.android.ui.theme.Slate400
 import com.budjetame.android.ui.theme.Slate700
-
-/** The headline each kind's entry opens with (the web's undoToast copy). */
-private fun headlineOf(kind: UndoKind): String = when (kind) {
-    UndoKind.TRANSACTION -> "Transaction deleted"
-}
 
 /**
  * The shell's Undo stack on screen (web UndoToastStack, ticket #58): up to
@@ -68,12 +64,14 @@ fun UndoToastStack(
     ) {
         // Newest first in the stack; the newest sits nearest the bottom bar.
         state.entries.asReversed().forEach { entry ->
-            UndoToast(
-                entry = entry,
-                remainingSeconds = state.remainingSeconds(entry),
-                onUndo = { onUndo(entry.key) },
-                onDismiss = { onDismiss(entry.key) },
-            )
+            key(entry.key) {
+                UndoToast(
+                    entry = entry,
+                    remainingSeconds = state.remainingSeconds(entry),
+                    onUndo = { onUndo(entry.key) },
+                    onDismiss = { onDismiss(entry.key) },
+                )
+            }
         }
     }
 }
@@ -97,9 +95,9 @@ private fun UndoToast(
                 Text(
                     text = buildAnnotatedString {
                         withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
-                            append(headlineOf(entry.kind))
+                            append(entry.deleted.headline)
                         }
-                        entry.label?.let { append(" · $it") }
+                        entry.deleted.label?.let { append(" · $it") }
                     },
                     fontSize = 14.sp,
                     color = Slate700,

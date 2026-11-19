@@ -157,7 +157,7 @@ fun TransactionsScreen(
     onLedgerJumpConsumed: () -> Unit = {},
     /** The shell's Undo stack (ticket #58): a deleted Transaction is
      * reported here and its Undo entry shows on every tab. */
-    undo: UndoSink = UndoSink.None,
+    undoSink: UndoSink = UndoSink.None,
 ) {
     val viewModel: TransactionsViewModel = viewModel {
         TransactionsViewModel(
@@ -172,7 +172,7 @@ fun TransactionsScreen(
             // the ViewModel's initial state: its very first fetch already
             // carries the filter — never an unfiltered flash (ADR-0004).
             seed = pendingLedgerJump,
-            undo = undo,
+            undoSink = undoSink,
         )
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()

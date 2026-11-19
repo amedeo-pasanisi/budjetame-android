@@ -249,7 +249,7 @@ fun AppShell(
                             location = location,
                             pendingLedgerJump = pendingLedgerJump,
                             onLedgerJumpConsumed = { pendingLedgerJump = null },
-                            undo = undoStack,
+                            undoSink = undoStack,
                         )
                         Tab.Categories -> CategoriesScreen(
                             categoryRepository,

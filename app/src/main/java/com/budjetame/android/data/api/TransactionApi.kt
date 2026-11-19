@@ -262,8 +262,9 @@ data class TransactionTransferIncomeLinkUpdateRequest(
  * re-inserts the very same Transaction — same id, same date, same
  * Recurring pin (`recurring_cost_id`/`recurring_income_id` with the
  * `occurrence_date` it paid). The backend forbids extra keys, so only these
- * fields exist; null fields are omitted from the wire (the converter skips
- * default-valued fields), which the backend reads as absent.
+ * fields exist. A field left at its null default is dropped from the wire
+ * (the converter skips default-valued fields even with `explicitNulls`),
+ * and the backend reads a missing field as null.
  */
 @Serializable
 data class TransactionUndoRequest(

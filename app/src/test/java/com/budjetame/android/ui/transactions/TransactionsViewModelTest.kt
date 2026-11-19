@@ -233,7 +233,7 @@ class TransactionsViewModelTest {
             searchDebounceMillis = searchDebounceMillis,
             location = location,
             seed = seed,
-            undo = undo,
+            undoSink = undo,
         )
     }
 
@@ -2061,7 +2061,7 @@ class TransactionsViewModelTest {
         // delete answered (it answers only the Cash warning).
         assertEquals(listOf<DeletedEntity>(DeletedEntity.Transaction(held)), pushed)
         val entry = stack.state.value.entries.single()
-        assertEquals("Gym", entry.label)
+        assertEquals("Gym", entry.deleted.label)
 
         stack.undo(entry.key)
         withTimeout(5_000) { stack.restored.first { it != null } }

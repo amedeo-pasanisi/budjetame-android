@@ -75,8 +75,8 @@ private val RED_600 = Color(0xFFDC2626)
  * (Transfer's distinct From/To Wallets and no Category; Contact Wallets only
  * on an Expense, ADR-0017), the Europe/Rome-defaulted date, the Cash
  * negative-balance preview, and the single-tap delete (its Undo lives in
- * the shell's stack, ticket #58). The
- * post-write warning flag from the API surfaces as the screen's banner. The
+ * the shell's stack, ticket #58). The post-write warning flag from the API
+ * surfaces as the screen's banner. The
  * Wallet and Category selects carry the inline-create sentinels (ADR-0013):
  * `onAddWallet` reports which field's sentinel was picked (the created
  * Wallet is auto-selected into exactly that field), `onAddCategory` opens

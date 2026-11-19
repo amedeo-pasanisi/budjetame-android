@@ -104,7 +104,7 @@ class TransactionsViewModel(
     /** The shell's Undo stack (web ADR-0031 / ADR-0034, ticket #58): a
      * deleted Transaction is reported here, its held row the replay
      * payload. */
-    private val undo: UndoSink = UndoSink.None,
+    private val undoSink: UndoSink = UndoSink.None,
 ) : ViewModel() {
 
     data class UiState(
@@ -193,8 +193,9 @@ class TransactionsViewModel(
     /**
      * The create/edit/delete Transaction form's draft (null = modal closed).
      * Create and edit share one modal: the Type selector appears only while
-     * creating (type is immutable once recorded), and the single-tap delete
-     * (its Undo in the shell's stack, ticket #58) only while editing. `recurringCostId` is the Recurring
+     * creating (type is immutable once recorded), and the single-tap
+     * delete (its Undo in the shell's stack, ticket #58) only while
+     * editing. `recurringCostId` is the Recurring
      * Cost link pick — an Expense's, or a Transfer-to-a-Contact-Wallet's
      * (web issue #99 / ADR-0027); null = none (web issue #57).
      * `recurringIncomeId` is the Recurring Income link pick, the mirror —
@@ -1202,7 +1203,7 @@ class TransactionsViewModel(
             updateModal { it.copy(deleting = true, error = null) }
             try {
                 val result = transactions.deleteTransaction(transaction.id)
-                undo.pushDeleted(DeletedEntity.Transaction(transaction))
+                undoSink.pushDeleted(DeletedEntity.Transaction(transaction))
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
