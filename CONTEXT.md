@@ -9,7 +9,7 @@ A person's login identity and personal data space. Created by email+password reg
 _Avoid_: user, profile
 
 **Assistant**:
-The conversational agent, reachable from every tab, that turns what the user says or types — in the Account's Locale — into Draft Transactions. It writes a Draft Transaction at once with what it understood, answers in writing with a one-line summary of each, asks at most one question and only when a spoken name matches more than one existing Wallet, Category or Recurring definition, and corrects or discards the Draft Transactions of the open conversation on request ("no, it was 5 euro", "scrap that"). It never creates a Transaction, a Wallet or a Category, and it never speaks aloud. Its conversation lives only while it is open: closing it forgets it.
+The conversational agent, reachable from every tab, that turns what the user says or types — in the Account's Locale — into Draft Transactions. It writes a Draft Transaction at once with what it understood, answers in writing with a one-line summary of each, asks at most one question and only when a spoken name matches more than one existing Wallet, Category or Recurring definition, and corrects or discards the Draft Transactions of the open conversation on request ("no, it was 5 euro", "scrap that"). It never creates a Transaction, a Wallet or a Category, and it never speaks aloud.
 _Avoid_: vocal assistant, voice assistant, chatbot, bot, agent
 
 **Assistant Settings**:
@@ -178,8 +178,8 @@ _Avoid_: overlay, widget, voice shortcut, "Ok Google" action
 - Imports never set the link.
 - An Export never carries the link either: an exported row has no Recurring link and no Place — coordinates only — and Opening Balance Transactions are not exported.
 - All data is scoped to its owning Account; foreign data gets a 403.
-- The Assistant never creates, edits or deletes a Transaction, a Wallet or a Category; it writes only Draft Transactions, and corrects or discards only those of the open conversation, which no client or server stores.
-- The Assistant is bounded per Account on the server (web ADR-0035): 30 turns per hour (the next is a 429 naming the wait), 8 tool steps per turn and 30 seconds per turn. A provider that rejects the Assistant Key, a busy provider, a turn out of time and a model that never calls a tool all answer with a reply in the Locale: an ordinary Assistant line, not a failure.
+- The Assistant never creates, edits or deletes a Transaction, a Wallet or a Category; it is given only the Account's Wallet, Category and Recurring names and writes only Draft Transactions. It corrects or discards only the Draft Transactions of the open conversation, which no client or server stores.
+- The Assistant is bounded per Account on the server (ADR-0035): 30 turns per hour (the next is a 429 naming the wait), 8 tool steps per turn (then the model is asked for its answer with no further tools) and 30 seconds per turn (then the reply says the Assistant gave up). A provider that rejects the Assistant Key gets one reply pointing at Assistant Settings and no retry; a busy provider (429/503, or Anthropic's 529) is retried once after the delay it announced when that fits the turn, otherwise the reply names the seconds to wait; a model that never calls a tool gets the reply that it cannot drive the Assistant and writes no Draft. These replies are in the Locale and are ordinary assistant lines of a 200 turn.
 
 ## Non-goals
 

@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
 /**
- * The Assistant (issue #68, web ADR-0035 / issue #132): its button's
+ * The Assistant (ticket #68, web ADR-0035 / issue #132): its button's
  * presence and the open conversation — a thin chat screen over the
  * stateless `POST /assistant/turns`.
  *
@@ -40,7 +40,7 @@ import kotlinx.serialization.json.JsonObject
  * goes back into the box for a retry.
  *
  * Every turn goes through [sendSentence], and the box changes only through
- * [onTextChange]: the two places a Dictation (issue #69) hooks into — its
+ * [onTextChange]: the two places a Dictation (ticket #69) hooks into — its
  * end sends the box's text followed by what was heard, and typing cancels
  * it.
  */
@@ -56,7 +56,8 @@ class AssistantViewModel(
     data class Line(val speaker: Speaker, val text: String, val failure: Boolean = false)
 
     data class UiState(
-        /** The Assistant Settings status has been read at least once. */
+        /** The Assistant Settings status has been read at least once:
+         * until then [available] is only the default, not an answer. */
         val availabilityKnown: Boolean = false,
         /** The Account has Assistant Settings: the button shows. */
         val available: Boolean = false,
@@ -136,17 +137,17 @@ class AssistantViewModel(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                if (error is ApiException && error.status == 409) {
-                    close()
-                    _uiState.update { it.copy(available = false) }
-                    return@launch
-                }
+                val apiError = error as? ApiException
                 // The turn did not happen: the sentence leaves the
                 // conversation and goes back into the box.
-                val failureLine = if (error is ApiException && error.status == 429) {
-                    Line(Speaker.ASSISTANT, error.detail ?: HOURLY_BOUND)
-                } else {
-                    Line(Speaker.ASSISTANT, COULD_NOT_ANSWER, failure = true)
+                val failureLine = when (apiError?.status) {
+                    409 -> {
+                        close()
+                        _uiState.update { it.copy(available = false) }
+                        return@launch
+                    }
+                    429 -> Line(Speaker.ASSISTANT, apiError.detail ?: HOURLY_BOUND)
+                    else -> Line(Speaker.ASSISTANT, COULD_NOT_ANSWER, failure = true)
                 }
                 _uiState.update {
                     it.copy(

@@ -44,7 +44,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.budjetame.android.ui.theme.Slate500
 
 /**
- * The Assistant (issue #68, the web's AssistantModal): a full-screen chat
+ * The Assistant (ticket #68, the web's AssistantModal): a full-screen chat
  * over whatever tab is showing — the transcript, a text box and Send. The
  * conversation lives in [AssistantViewModel] while the dialog shows and is
  * forgotten when it closes.
@@ -133,8 +133,7 @@ private fun Transcript(state: AssistantViewModel.UiState, modifier: Modifier = M
     ) {
         if (state.lines.isEmpty() && !state.pending) {
             Text(
-                text = "Say or type what you spent or received. " +
-                    "Each Draft lands on the Transactions tab, to approve with one tap.",
+                text = "Type what you spent or received: each Draft Transaction lands on the Transactions tab.",
                 fontSize = 12.sp,
                 color = Slate500,
             )
