@@ -418,6 +418,13 @@ class DraftTransactionsViewModelTest {
         )
         createViewModel()
         awaitState { it.drafts.isNotEmpty() }
+        // The Drafts answering says nothing about the load's other fetches:
+        // they run concurrently and can reach the server later. Wait for the
+        // whole set (ledger, wallets, categories, both Recurring lists,
+        // Drafts) before counting, or a late one reads as a new request.
+        withTimeout(5_000) {
+            while (calls.size < 6) delay(10)
+        }
         val before = calls.size
 
         viewModel.editDraft(viewModel.uiState.value.drafts.single())

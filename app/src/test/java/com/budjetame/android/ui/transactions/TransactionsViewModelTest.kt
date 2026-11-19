@@ -65,6 +65,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -982,8 +983,38 @@ class TransactionsViewModelTest {
         withTimeout(5_000) { viewModel.uiState.first(predicate) }
     }
 
+    /** The ledger GETs in the order they reached the fake server. That is NOT
+     * the order the ViewModel issued them: back-to-back changes refetch
+     * concurrently on separate OkHttp connections, so a superseded fetch can
+     * land after the newest one. `last()` names the newest fetch only once
+     * every earlier fetch has landed (see [awaitListCalls]); otherwise find
+     * the fetch by its content ([listCallWith]). */
     private fun listCalls(): List<RecordedCall> =
         calls.toList().filter { it.path == "/api/transactions" }
+
+    /** Wait until [count] ledger GETs have reached the server — a state
+     * change only proves the newest fetch answered, not that the superseded
+     * ones it raced have landed. */
+    private suspend fun awaitListCalls(count: Int) {
+        withTimeout(5_000) {
+            while (listCalls().size < count) delay(10)
+        }
+    }
+
+    /** Wait for the one ledger GET whose query is exactly [query] (`limit`
+     * included), whatever order the concurrent fetches land in. Awaiting
+     * the rows is not enough: a test thread preempted between back-to-back
+     * changes lets an intermediate fetch answer first, and its rows can
+     * already match before the newest fetch is even issued. */
+    private suspend fun awaitListCallWith(query: Map<String, String>) {
+        withTimeoutOrNull(5_000) {
+            while (listCalls().none { it.query == query }) delay(10)
+        }
+        val matches = listCalls().filter { it.query == query }
+        if (matches.size != 1) {
+            throw AssertionError("expected one ledger GET with $query, got ${listCalls().map { it.query }}")
+        }
+    }
 
     private fun exportCalls(): List<RecordedCall> =
         calls.toList().filter { it.path == "/api/transactions/export" }
@@ -1086,12 +1117,17 @@ class TransactionsViewModelTest {
         // exactly 2026-08-02 — every partial combination matches more rows.
         awaitState { it.transactions.map { t -> t.id } == listOf(2) }
 
-        val last = listCalls().last()
-        assertEquals("1", last.query["wallet_id"])
-        assertEquals("1", last.query["category_id"])
-        assertEquals("2026-08-02", last.query["from_date"])
-        assertEquals("2026-08-02", last.query["to_date"])
-        assertNull(last.query["cursor"])
+        // Every field on one first-page fetch (no cursor).
+        awaitListCallWith(
+            mapOf(
+                "limit" to "50",
+                "wallet_id" to "1",
+                "category_id" to "1",
+                "from_date" to "2026-08-02",
+                "to_date" to "2026-08-02",
+            ),
+        )
+        awaitState { it.transactions.map { t -> t.id } == listOf(2) }
         assertTrue(viewModel.uiState.value.filtersActive)
         assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage)
     }
@@ -1222,15 +1258,19 @@ class TransactionsViewModelTest {
         // ∧ 2026-08-01 ∧ cost 1 ∧ the "august" needle.
         awaitState { it.transactions.map { t -> t.id } == listOf(1) }
 
-        val last = listCalls().last()
-        assertEquals("1", last.query["wallet_id"])
-        assertEquals("1", last.query["category_id"])
-        assertEquals("2026-08-01", last.query["from_date"])
-        assertEquals("2026-08-01", last.query["to_date"])
-        assertEquals("1", last.query["recurring_cost_id"])
-        assertNull(last.query["recurring_income_id"])
-        assertEquals("august", last.query["q"])
-        assertNull(last.query["cursor"])
+        // One first-page fetch carries every bound — and never the income key.
+        awaitListCallWith(
+            mapOf(
+                "limit" to "50",
+                "wallet_id" to "1",
+                "category_id" to "1",
+                "from_date" to "2026-08-01",
+                "to_date" to "2026-08-01",
+                "recurring_cost_id" to "1",
+                "q" to "august",
+            ),
+        )
+        awaitState { it.transactions.map { t -> t.id } == listOf(1) }
     }
 
     @Test
@@ -1362,12 +1402,13 @@ class TransactionsViewModelTest {
 
         viewModel.onSearchChange("lunch")
         awaitState { it.searchNeedle == "lunch" }
+        // The needle is set before its fetch lands: wait for it, so the blank
+        // search's fetch is the newest one to reach the server.
+        awaitListCalls(2)
         viewModel.onSearchChange("   ")
         // The refetch lands but may conflate (same list content); await the
         // request instead of a state change.
-        withTimeout(5_000) {
-            while (listCalls().size < 3) delay(10)
-        }
+        awaitListCalls(3)
 
         assertEquals("", viewModel.uiState.value.searchNeedle)
         assertNull(listCalls().last().query["q"])
@@ -1409,6 +1450,9 @@ class TransactionsViewModelTest {
         viewModel.onFilterFromDateChange("2026-08-01")
         viewModel.onFilterToDateChange("2026-08-31")
         awaitState { it.transactions.map { t -> t.id } == listOf(1) }
+        // The initial load and both bound changes have all landed — the
+        // from-only fetch can still be in flight after the state settles.
+        awaitListCalls(3)
 
         val before = listCalls().size
         viewModel.clearFilterDates()
@@ -1448,6 +1492,8 @@ class TransactionsViewModelTest {
         viewModel.onFilterRecurringChange(RecurringFilter(RecurringFilterKind.COST, 1))
         viewModel.onSearchChange("august")
         awaitState { it.searchNeedle == "august" && it.transactions.map { t -> t.id } == listOf(1) }
+        // The initial load and all six changes' fetches have landed.
+        awaitListCalls(7)
 
         val before = listCalls().size
         viewModel.clearPanelFilters()
@@ -1487,6 +1533,8 @@ class TransactionsViewModelTest {
         viewModel.onFilterWalletChange(1)
         viewModel.onSearchChange("  august ")
         awaitState { it.searchNeedle == "august" && it.transactions.map { t -> t.id } == listOf(1) }
+        // The initial load and both changes' fetches have landed.
+        awaitListCalls(3)
 
         val before = listCalls().size
         viewModel.clearFiltersAndSearch()

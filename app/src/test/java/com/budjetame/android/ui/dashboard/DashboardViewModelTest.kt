@@ -475,7 +475,12 @@ class DashboardViewModelTest {
         failMonths.add("2026-07")
 
         viewModel.onPieMonthChange(YearMonth.of(2026, 7))
-        awaitState { it.requestedMonth == YearMonth.of(2026, 7) }
+        // The selector moves to July at once, but the failed response can
+        // revert it before a collector subscribes — so never await the
+        // transient July state; await the July request, then the revert.
+        withTimeout(5_000) {
+            while ("2026-07" !in months()) delay(10)
+        }
         awaitState { it.requestedMonth == YearMonth.of(2026, 8) }
 
         // The held summary keeps its month, the selector returned to it —
