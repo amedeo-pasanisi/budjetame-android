@@ -685,7 +685,7 @@ class RecurringCostsViewModelTest {
     }
 
     @Test
-    fun `an edit's Save with an empty start date reveals its Field Error and patches nothing`() = runBlocking {
+    fun `an edit's Save with an empty start date reveals its Field Error and patches only once re-picked`() = runBlocking {
         seed(
             costDto(
                 1, "Rent", amount = "800.00", startDate = "2026-01-01",

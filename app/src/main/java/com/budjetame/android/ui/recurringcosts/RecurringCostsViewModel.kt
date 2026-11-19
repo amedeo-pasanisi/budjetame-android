@@ -407,6 +407,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
             // Validated before any write: the tolerant Amount Input's
             // US-canonical value, never the typed text (ADR-0009).
             amount = parseAmountInput(modal.amount)!!.toPlainString(),
+            // Validated too: a whole number of at least 1 by now.
             intervalValue = parseIntervalValue(modal.intervalValue) ?: 0,
             intervalUnit = modal.intervalUnit,
             // Empty only ever at creation: "start today" needs no typing,
