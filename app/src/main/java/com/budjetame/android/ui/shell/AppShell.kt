@@ -40,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -120,6 +121,10 @@ fun AppShell(
     location: DeviceLocation,
     onSignOut: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
+    /** Quick Dictation's "open in app" (ticket #65): show the Transactions
+     * tab, its Drafts pinned at the top, then [onTransactionsShown]. */
+    showTransactions: Boolean = false,
+    onTransactionsShown: () -> Unit = {},
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
@@ -162,6 +167,13 @@ fun AppShell(
     // the back-stack entries' saved-state keep-alive.
     val pagerState = rememberPagerState(pageCount = { TABS.size })
     val tabState = rememberSaveableStateHolder()
+
+    LaunchedEffect(showTransactions) {
+        if (showTransactions) {
+            pagerState.scrollToPage(Tab.Transactions.ordinal)
+            onTransactionsShown()
+        }
+    }
 
     // Send a ledger jump (ADR-0004, web ADR-0026): hold the request
     // pending and glide to

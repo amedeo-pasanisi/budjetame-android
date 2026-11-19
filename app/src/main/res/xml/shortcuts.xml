@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Quick Dictation's app-icon shortcut (ticket #65): long-press the icon,
+     or pin it to the home screen. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_record"
+        android:shortcutId="record"
+        android:shortcutLongLabel="@string/record_label"
+        android:shortcutShortLabel="@string/record_label">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.budjetame.android.QuickDictationActivity"
+            android:targetPackage="com.budjetame.android" />
+    </shortcut>
+</shortcuts>

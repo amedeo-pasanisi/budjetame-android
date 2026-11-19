@@ -2,4 +2,14 @@
 <resources>
     <!-- Pure Compose app: no AppCompat/XML layouts, just a bare activity theme. -->
     <style name="Theme.Budjetame" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Quick Dictation's card (ticket #65): a see-through window over
+         whatever is on screen, dimmed behind the card. -->
+    <style name="Theme.Budjetame.QuickDictation">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Translucent</item>
+    </style>
 </resources>

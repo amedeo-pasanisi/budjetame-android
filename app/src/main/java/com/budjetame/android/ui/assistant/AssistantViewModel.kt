@@ -8,8 +8,10 @@ import com.budjetame.android.data.assistant.AssistantSettingsGateway
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.dictation.recognitionLanguage
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,9 +64,16 @@ class AssistantViewModel(
     /** The Account's Locale as the server serves it: the language a
      * Dictation listens in. */
     private val locale: String,
+    /** Quick Dictation (ticket #65): the Assistant opened from outside the
+     * app as a voice-only card, open from the start. */
+    private val quick: Boolean = false,
 ) : ViewModel() {
 
     enum class Speaker { USER, ASSISTANT }
+
+    /** Why a Quick Dictation card cannot run: it says which and leads into
+     * the app, and never keeps the Dictation for later. */
+    enum class CannotRun { SIGNED_OUT, NO_ASSISTANT_SETTINGS, OFFLINE }
 
     /** One line of the conversation as shown. A failure line is the
      * client's own words for a turn that did not happen, styled apart. */
@@ -88,13 +97,19 @@ class AssistantViewModel(
         val listening: Boolean = false,
         /** The last Dictation failed for a reason the user did not choose. */
         val dictationFailed: Boolean = false,
+        /** Quick Dictation: the reply needs nothing more and the card
+         * closes by itself after [AUTO_CLOSE_MILLIS]. */
+        val closing: Boolean = false,
+        /** Quick Dictation: why the card cannot run, null while it can. */
+        val cannotRun: CannotRun? = null,
     )
 
-    private val _uiState = MutableStateFlow(UiState(dictationAvailable = recognizer != null))
+    private val _uiState = MutableStateFlow(UiState(open = quick, dictationAvailable = recognizer != null))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private var availabilityJob: Job? = null
     private var turnJob: Job? = null
+    private var autoCloseJob: Job? = null
 
     /** One Dictation's own state: whether the microphone opened (its
      * start tone sounded) and whether the Assistant dropped it. */
@@ -118,15 +133,44 @@ class AssistantViewModel(
     fun refreshAvailability() {
         availabilityJob?.cancel()
         availabilityJob = viewModelScope.launch {
+            var unreadable: Exception? = null
             val configured = try {
                 settings.fetchStatus().configured
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                unreadable = error
                 false
             }
             _uiState.update { it.copy(availabilityKnown = true, available = configured) }
+            if (quick && !configured) {
+                // An unreadable status is no answer: the card says why it
+                // could not ask (a session refused, or no connection).
+                cannotRun(
+                    when (unreadable) {
+                        null -> CannotRun.NO_ASSISTANT_SETTINGS
+                        else -> cannotRunFor(unreadable) ?: CannotRun.OFFLINE
+                    },
+                )
+            }
         }
+    }
+
+    /** Quick Dictation: the failures the card cannot run past — a session
+     * the server refuses, Assistant Settings gone, no connection — or null
+     * for one that is only this turn's. */
+    private fun cannotRunFor(error: Exception): CannotRun? = when {
+        (error as? ApiException)?.status == 401 -> CannotRun.SIGNED_OUT
+        (error as? ApiException)?.status == 409 -> CannotRun.NO_ASSISTANT_SETTINGS
+        error is IOException -> CannotRun.OFFLINE
+        else -> null
+    }
+
+    /** Quick Dictation: the card cannot run. A listening Dictation is
+     * dropped unsent, and none starts again. */
+    private fun cannotRun(reason: CannotRun) {
+        dropDictation()
+        _uiState.update { it.copy(cannotRun = reason, pending = false, closing = false) }
     }
 
     fun open() {
@@ -140,9 +184,17 @@ class AssistantViewModel(
     fun close() {
         dropDictation()
         turnJob?.cancel()
+        autoCloseJob?.cancel()
         transcript = emptyList()
         _uiState.update {
-            it.copy(open = false, lines = emptyList(), text = "", pending = false, dictationFailed = false)
+            it.copy(
+                open = false,
+                lines = emptyList(),
+                text = "",
+                pending = false,
+                dictationFailed = false,
+                closing = false,
+            )
         }
     }
 
@@ -158,7 +210,7 @@ class AssistantViewModel(
     fun startDictation() {
         val recognizer = recognizer ?: return
         val state = _uiState.value
-        if (!state.open || state.pending || dictation != null) return
+        if (!state.open || state.pending || state.cannotRun != null || dictation != null) return
         val dictation = Dictation()
         this.dictation = dictation
         _uiState.update { it.copy(listening = true, dictationFailed = false) }
@@ -238,10 +290,21 @@ class AssistantViewModel(
                 _uiState.update {
                     it.copy(lines = it.lines + Line(Speaker.ASSISTANT, result.reply), pending = false)
                 }
+                if (quick) {
+                    // The Assistant's one question waits for a spoken answer;
+                    // anything else needs nothing more.
+                    if (asksQuestion(result.reply)) startDictation() else closeSoon()
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
                 val apiError = error as? ApiException
+                val reason = if (quick) cannotRunFor(error) else null
+                if (reason != null) {
+                    _uiState.update { it.copy(lines = it.lines.filterNot { line -> line === userLine }) }
+                    cannotRun(reason)
+                    return@launch
+                }
                 // The turn did not happen: the sentence leaves the
                 // conversation and goes back into the box.
                 val failureLine = when (apiError?.status) {
@@ -256,7 +319,8 @@ class AssistantViewModel(
                 _uiState.update {
                     it.copy(
                         lines = it.lines.filterNot { line -> line === userLine } + failureLine,
-                        text = sentence,
+                        // Quick Dictation has no box: the sentence is said again.
+                        text = if (quick) "" else sentence,
                         pending = false,
                     )
                 }
@@ -264,8 +328,34 @@ class AssistantViewModel(
         }
     }
 
-    private companion object {
-        const val HOURLY_BOUND = "You have reached the hourly limit of Assistant requests. Try again later."
-        const val COULD_NOT_ANSWER = "The Assistant could not answer. Try again."
+    /** Quick Dictation: the user touched the card, which stays open. */
+    fun holdOpen() {
+        autoCloseJob?.cancel()
+        _uiState.update { it.copy(closing = false) }
+    }
+
+    /** Quick Dictation: close the card [AUTO_CLOSE_MILLIS] after a reply
+     * that needs nothing more. */
+    private fun closeSoon() {
+        autoCloseJob = viewModelScope.launch {
+            delay(AUTO_CLOSE_MILLIS)
+            close()
+        }
+        _uiState.update { it.copy(closing = true) }
+    }
+
+    companion object {
+        /** Whether a reply asks the Assistant's one question (an ambiguous
+         * Wallet, Category or Recurring name). The server marks no question
+         * apart from the reply's text, so a reply ending in a question mark
+         * is one. */
+        internal fun asksQuestion(reply: String): Boolean = reply.trimEnd().endsWith('?')
+
+        /** How long a Quick Dictation card stays after a reply that needs
+         * nothing more. */
+        const val AUTO_CLOSE_MILLIS = 3_000L
+
+        private const val HOURLY_BOUND = "You have reached the hourly limit of Assistant requests. Try again later."
+        private const val COULD_NOT_ANSWER = "The Assistant could not answer. Try again."
     }
 }

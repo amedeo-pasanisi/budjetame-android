@@ -23,6 +23,7 @@
     </queries>
 
     <application
+        android:name=".BudjetameApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -44,7 +45,49 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Quick Dictation's app-icon shortcut (ticket #65). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Quick Dictation (ticket #65): the voice-only card over whatever
+             is on screen. Its own task, kept out of Recents, so opening it
+             never drags the app's task forward, and one card at a time
+             (singleTask); the card finishes when it leaves the screen. -->
+        <activity
+            android:name=".QuickDictationActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/record_label"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.budjetame.android.quickdictation"
+            android:theme="@style/Theme.Budjetame.QuickDictation" />
+
+        <!-- The second launcher entry, "Record Budjetame": what "Ok Google,
+             open Record Budjetame" finds by its label (ticket #65). -->
+        <activity-alias
+            android:name=".RecordBudjetame"
+            android:exported="true"
+            android:label="@string/record_label"
+            android:targetActivity=".QuickDictationActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- The Quick Settings tile "Record Budjetame" (ticket #65). -->
+        <service
+            android:name=".RecordTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_record"
+            android:label="@string/record_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <!-- The export's temp .xlsx (ticket #28): the cache file behind the
              share sheet's content Uri. Export only; the provider grants a
