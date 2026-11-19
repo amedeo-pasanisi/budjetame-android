@@ -8,6 +8,10 @@ A personal finance app where each person has their own Account. Money lives in W
 A person's login identity and personal data space. Created by email+password registration or by a first Google sign-in (auto-provisioned). All data is scoped to the Account that owns it — no Account can see or touch another's.
 _Avoid_: user, profile
 
+**Assistant**:
+The conversational agent, reachable from every tab, that turns what the user says or types — in the Account's Locale — into Draft Transactions. It writes a Draft Transaction at once with what it understood, answers in writing with a one-line summary of each, asks at most one question and only when a spoken name matches more than one existing Wallet, Category or Recurring definition, and corrects or discards the Draft Transactions of the open conversation on request ("no, it was 5 euro", "scrap that"). It never creates a Transaction, a Wallet or a Category, and it never speaks aloud. Its conversation lives only while it is open: closing it forgets it.
+_Avoid_: vocal assistant, voice assistant, chatbot, bot, agent
+
 **Assistant Settings**:
 What an Account configures so its Assistant can run: a provider chosen from a fixed list (Anthropic, OpenRouter, Google Gemini), its Assistant Key, and a model picked from that provider's list or typed by id. One setting per Account: switching provider replaces the key and resets the model to the provider's default. An Account without Assistant Settings has no Assistant. Set in Settings, as on the web.
 _Avoid_: AI settings, LLM config, provider config
@@ -174,6 +178,8 @@ _Avoid_: overlay, widget, voice shortcut, "Ok Google" action
 - Imports never set the link.
 - An Export never carries the link either: an exported row has no Recurring link and no Place — coordinates only — and Opening Balance Transactions are not exported.
 - All data is scoped to its owning Account; foreign data gets a 403.
+- The Assistant never creates, edits or deletes a Transaction, a Wallet or a Category; it writes only Draft Transactions, and corrects or discards only those of the open conversation, which no client or server stores.
+- The Assistant is bounded per Account on the server (web ADR-0035): 30 turns per hour (the next is a 429 naming the wait), 8 tool steps per turn and 30 seconds per turn. A provider that rejects the Assistant Key, a busy provider, a turn out of time and a model that never calls a tool all answer with a reply in the Locale: an ordinary Assistant line, not a failure.
 
 ## Non-goals
 

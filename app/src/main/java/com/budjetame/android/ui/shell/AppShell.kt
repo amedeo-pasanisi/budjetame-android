@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Home
@@ -52,7 +53,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.data.assistant.AssistantGateway
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
@@ -62,6 +66,8 @@ import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.assistant.AssistantDialog
+import com.budjetame.android.ui.assistant.AssistantViewModel
 import com.budjetame.android.ui.categories.CategoriesScreen
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.dashboard.DashboardScreen
@@ -91,6 +97,8 @@ fun AppShell(
     account: AccountDto,
     /** The Assistant Settings block of the Settings dialog (ticket #66). */
     assistantSettingsRepository: AssistantSettingsGateway,
+    /** The Assistant's turns (ticket #68). */
+    assistantRepository: AssistantGateway,
     walletRepository: WalletGateway,
     categoryRepository: CategoryGateway,
     dashboardRepository: DashboardGateway,
@@ -105,6 +113,13 @@ fun AppShell(
     onDeleteAccount: suspend () -> Unit,
 ) {
     var showSettings by remember { mutableStateOf(false) }
+
+    // The Assistant (ticket #68): its button on every tab while the Account
+    // has Assistant Settings, re-read when the Settings dialog closes.
+    val assistant: AssistantViewModel = viewModel {
+        AssistantViewModel(assistantRepository, assistantSettingsRepository)
+    }
+    val assistantState by assistant.uiState.collectAsStateWithLifecycle()
 
     // The pending ledger jump (ADR-0004, ticket #44, extended to the
     // Recurring cards by web ADR-0026 / ticket #46): a Wallet, Category,
@@ -156,6 +171,7 @@ fun AppShell(
                 email = account.email,
                 onSignOut = onSignOut,
                 onOpenSettings = { showSettings = true },
+                onOpenAssistant = if (assistantState.available) assistant::open else null,
             )
         },
         bottomBar = { BottomTabs(pagerState) },
@@ -211,8 +227,20 @@ fun AppShell(
         SettingsDialog(
             email = account.email,
             assistantSettingsRepository = assistantSettingsRepository,
-            onClose = { showSettings = false },
+            onClose = {
+                showSettings = false
+                assistant.refreshAvailability()
+            },
             onDeleteAccount = onDeleteAccount,
+        )
+    }
+
+    if (assistantState.open) {
+        AssistantDialog(
+            state = assistantState,
+            onTextChange = assistant::onTextChange,
+            onSend = assistant::send,
+            onClose = assistant::close,
         )
     }
 }
@@ -222,6 +250,8 @@ private fun AppHeader(
     email: String,
     onSignOut: () -> Unit,
     onOpenSettings: () -> Unit,
+    /** Null hides the Assistant button: no Assistant Settings. */
+    onOpenAssistant: (() -> Unit)?,
 ) {
     // The Surface stays full-bleed so its color reaches the very top of the
     // screen behind the transparent status bar (edge-to-edge, ticket #34);
@@ -251,6 +281,15 @@ private fun AppHeader(
                     fontSize = 12.sp,
                     color = Slate500,
                 )
+            }
+            if (onOpenAssistant != null) {
+                IconButton(onClick = onOpenAssistant) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = "Assistant",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
             IconButton(onClick = onOpenSettings) {
                 Icon(

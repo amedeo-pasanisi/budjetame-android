@@ -73,6 +73,7 @@ fun BudjetameApp(container: AppContainer) {
         is AuthState.SignedIn -> AppShell(
             account = state.account,
             assistantSettingsRepository = container.assistantSettingsRepository,
+            assistantRepository = container.assistantRepository,
             walletRepository = container.walletRepository,
             categoryRepository = container.categoryRepository,
             dashboardRepository = container.dashboardRepository,

@@ -128,6 +128,17 @@ class ApiClient(baseUrl: String, tokenProvider: () -> String?) {
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
+            // An Assistant turn runs the provider's tool loop server-side
+            // within a 30 s budget whose last call may run past it (web
+            // ADR-0035, issue #129): its reply may take longer than any
+            // other answer, so it waits longer than the default.
+            if (chain.request().url.encodedPath.endsWith(ASSISTANT_TURNS_PATH)) {
+                chain.withReadTimeout(ASSISTANT_TURN_READ_SECONDS, TimeUnit.SECONDS).proceed(chain.request())
+            } else {
+                chain.proceed(chain.request())
+            }
+        }
+        .addInterceptor { chain ->
             val token = tokenProvider()
             val request = if (token != null) {
                 chain.request().newBuilder()
@@ -173,6 +184,9 @@ class ApiClient(baseUrl: String, tokenProvider: () -> String?) {
     fun <T> create(service: Class<T>): T = retrofit.create(service)
 
     companion object {
+        private const val ASSISTANT_TURNS_PATH = "/assistant/turns"
+        private const val ASSISTANT_TURN_READ_SECONDS = 90
+
         private val WRITE_EXEMPT_PATHS = setOf(
             "/api/import/preview",
             "/api/import/validate-row",

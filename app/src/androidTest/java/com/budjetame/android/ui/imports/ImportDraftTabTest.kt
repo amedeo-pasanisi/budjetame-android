@@ -38,6 +38,7 @@ import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
 import com.budjetame.android.ui.shell.AppShell
 import org.junit.Rule
@@ -65,6 +66,7 @@ class ImportDraftTabTest {
             AppShell(
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
                 assistantSettingsRepository = NoAssistantSettingsGateway(),
+                assistantRepository = NoAssistantGateway(),
                 walletRepository = FakeWalletGateway(),
                 categoryRepository = FakeCategoryGateway(),
                 dashboardRepository = FakeDashboardGateway(),
