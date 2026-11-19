@@ -2092,6 +2092,8 @@ class TransactionsViewModelTest {
                 1, TransactionType.EXPENSE, "30.00", "2026-08-03",
                 walletId = 1, recurringCostId = 3, occurrenceDate = "2026-08-01",
             ),
+            expectedCostPin = 3,
+            expectedIncomePin = null,
         )
     }
 
@@ -2102,6 +2104,8 @@ class TransactionsViewModelTest {
                 1, TransactionType.INCOME, "1500.00", "2026-08-03",
                 walletId = 1, recurringIncomeId = 4, occurrenceDate = "2026-08-01",
             ),
+            expectedCostPin = null,
+            expectedIncomePin = 4,
         )
     }
 
@@ -2109,7 +2113,7 @@ class TransactionsViewModelTest {
      * (web ADR-0031, ticket #61): the entry shows the backend's message
      * verbatim, nothing is restored, the row stays deleted, and the undo
      * POST is the only write — the client never re-links elsewhere. */
-    private suspend fun assertPinTakenUndo(held: TransactionDto) {
+    private suspend fun assertPinTakenUndo(held: TransactionDto, expectedCostPin: Int?, expectedIncomePin: Int?) {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
         seedTransactions(held)
         undoStatus = 422
@@ -2134,8 +2138,8 @@ class TransactionsViewModelTest {
         val writesAfterUndo = calls.toList().drop(callsBeforeUndo).filter { it.method != "GET" }
         assertEquals(listOf("POST /api/transactions/undo"), writesAfterUndo.map { "${it.method} ${it.path}" })
         val undo = json.decodeFromString<TransactionUndoRequest>(writesAfterUndo.single().body)
-        assertEquals(held.recurring_cost_id, undo.recurring_cost_id)
-        assertEquals(held.recurring_income_id, undo.recurring_income_id)
+        assertEquals(expectedCostPin, undo.recurring_cost_id)
+        assertEquals(expectedIncomePin, undo.recurring_income_id)
         assertEquals("2026-08-01", undo.occurrence_date)
         scope.cancel()
     }

@@ -26,8 +26,9 @@ import org.junit.Test
  * a 4xx surfaces the server's `detail`. A linked Transaction's pin (its
  * Recurring Cost or Recurring Income and the Occurrence it paid) rides the
  * body so the server restores that same Occurrence (ticket #61); a
- * success bumps the data version — the Recurring screens refetch on it
- * (ADR-0002) — and the pin-taken 422 bumps nothing.
+ * success bumps the data version — every screen, the Recurring ones
+ * included, revalidates on it (ADR-0002) — and the pin-taken 422 bumps
+ * nothing.
  */
 class TransactionUndoTest {
 
@@ -158,21 +159,27 @@ class TransactionUndoTest {
     }
 
     @Test
-    fun `the pin-taken 422 surfaces its detail and bumps nothing, for a cost and an income pin`() = runBlocking {
-        for (row in listOf(linkedRow, linkedIncome)) {
-            server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"$PIN_TAKEN"}"""))
-            val before = DataVersion.current()
+    fun `a Recurring Cost pin-taken 422 surfaces its detail and bumps nothing`() = runBlocking {
+        assertPinTaken(linkedRow)
+    }
 
-            try {
-                repository.undoTransaction(row)
-                fail("expected an ApiException")
-            } catch (error: ApiException) {
-                assertEquals(422, error.status)
-                assertEquals(PIN_TAKEN, error.detail)
-            }
-            assertEquals(before, DataVersion.current())
+    @Test
+    fun `a Recurring Income pin-taken 422 surfaces its detail and bumps nothing`() = runBlocking {
+        assertPinTaken(linkedIncome)
+    }
+
+    private suspend fun assertPinTaken(row: TransactionDto) {
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"$PIN_TAKEN"}"""))
+        val before = DataVersion.current()
+
+        try {
+            repository.undoTransaction(row)
+            fail("expected an ApiException")
+        } catch (error: ApiException) {
+            assertEquals(422, error.status)
+            assertEquals(PIN_TAKEN, error.detail)
         }
-        assertEquals(2, server.requestCount)
+        assertEquals(before, DataVersion.current())
     }
 
     private val linkedIncome = TransactionDto(
