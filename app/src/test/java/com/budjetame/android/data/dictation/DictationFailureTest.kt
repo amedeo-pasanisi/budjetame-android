@@ -11,15 +11,22 @@ class DictationFailureTest {
 
     @Test
     fun `hearing nothing and a refused microphone are no failure`() {
-        assertFalse(isDictationFailure(SpeechRecognizer.ERROR_NO_MATCH))
-        assertFalse(isDictationFailure(SpeechRecognizer.ERROR_SPEECH_TIMEOUT))
-        assertFalse(isDictationFailure(SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS))
+        assertFalse(isDictationFailure(SpeechRecognizer.ERROR_NO_MATCH, stopped = false))
+        assertFalse(isDictationFailure(SpeechRecognizer.ERROR_SPEECH_TIMEOUT, stopped = false))
+        assertFalse(isDictationFailure(SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS, stopped = false))
     }
 
     @Test
     fun `a recognizer that could not listen is a failure`() {
-        assertTrue(isDictationFailure(SpeechRecognizer.ERROR_NETWORK))
-        assertTrue(isDictationFailure(SpeechRecognizer.ERROR_AUDIO))
-        assertTrue(isDictationFailure(SpeechRecognizer.ERROR_RECOGNIZER_BUSY))
+        assertTrue(isDictationFailure(SpeechRecognizer.ERROR_NETWORK, stopped = false))
+        assertTrue(isDictationFailure(SpeechRecognizer.ERROR_AUDIO, stopped = false))
+        assertTrue(isDictationFailure(SpeechRecognizer.ERROR_RECOGNIZER_BUSY, stopped = false))
+    }
+
+    @Test
+    fun `a client error after the user stopped is no failure, but one unprompted is`() {
+        // Many recognizers answer a stop before any speech with ERROR_CLIENT.
+        assertFalse(isDictationFailure(SpeechRecognizer.ERROR_CLIENT, stopped = true))
+        assertTrue(isDictationFailure(SpeechRecognizer.ERROR_CLIENT, stopped = false))
     }
 }

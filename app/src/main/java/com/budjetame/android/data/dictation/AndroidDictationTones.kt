@@ -3,6 +3,8 @@ package com.budjetame.android.data.dictation
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.Handler
+import android.os.Looper
 import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sin
@@ -24,9 +26,10 @@ class AndroidDictationTones : DictationTones {
     override fun playEnd() = chirp(880.0, 660.0)
 
     private fun chirp(fromHz: Double, toHz: Double) {
+        var track: AudioTrack? = null
         try {
             val samples = note(fromHz) + note(toHz)
-            val track = AudioTrack.Builder()
+            val built = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
@@ -43,14 +46,14 @@ class AndroidDictationTones : DictationTones {
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .setBufferSizeInBytes(samples.size * 2)
                 .build()
-            track.write(samples, 0, samples.size)
-            track.notificationMarkerPosition = samples.size
-            track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
-                override fun onMarkerReached(played: AudioTrack) = played.release()
-                override fun onPeriodicNotification(played: AudioTrack) {}
-            })
-            track.play()
+            track = built
+            built.write(samples, 0, samples.size)
+            built.play()
+            // Released once played: a fixed delay, since a static track's
+            // end marker is not delivered on every device.
+            Handler(Looper.getMainLooper()).postDelayed({ built.release() }, RELEASE_AFTER_MS)
         } catch (_: Exception) {
+            track?.release()
             // A tone is a courtesy: a device that will not play it changes nothing.
         }
     }
@@ -78,5 +81,7 @@ class AndroidDictationTones : DictationTones {
         const val PEAK_GAIN = 0.15
         /** Where each note fades out to: an exponential fade cannot reach zero. */
         const val SILENT_GAIN = 0.0001
+        /** Well past the chirp's 140 ms. */
+        const val RELEASE_AFTER_MS = 500L
     }
 }

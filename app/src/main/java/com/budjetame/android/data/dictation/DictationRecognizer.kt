@@ -8,8 +8,9 @@ package com.budjetame.android.data.dictation
  * after a cancel no callback is delivered.
  *
  * Each recognition ends with exactly one of [Listener.onResult],
- * [Listener.onNoMatch] or [Listener.onFailure]. Callbacks arrive on the main
- * thread.
+ * [Listener.onNoMatch] or [Listener.onFailure]. Every method must be called
+ * on the main thread (the platform recognizer requires it), and the
+ * callbacks arrive there.
  */
 interface DictationRecognizer {
 
@@ -41,10 +42,3 @@ interface DictationRecognizer {
 /** The BCP 47 tag a Dictation listens in, from the Account's Locale as the
  * server serves it: Italian is `it-IT`, everything else `en-US`. */
 fun recognitionLanguage(locale: String): String = if (locale == "it") "it-IT" else "en-US"
-
-/** The two short tones that frame a Dictation: one when it is really
- * listening, one at its end. */
-interface DictationTones {
-    fun playStart()
-    fun playEnd()
-}

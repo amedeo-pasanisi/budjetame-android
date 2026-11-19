@@ -19,6 +19,9 @@ class AndroidDictationRecognizer private constructor(private val context: Contex
 
     private var current: SpeechRecognizer? = null
 
+    /** The user ended the current recognition early ([stop]). */
+    private var stopped = false
+
     override fun start(language: String, listener: DictationRecognizer.Listener) {
         cancel()
         val recognizer = try {
@@ -28,6 +31,7 @@ class AndroidDictationRecognizer private constructor(private val context: Contex
             return
         }
         current = recognizer
+        stopped = false
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
                 if (current === recognizer) listener.onReadyForSpeech()
@@ -44,8 +48,9 @@ class AndroidDictationRecognizer private constructor(private val context: Contex
             }
 
             override fun onError(error: Int) {
+                val stoppedByUser = stopped
                 if (!finish(recognizer)) return
-                if (isDictationFailure(error)) listener.onFailure() else listener.onNoMatch()
+                if (isDictationFailure(error, stoppedByUser)) listener.onFailure() else listener.onNoMatch()
             }
 
             override fun onBeginningOfSpeech() {}
@@ -64,7 +69,9 @@ class AndroidDictationRecognizer private constructor(private val context: Contex
     }
 
     override fun stop() {
-        current?.stopListening()
+        val recognizer = current ?: return
+        stopped = true
+        recognizer.stopListening()
     }
 
     override fun cancel() {
@@ -97,8 +104,11 @@ class AndroidDictationRecognizer private constructor(private val context: Contex
 
 /** Whether a [SpeechRecognizer] error is a failure the user did not choose.
  * Hearing nothing (no match, silence until the timeout) and a refused
- * microphone are not (web `isDictationFailure`). */
-fun isDictationFailure(error: Int): Boolean = error !in QUIET_ERRORS
+ * microphone are not (web `isDictationFailure`); nor is the client error
+ * many recognizers answer a [AndroidDictationRecognizer.stop] before any
+ * speech with, once the user [stopped] it — the web's `aborted`. */
+fun isDictationFailure(error: Int, stopped: Boolean): Boolean =
+    error !in QUIET_ERRORS && !(stopped && error == SpeechRecognizer.ERROR_CLIENT)
 
 private val QUIET_ERRORS = setOf(
     SpeechRecognizer.ERROR_NO_MATCH,
