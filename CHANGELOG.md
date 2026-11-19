@@ -11,6 +11,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Added
+
+- **Settings** — a new **Export all** section downloads a complete Backup of the Account as one multi-sheet Excel workbook (Transactions including Opening Balances, Wallets, Categories, Recurring Costs and Incomes, and skips), which you can save to the device or share. Unlike the ledger Export, it carries everything (#57).
+
 ### Changed
 
 - **Transactions** — deleting a Transaction is now a single tap: the "Tap again to confirm" step is gone, and an Undo entry ("Transaction deleted · …") with a 10-second countdown appears at the bottom of the screen, on every tab. Up to three stack, newest first; tapping Undo brings back the very same Transaction, with its original date and Recurring link. If the undo fails, the entry says why (#58).
