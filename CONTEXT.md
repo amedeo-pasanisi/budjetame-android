@@ -168,6 +168,14 @@ _Avoid_: transactions filtering on card tap, row-tap filter, filter shortcut
 The Assistant opened on its own from outside the app — the Quick Settings tile, the app-icon shortcut, or the name "Record Budjetame" spoken to the phone — as a card over whatever is on screen, without the app's tabs. It starts a Dictation at once, shows the reply, stays open and listens again for the Assistant's one question, and closes by itself once the reply needs nothing more; "open in app" leads to the Draft Transaction in the ledger. It is voice only: there is no box to type in, and a misheard Draft is corrected by saying so or in the app. It needs the phone unlocked, and when it cannot run — signed out, no Assistant Settings, offline — it says so in one line with a way into the app, and never keeps the Dictation for later. Android only.
 _Avoid_: overlay, widget, voice shortcut, "Ok Google" action
 
+**Field Error**:
+A client-side validation message attached to one form field and shown inline beneath it. It appears only when a Save attempt fails, and updates only on the next Save attempt — never while typing. Server rejections (a name that already exists, a Transfer link whose pair no longer qualifies) are not Field Errors: they surface as the form's error banner (ADR-0009).
+_Avoid_: validation message, inline error, form error
+
+**Amount Input**:
+The way money is typed into a form field: a decimal number tolerant of both separators — the last `.` or `,` is the decimal point, earlier ones are thousands groupings, and a lone separator followed by exactly three digits is a thousands grouping, so 17.5, 17,5, 2,002.01, and 1.000.420,45 all parse. Display, storage, the wire format, and Export stay US-canonical (1000420.45); the parser is locale-independent and is kept as-is when a language preference arrives (ADR-0009).
+_Avoid_: money field, currency input, amount field
+
 ## Rules
 
 - The only supported currency is EUR.
