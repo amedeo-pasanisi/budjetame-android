@@ -1,9 +1,5 @@
 package com.budjetame.android.ui.assistant
 
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -50,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.ContextCompat
 import com.budjetame.android.ui.theme.Slate500
 
 /**
@@ -61,10 +55,7 @@ import com.budjetame.android.ui.theme.Slate500
  *
  * Dictation (ticket #69): opening the dialog starts one, and the microphone
  * starts another or ends the one listening. Each start first holds the
- * microphone permission: the system prompt is asked when it is missing, and
- * a refusal starts nothing, sounds nothing and says nothing. Once the user
- * refuses for good, the system answers the request itself without a
- * prompt, so it is not asked again on every open. Where the device has no
+ * microphone permission ([rememberDictate]). Where the device has no
  * recognizer there is no microphone.
  */
 @Composable
@@ -76,15 +67,7 @@ fun AssistantDialog(
     onStopDictation: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val microphonePermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted -> if (granted) onStartDictation() }
-    val dictate = {
-        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        if (granted) onStartDictation() else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
-    }
+    val dictate = rememberDictate(onStartDictation)
     // Opening the Assistant starts a Dictation: once per open, as the dialog
     // leaves the composition when it closes.
     LaunchedEffect(Unit) {
@@ -176,7 +159,7 @@ fun AssistantDialog(
 /** The microphone: starts a Dictation, or ends the one listening; shown
  * pressed while it listens, and disabled while a reply is pending. */
 @Composable
-private fun MicrophoneButton(listening: Boolean, enabled: Boolean, onClick: () -> Unit) {
+internal fun MicrophoneButton(listening: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     OutlinedIconButton(
         onClick = onClick,
@@ -244,7 +227,7 @@ private fun Transcript(state: AssistantViewModel.UiState, modifier: Modifier = M
 }
 
 @Composable
-private fun LineBubble(line: AssistantViewModel.Line) {
+internal fun LineBubble(line: AssistantViewModel.Line) {
     val user = line.speaker == AssistantViewModel.Speaker.USER
     val colors = MaterialTheme.colorScheme
     val (background, foreground) = when {

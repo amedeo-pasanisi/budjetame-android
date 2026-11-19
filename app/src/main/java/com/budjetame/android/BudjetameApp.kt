@@ -38,7 +38,13 @@ sealed interface AuthState {
 }
 
 @Composable
-fun BudjetameApp(container: AppContainer) {
+fun BudjetameApp(
+    container: AppContainer,
+    /** Quick Dictation's "open in app" asked for the Transactions tab
+     * (ticket #65); [onTransactionsShown] once the shell shows it. */
+    showTransactions: Boolean = false,
+    onTransactionsShown: () -> Unit = {},
+) {
     var authState by remember { mutableStateOf<AuthState>(AuthState.Checking) }
     var checkAttempt by remember { mutableIntStateOf(0) }
 
@@ -85,6 +91,8 @@ fun BudjetameApp(container: AppContainer) {
             recurringCostRepository = container.recurringCostRepository,
             recurringIncomeRepository = container.recurringIncomeRepository,
             location = container.deviceLocation,
+            showTransactions = showTransactions,
+            onTransactionsShown = onTransactionsShown,
             onSignOut = {
                 container.authRepository.signOut()
                 clearSessionViewModels()
