@@ -9,35 +9,31 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 <!-- Agents: every ticket whose work lands adds one bullet to [Unreleased].
      See docs/agents/changelog.md before editing. -->
 
-## [v1.7.0] — 2026-09-11
-
-### Added
-
-- **Dashboard** — the Budget card's frame line now reads "€500.00 this month (€16.60 per day)" (Monthly Spendable, then Daily Allowance) and gains the month's bottom line below it: a muted "€333.40 left this month" (the Remaining Monthly Spendable: the Monthly Spendable minus the Discretionary Expenses dated from the 1st through today, so a future-dated Expense reduces it only once its date arrives). A negative bucket keeps its red "€12.34 over today's budget" note; when the whole frame is spent, that note gives way to the month's bottom line — a red "€100.00 over this month's budget", never two over-notes at once. The card also hides entirely when your account has no Recurring definitions at all — and a failed definitions check never hides it (#48).
-
 ## [Unreleased]
 
+## [v1.9.0] — 2026-11-19
+
 ### Added
 
-- **Dashboard** — the Budget card now supports a **month selector**
+- **Dashboard** — the Budget card now supports a **month selector** (just like the Pie card's): tap the month field to pick any month, not just the current one. For past/future months, Spendable Today and Remaining Monthly Spendable are computed against the month's last day, so you see the final state. The frame line also breaks the Monthly Spendable into its components: "€500.00 this month (€2100.00 income − €850.00 costs) · €16.60 per day" — you can see at a glance what's coming in, what's going out, and what's left of the frame.
 - **Settings** — an **Assistant Settings** block: pick the provider (Anthropic, OpenRouter, Google Gemini), enter the Assistant Key and choose a model from the provider's list or type its id; once saved the block shows only the provider, the model and the key's last characters, with Replace and Remove. The key is never shown again (#66).
 - **Assistant** — an Assistant button on every tab (shown once the Account has Assistant Settings) opens the Assistant: type a sentence such as "ho speso 30 euro all'Esselunga con la carta" and it writes Draft Transactions you approve on the Transactions tab; "no, erano 35" corrects and "lascia stare" discards them. The conversation lives only while the Assistant is open (#68).
 - **Assistant** — **Dictation**: the Assistant starts listening as soon as it opens, in the Account's language, with a short tone when it is really listening and another when it stops; what you say is sent as soon as you fall silent or tap the microphone again. Typing while it listens cancels it, closing drops it, and refusing the microphone simply leaves the text box (#69).
 - **Quick Dictation** — dictate a money movement without opening the app: the **Record Budjetame** Quick Settings tile, the long-press shortcut on the app icon, or "Ok Google, apri Record Budjetame" opens a small card over whatever is on screen that listens at once, writes the Draft Transaction and closes by itself; it stays open to hear your answer when the Assistant asks which Wallet or Category you meant. It asks to unlock first, and when it cannot run (signed out, no Assistant Settings, offline) it says so with a way into the app (#65).
 - **Transactions** — Draft Transactions written by the Assistant (on the web or on another device) now sit pinned above the ledger, each with the same columns as a Transaction row and its missing fields marked in amber. **Approve** turns a complete Draft into a Transaction in one tap; a Draft the rules reject opens the Transaction form pre-filled, with the reason in its banner, and its Save completes the approval. **Edit** opens that form directly, and **Discard** removes the Draft at once, with no Undo. Drafts count toward nothing — no Balance, Budget, dashboard figure or Export (#67).
 
+## [v1.7.1] — 2026-09-13
+
 ### Fixed
 
-- **Location permission no longer requested on save** — the device-location
-  permission prompt was appearing when saving a new Transaction without a
-  location; it now only triggers when the user taps "Use my location". (just
-  like the Pie card's): tap the month field to pick any month, not just the
-  current one. For past/future months, Spendable Today and Remaining
-  Monthly Spendable are computed against the month's last day, so you see
-  the final state. The frame line also breaks the Monthly Spendable into
-  its components: "€500.00 this month (€2100.00 income − €850.00 costs) ·
-  €16.60 per day" — you can see at a glance what's coming in, what's going
-  out, and what's left of the frame.
+- **Location permission no longer requested on save** — the device-location permission prompt was appearing when saving a new Transaction without a location; it now only triggers when the user taps "Use my location".
+- **GPS prefill removed** — the current position no longer auto-appears under a new Transaction form; Location is added only through an explicit action.
+
+## [v1.7.0] — 2026-09-11
+
+### Added
+
+- **Dashboard** — the Budget card's frame line now reads "€500.00 this month (€16.60 per day)" (Monthly Spendable, then Daily Allowance) and gains the month's bottom line below it: a muted "€333.40 left this month" (the Remaining Monthly Spendable: the Monthly Spendable minus the Discretionary Expenses dated from the 1st through today, so a future-dated Expense reduces it only once its date arrives). A negative bucket keeps its red "€12.34 over today's budget" note; when the whole frame is spent, that note gives way to the month's bottom line — a red "€100.00 over this month's budget", never two over-notes at once. The card also hides entirely when your account has no Recurring definitions at all — and a failed definitions check never hides it (#48).
 
 ## [v1.6.0] — 2026-09-05
 
@@ -315,6 +311,8 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.9.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.9.0
+[v1.7.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.7.1
 [v1.7.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.7.0
 [v1.6.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.6.0
 [v1.4.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.4.0
