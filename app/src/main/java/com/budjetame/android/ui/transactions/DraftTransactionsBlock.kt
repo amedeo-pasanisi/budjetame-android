@@ -22,14 +22,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.DraftTransactionDto
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.ui.common.LocalDisplayLocale
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.theme.Red600
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.util.Dates
@@ -73,13 +76,13 @@ internal fun DraftTransactionsBlock(
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = "Drafts (${drafts.size})",
+                text = stringResource(R.string.drafts_title, drafts.size),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = INDIGO_900,
             )
             Text(
-                text = "Not yet transactions — they count for nothing until approved.",
+                text = stringResource(R.string.drafts_hint),
                 fontSize = 12.sp,
                 color = INDIGO_700,
             )
@@ -123,7 +126,7 @@ private fun DraftRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = draftTitle(draft, categoryName),
+                        text = draftTitle(draft, categoryName).resolve(),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -134,7 +137,7 @@ private fun DraftRow(
                 }
                 val amount = draftSignedAmount(draft, locale)
                 if (amount == null) {
-                    MissingMark("Amount missing", modifier = Modifier.padding(start = 8.dp))
+                    MissingMark(stringResource(R.string.drafts_missing_amount), modifier = Modifier.padding(start = 8.dp))
                 } else {
                     Text(
                         text = amount,
@@ -156,20 +159,20 @@ private fun DraftRow(
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = ACTION_PADDING,
                     modifier = Modifier.height(32.dp),
-                ) { Text("Approve", fontSize = 12.sp) }
+                ) { Text(stringResource(R.string.drafts_approve), fontSize = 12.sp) }
                 OutlinedButton(
                     onClick = onEdit,
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = ACTION_PADDING,
                     modifier = Modifier.height(32.dp),
-                ) { Text("Edit", fontSize = 12.sp) }
+                ) { Text(stringResource(R.string.common_edit), fontSize = 12.sp) }
                 OutlinedButton(
                     onClick = onDiscard,
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = ACTION_PADDING,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Red600),
                     modifier = Modifier.height(32.dp),
-                ) { Text("Discard", fontSize = 12.sp) }
+                ) { Text(stringResource(R.string.drafts_discard), fontSize = 12.sp) }
             }
         }
     }
@@ -190,16 +193,16 @@ private fun DraftSubtitle(draft: DraftTransactionDto, wallets: List<WalletDto>) 
         itemVerticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(top = 2.dp),
     ) {
-        if (draft.type == null) MissingMark("Type missing")
+        if (draft.type == null) MissingMark(stringResource(R.string.drafts_missing_type))
         val date = draft.date
-        if (date == null) MissingMark("Date missing") else SubtitleText(Dates.ledgerDate(date, locale))
+        if (date == null) MissingMark(stringResource(R.string.drafts_missing_date)) else SubtitleText(Dates.ledgerDate(date, locale))
         SubtitleText("·")
         if (draftIsTransfer(draft)) {
-            WalletPart(wallets, draft.source_wallet_id, "Source missing")
+            WalletPart(wallets, draft.source_wallet_id, stringResource(R.string.drafts_missing_source))
             SubtitleText("→")
-            WalletPart(wallets, draft.destination_wallet_id, "Destination missing")
+            WalletPart(wallets, draft.destination_wallet_id, stringResource(R.string.drafts_missing_destination))
         } else {
-            WalletPart(wallets, draft.wallet_id, "Wallet missing")
+            WalletPart(wallets, draft.wallet_id, stringResource(R.string.drafts_missing_wallet))
         }
     }
 }

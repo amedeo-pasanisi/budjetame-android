@@ -60,6 +60,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextPainter
@@ -71,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategorySliceDto
 import com.budjetame.android.data.api.MonthBucketDto
 import com.budjetame.android.data.api.TrendKind
@@ -80,6 +82,8 @@ import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.common.localized
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 import java.math.BigDecimal
@@ -147,7 +151,7 @@ fun DashboardScreen(
                 modifier = Modifier.weight(1f),
             )
             state.summary == null -> MessageBody(
-                text = "Loading…",
+                text = stringResource(R.string.common_loading),
                 modifier = Modifier.weight(1f),
             )
             else -> DashboardContent(
@@ -162,7 +166,7 @@ fun DashboardScreen(
 @Composable
 private fun DashboardHeader() {
     Text(
-        text = "Dashboard",
+        text = stringResource(R.string.dashboard_title),
         style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurface,
@@ -224,7 +228,7 @@ private fun NetWorthCard(netWorth: String) {
     val locale = LocalDisplayLocale.current
     DashboardCard {
         Text(
-            text = "NET WORTH",
+            text = stringResource(R.string.dashboard_net_worth),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -237,7 +241,7 @@ private fun NetWorthCard(netWorth: String) {
             modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            text = "The sum of every wallet balance — contact wallets included.",
+            text = stringResource(R.string.dashboard_net_worth_description),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
@@ -280,7 +284,7 @@ private fun BudgetCard(
             )
 
             budget == null -> Text(
-                text = "Loading…",
+                text = stringResource(R.string.common_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -290,7 +294,7 @@ private fun BudgetCard(
                 // Month selector at the top of the card.
                 var monthPickerOpen by remember { mutableStateOf(false) }
                 MonthField(
-                    label = "Month",
+                    label = stringResource(R.string.dashboard_month),
                     month = state.budgetMonth,
                     onClick = { monthPickerOpen = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -306,7 +310,7 @@ private fun BudgetCard(
                     )
                 }
                 Text(
-                    text = "SPENDABLE TODAY",
+                    text = stringResource(R.string.dashboard_budget_spendable_today),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -320,27 +324,27 @@ private fun BudgetCard(
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 Text(
-                    text = text.frameLine,
+                    text = text.frameLine.resolve(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 Text(
-                    text = text.dailyLine,
+                    text = text.dailyLine.resolve(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 val bucketNote = text.bucketNote
                 if (bucketNote != null) {
                     Text(
-                        text = bucketNote,
+                        text = bucketNote.resolve(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
                 Text(
-                    text = text.remainingLine,
+                    text = text.remainingLine.resolve(),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (text.remainingOver) {
                         MaterialTheme.colorScheme.error
@@ -368,13 +372,13 @@ private fun ExpenseIncomeToggle(
             selected = expenseSelected,
             onClick = { onSelect(true) },
             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-            label = { Text("Expenses") },
+            label = { Text(stringResource(R.string.dashboard_kind_expenses)) },
         )
         SegmentedButton(
             selected = !expenseSelected,
             onClick = { onSelect(false) },
             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-            label = { Text("Incomes") },
+            label = { Text(stringResource(R.string.dashboard_kind_incomes)) },
         )
     }
 }
@@ -402,9 +406,13 @@ private fun PieCard(
         // The title carries the month, so it only renders once that month's
         // summary has arrived — never the requested month over stale data.
         if (state.monthInSync) {
-            val sideLabel = if (state.pieSide == PieSide.EXPENSE) "Expenses" else "Incomes"
+            val title = if (state.pieSide == PieSide.EXPENSE) {
+                R.string.dashboard_pie_title_expenses
+            } else {
+                R.string.dashboard_pie_title_incomes
+            }
             Text(
-                text = "${Dates.monthLabel(state.requestedMonth.toString(), locale)} · $sideLabel by Category".uppercase(),
+                text = stringResource(title, Dates.monthLabel(state.requestedMonth.toString(), locale)).uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -421,7 +429,7 @@ private fun PieCard(
         )
         var monthPickerOpen by remember { mutableStateOf(false) }
         MonthField(
-            label = "Month",
+            label = stringResource(R.string.dashboard_month),
             month = state.requestedMonth,
             onClick = { monthPickerOpen = true },
             modifier = Modifier
@@ -434,16 +442,20 @@ private fun PieCard(
         // the month field above stay usable throughout.
         when {
             !state.monthInSync -> Text(
-                text = "Loading…",
+                text = stringResource(R.string.common_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 16.dp),
             )
 
             state.pieSlices.isEmpty() -> {
-                val lower = if (state.pieSide == PieSide.EXPENSE) "expenses" else "incomes"
+                val empty = if (state.pieSide == PieSide.EXPENSE) {
+                    R.string.dashboard_pie_no_expenses
+                } else {
+                    R.string.dashboard_pie_no_incomes
+                }
                 Text(
-                    text = "No $lower recorded in ${Dates.monthLabel(state.requestedMonth.toString(), locale)}.",
+                    text = stringResource(empty, Dates.monthLabel(state.requestedMonth.toString(), locale)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp),
@@ -588,10 +600,18 @@ private fun TrendCard(
 ) {
     val locale = LocalDisplayLocale.current
     DashboardCard {
-        val side = if (state.trendKind == TrendKind.EXPENSE) "Expenses" else "Incomes"
+        val title = if (state.trendKind == TrendKind.EXPENSE) {
+            R.string.dashboard_trend_title_expenses
+        } else {
+            R.string.dashboard_trend_title_incomes
+        }
         Text(
-            text = "$side Trend · ${Dates.monthLabel(state.trendFrom.toString(), locale)} – " +
+            // Only the closing month is uppercased, exactly as before.
+            text = stringResource(
+                title,
+                Dates.monthLabel(state.trendFrom.toString(), locale),
                 Dates.monthLabel(state.trendTo.toString(), locale).uppercase(),
+            ),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -624,7 +644,7 @@ private fun TrendCard(
         }
         when {
             !state.trendInSync -> Text(
-                text = "Loading…",
+                text = stringResource(R.string.common_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 16.dp),
@@ -632,12 +652,18 @@ private fun TrendCard(
 
             else -> {
                 val months = state.trend?.data?.months.orEmpty()
-                val lower = if (state.trendKind == TrendKind.EXPENSE) "expenses" else "incomes"
+                val empty = if (state.trendKind == TrendKind.EXPENSE) {
+                    R.string.dashboard_trend_no_expenses
+                } else {
+                    R.string.dashboard_trend_no_incomes
+                }
                 if (months.all { BigDecimal(it.amount).compareTo(BigDecimal.ZERO) == 0 }) {
                     Text(
-                        text = "No $lower recorded between " +
-                            "${Dates.monthLabel(state.trendFrom.toString(), locale)} and " +
-                            "${Dates.monthLabel(state.trendTo.toString(), locale)}.",
+                        text = stringResource(
+                            empty,
+                            Dates.monthLabel(state.trendFrom.toString(), locale),
+                            Dates.monthLabel(state.trendTo.toString(), locale),
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 16.dp),
@@ -671,13 +697,13 @@ private fun TrendRangePickers(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         MonthField(
-            label = "From",
+            label = stringResource(R.string.dashboard_trend_from),
             month = state.trendFrom,
             onClick = { pickerTarget = PickerTarget.FROM },
             modifier = Modifier.weight(1f),
         )
         MonthField(
-            label = "To",
+            label = stringResource(R.string.dashboard_trend_to),
             month = state.trendTo,
             onClick = { pickerTarget = PickerTarget.TO },
             modifier = Modifier.weight(1f),
@@ -744,17 +770,18 @@ private fun MonthPickerDialog(
     var year by remember { mutableIntStateOf(initial.year) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+        // Its own window: each slot re-applies the Account Locale (ADR-0010).
+        confirmButton = localized {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         },
-        title = { Text("Select month") },
-        text = {
+        title = localized { Text(stringResource(R.string.dashboard_month_picker_title)) },
+        text = localized {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { year -= 1 }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Previous year",
+                            contentDescription = stringResource(R.string.dashboard_month_picker_previous_year_cd),
                         )
                     }
                     Text(
@@ -768,7 +795,7 @@ private fun MonthPickerDialog(
                     IconButton(onClick = { year += 1 }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next year",
+                            contentDescription = stringResource(R.string.dashboard_month_picker_next_year_cd),
                         )
                     }
                 }

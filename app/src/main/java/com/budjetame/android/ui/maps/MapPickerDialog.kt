@@ -11,9 +11,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.budjetame.android.R
 import com.budjetame.android.data.transaction.LatLng
+import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.data.transaction.Place
 
 /**
@@ -30,7 +33,8 @@ fun MapPickerDialog(
     onPick: (LatLng, Place?) -> Unit,
     onCancel: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onCancel) {
+    // Its own window: re-apply the Account Locale (ADR-0010).
+    Dialog(onDismissRequest = onCancel) { AccountLocaleResources {
         Surface(
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier.fillMaxWidth(),
@@ -53,11 +57,11 @@ fun MapPickerDialog(
                         .fillMaxWidth()
                         .padding(top = 12.dp),
                 shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         }
-    }
+    } }
 }
 
 /** A tall-enough map on every phone; the dialog's own Cancel bar sits below. */

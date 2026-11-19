@@ -15,11 +15,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.budjetame.android.R
 import com.budjetame.android.data.backup.BackupGateway
+import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.imports.readPickedFile
 import com.budjetame.android.ui.settings.RestoreViewModel.RestoreStep
 import kotlinx.coroutines.Dispatchers
@@ -72,12 +75,12 @@ fun RestoreSection(
 
     Column(modifier = Modifier.padding(top = 16.dp)) {
         Text(
-            text = "Restore from backup…",
+            text = stringResource(R.string.settings_restore),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
         Text(
-            text = "Replace all your data with the contents of a previously exported backup workbook.",
+            text = stringResource(R.string.settings_restore_description),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
@@ -87,7 +90,7 @@ fun RestoreSection(
             enabled = state.step == RestoreStep.Idle,
             modifier = Modifier.padding(top = 4.dp),
         ) {
-            Text("Choose file…")
+            Text(stringResource(R.string.settings_restore_choose_file))
         }
     }
 
@@ -118,15 +121,12 @@ private fun RestoreStepDialog(
             val backupState by backup.uiState.collectAsStateWithLifecycle()
             AlertDialog(
                 onDismissRequest = viewModel::cancel,
-                title = { Text("Restore from backup") },
-                text = {
+                title = localized { Text(stringResource(R.string.settings_restore_title)) },
+                text = localized {
                     Column {
+                        Text(stringResource(R.string.settings_restore_confirm_text))
                         Text(
-                            "This will replace all your current Transactions, Wallets, Categories, and " +
-                                "Recurring definitions with the backup file's contents. This cannot be undone.",
-                        )
-                        Text(
-                            text = "Everything entered after this backup was made will be lost.",
+                            text = stringResource(R.string.settings_restore_confirm_lost),
                             modifier = Modifier.padding(top = 8.dp),
                         )
                         Text(
@@ -140,36 +140,37 @@ private fun RestoreStepDialog(
                             enabled = !backupState.downloading,
                             modifier = Modifier.padding(top = 12.dp),
                         ) {
-                            Text(if (backupState.downloading) "Exporting…" else "Export current state first")
+                            Text(
+                                stringResource(
+                                    if (backupState.downloading) R.string.settings_exporting else R.string.settings_restore_export_first,
+                                ),
+                            )
                         }
                         BackupDelivery(backup)
                     }
                 },
-                confirmButton = {
-                    TextButton(onClick = viewModel::continueToFinalConfirm) { Text("Continue") }
+                confirmButton = localized {
+                    TextButton(onClick = viewModel::continueToFinalConfirm) {
+                        Text(stringResource(R.string.settings_restore_continue))
+                    }
                 },
-                dismissButton = {
-                    TextButton(onClick = viewModel::cancel) { Text("Cancel") }
+                dismissButton = localized {
+                    TextButton(onClick = viewModel::cancel) { Text(stringResource(R.string.common_cancel)) }
                 },
             )
         }
 
         is RestoreStep.FinalConfirm -> AlertDialog(
             onDismissRequest = viewModel::cancel,
-            title = { Text("Restore from backup") },
-            text = {
-                Text(
-                    "All your current data will be replaced with the contents of ${step.filename}. " +
-                        "This cannot be undone.",
-                )
-            },
-            confirmButton = {
+            title = localized { Text(stringResource(R.string.settings_restore_title)) },
+            text = localized { Text(stringResource(R.string.settings_restore_final_text, step.filename)) },
+            confirmButton = localized {
                 TextButton(onClick = viewModel::confirmRestore) {
-                    Text("Restore from backup", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.settings_restore_button), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = viewModel::cancel) { Text("Cancel") }
+            dismissButton = localized {
+                TextButton(onClick = viewModel::cancel) { Text(stringResource(R.string.common_cancel)) }
             },
         )
 
@@ -177,57 +178,57 @@ private fun RestoreStepDialog(
         RestoreStep.Restoring -> AlertDialog(
             onDismissRequest = {},
             properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = { Text("Restoring…") },
-            text = { Text("Replacing your data from the backup file.") },
+            title = localized { Text(stringResource(R.string.settings_restore_restoring)) },
+            text = localized { Text(stringResource(R.string.settings_restore_restoring_text)) },
             confirmButton = {},
         )
 
         is RestoreStep.Warning -> AlertDialog(
             onDismissRequest = viewModel::dismissWarning,
-            title = { Text("Origin mismatch") },
-            text = {
+            title = localized { Text(stringResource(R.string.settings_restore_warning_title)) },
+            text = localized {
                 Column {
                     Text(step.message)
                     Text(
-                        text = "The backup was exported from a different Account. Restoring will replace all " +
-                            "your data with the backup's contents. This is a legitimate way to migrate data " +
-                            "between Accounts.",
+                        text = stringResource(R.string.settings_restore_warning_text),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissWarning) { Text("Continue") }
+            confirmButton = localized {
+                TextButton(onClick = viewModel::dismissWarning) {
+                    Text(stringResource(R.string.settings_restore_continue))
+                }
             },
         )
 
         RestoreStep.Done -> AlertDialog(
             onDismissRequest = onCloseSettings,
-            title = { Text("Restore complete") },
-            text = { Text("Your Account data has been replaced with the backup file's contents.") },
-            confirmButton = {
-                TextButton(onClick = onCloseSettings) { Text("Done") }
+            title = localized { Text(stringResource(R.string.settings_restore_done_title)) },
+            text = localized { Text(stringResource(R.string.settings_restore_done_text)) },
+            confirmButton = localized {
+                TextButton(onClick = onCloseSettings) { Text(stringResource(R.string.settings_restore_done)) }
             },
         )
 
         is RestoreStep.Error -> AlertDialog(
             onDismissRequest = viewModel::cancel,
-            title = { Text("Restore failed") },
-            text = {
+            title = localized { Text(stringResource(R.string.settings_restore_error_title)) },
+            text = localized {
                 Column {
                     Text(step.message, color = MaterialTheme.colorScheme.error)
                     Text(
-                        text = "The backup file could not be restored. No data was changed.",
+                        text = stringResource(R.string.settings_restore_error_text),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             },
-            confirmButton = {
-                TextButton(onClick = viewModel::cancel) { Text("Try again") }
+            confirmButton = localized {
+                TextButton(onClick = viewModel::cancel) { Text(stringResource(R.string.settings_restore_try_again)) }
             },
         )
     }

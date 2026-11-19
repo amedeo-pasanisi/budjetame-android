@@ -1,6 +1,8 @@
 package com.budjetame.android.ui.dashboard
 
+import com.budjetame.android.R
 import com.budjetame.android.data.api.BudgetDto
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.util.Money
 import java.util.Locale
 
@@ -18,21 +20,22 @@ import java.util.Locale
  */
 
 /** Everything the Budget card's body renders for one GET /dashboard/budget
- * response — all strings formatted, all precedence rules applied. */
+ * response — all amounts formatted, all precedence rules applied. The lines
+ * are [UiText] (ADR-0010): the card resolves them in the Account's Locale. */
 data class BudgetCardText(
     /** The big number: Spendable Today floored at 0 while the bucket is
      * negative — future accruals repay the debt (ADR-0012 semantics). */
     val spendableToday: String,
     /** The frame line: `€Y this month (€A income − €B costs)`. */
-    val frameLine: String,
+    val frameLine: UiText,
     /** The daily allowance line: `€X per day`. */
-    val dailyLine: String,
+    val dailyLine: UiText,
     /** The bucket's over-note, or null: it shows while the bucket is
      * negative, but gives way to the month's bottom line once the frame
      * itself is blown. */
-    val bucketNote: String?,
+    val bucketNote: UiText?,
     /** `€X left this month`, or the month's overage line. */
-    val remainingLine: String,
+    val remainingLine: UiText,
     /** True when [remainingLine] is the error case (the frame is blown). */
     val remainingOver: Boolean,
 )
@@ -40,22 +43,25 @@ data class BudgetCardText(
 fun budgetCardText(budget: BudgetDto, locale: Locale = Locale.US): BudgetCardText {
     val bucketNegative = budget.spendable_today.startsWith("-")
     val monthNegative = budget.remaining_monthly_spendable.startsWith("-")
+    fun euros(amount: String) = Money.formatEuros(amount, locale)
     return BudgetCardText(
         spendableToday = if (bucketNegative) "0.00" else budget.spendable_today,
-        frameLine = "${Money.formatEuros(budget.monthly_spendable, locale)} this month " +
-            "(${Money.formatEuros(budget.recurring_incomes_total, locale)} income \u2212 " +
-            "${Money.formatEuros(budget.recurring_costs_total, locale)} costs)",
-        dailyLine = "${Money.formatEuros(budget.daily_allowance, locale)} per day",
+        frameLine = UiText.of(
+            R.string.dashboard_budget_frame_line,
+            euros(budget.monthly_spendable),
+            euros(budget.recurring_incomes_total),
+            euros(budget.recurring_costs_total),
+        ),
+        dailyLine = UiText.of(R.string.dashboard_budget_per_day, euros(budget.daily_allowance)),
         bucketNote = if (bucketNegative && !monthNegative) {
-            "${Money.formatEuros(budget.spendable_today.drop(1), locale)} over today's budget"
+            UiText.of(R.string.dashboard_budget_over_today, euros(budget.spendable_today.drop(1)))
         } else {
             null
         },
         remainingLine = if (monthNegative) {
-            "${Money.formatEuros(budget.remaining_monthly_spendable.drop(1), locale)} " +
-                "over this month's budget"
+            UiText.of(R.string.dashboard_budget_over_month, euros(budget.remaining_monthly_spendable.drop(1)))
         } else {
-            "${Money.formatEuros(budget.remaining_monthly_spendable, locale)} left this month"
+            UiText.of(R.string.dashboard_budget_left_month, euros(budget.remaining_monthly_spendable))
         },
         remainingOver = monthNegative,
     )

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Words every core screen shares (ADR-0010). Owned by the scaffold: a
+     parallel ticket adds an area-specific key to its own area file instead
+     of editing this one. -->
+<resources>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_save">Save</string>
+    <string name="common_saving">Saving…</string>
+    <string name="common_close">Close</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_deleting">Deleting…</string>
+    <string name="common_edit">Edit</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_loading">Loading…</string>
+</resources>

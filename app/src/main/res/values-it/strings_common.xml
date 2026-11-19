@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="common_cancel">Annulla</string>
+    <string name="common_save">Salva</string>
+    <string name="common_saving">Salvataggio…</string>
+    <string name="common_close">Chiudi</string>
+    <string name="common_delete">Elimina</string>
+    <string name="common_deleting">Eliminazione…</string>
+    <string name="common_edit">Modifica</string>
+    <string name="common_retry">Riprova</string>
+    <string name="common_loading">Caricamento…</string>
+</resources>

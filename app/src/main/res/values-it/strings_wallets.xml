@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wallets_title">Portafogli</string>
+    <string name="wallets_new">Nuovo portafoglio</string>
+    <string name="wallets_loading">Caricamento portafogli…</string>
+    <string name="wallets_empty">Ancora nessun portafoglio. Aggiungine uno per iniziare.</string>
+    <string name="wallets_frozen_header">Portafogli congelati (%1$d)</string>
+    <string name="wallets_frozen_subtitle">%1$s · Congelato</string>
+
+    <string name="wallets_type_contact">Contatto</string>
+    <string name="wallets_type_checking">Conto corrente</string>
+    <string name="wallets_type_credit_card">Carta di credito</string>
+    <string name="wallets_type_cash">Contanti</string>
+
+    <string name="wallets_section_contact">Contatti</string>
+    <string name="wallets_section_checking">Conti correnti</string>
+    <string name="wallets_section_credit_card">Carte di credito</string>
+    <string name="wallets_section_cash">Contanti</string>
+
+    <string name="wallet_form_title_edit">Modifica portafoglio</string>
+    <string name="wallet_form_title_new">Nuovo portafoglio</string>
+    <string name="wallet_form_type_locked">%1$s · il tipo non può essere modificato</string>
+    <string name="wallet_form_name">Nome</string>
+    <string name="wallet_form_name_placeholder">es. Conto Intesa</string>
+    <string name="wallet_form_type">Tipo</string>
+    <string name="wallet_form_types_fixed">%1$s · fisso per questo modulo</string>
+    <string name="wallet_form_opening_balance">Saldo iniziale (facoltativo)</string>
+    <string name="wallet_form_opening_balance_contact">I portafogli contatto partono da €0 — il denaro si muove solo tramite trasferimenti.</string>
+    <string name="wallet_form_opening_balance_hint">Denaro che hai già. Default %1$s.</string>
+    <string name="wallet_form_create">Crea portafoglio</string>
+    <string name="wallet_form_unfreeze">Scongela portafoglio</string>
+    <string name="wallet_form_unfreeze_description">Ripristina questo portafoglio: accetterà di nuovo transazioni e ricomparirà nella sezione del suo tipo.</string>
+    <string name="wallet_form_freeze">Congela portafoglio</string>
+    <string name="wallet_form_freeze_balance">Per congelare serve un saldo di %1$s (attualmente %2$s)</string>
+    <string name="wallet_form_freeze_description">Nasconde il portafoglio e lo rende in sola lettura. Possibile solo con saldo %1$s; le transazioni restano visibili.</string>
+    <string name="wallet_form_amount_placeholder">0,00</string>
+</resources>

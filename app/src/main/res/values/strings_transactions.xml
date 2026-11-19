@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Transactions tab's list side (ADR-0010): the header, the search and
+     filter chrome, the ledger rows, the Draft Transactions block. The
+     Transaction form keeps its own keys. -->
+<resources>
+    <string name="transactions_title">Transactions</string>
+    <string name="transactions_import">Import</string>
+    <string name="transactions_new">New transaction</string>
+    <string name="transactions_filters">Filters</string>
+    <string name="transactions_search_placeholder">Search transactions…</string>
+    <string name="transactions_frozen_banner">This wallet is frozen — its history is viewable but read-only.</string>
+    <string name="transactions_export_to_excel">Export to Excel</string>
+    <string name="transactions_exporting">Exporting…</string>
+    <string name="transactions_export_save_error">Could not save the export file.</string>
+    <string name="transactions_export_share_error">Could not share the export file.</string>
+    <string name="transactions_clear_all">Clear all</string>
+    <string name="transactions_clear_all_filters">Clear all filters</string>
+    <string name="transactions_remove_filter_cd">Remove %1$s filter</string>
+    <string name="transactions_filter_wallet">Wallet</string>
+    <string name="transactions_filter_all_wallets">All wallets</string>
+    <string name="transactions_filter_from">From</string>
+    <string name="transactions_filter_to">To</string>
+    <string name="transactions_filter_any_date">Any date</string>
+    <string name="transactions_filter_recurring">Recurring</string>
+    <string name="transactions_filter_all_transactions">All transactions</string>
+    <string name="transactions_filter_recurring_costs">Recurring costs</string>
+    <string name="transactions_filter_recurring_incomes">Recurring incomes</string>
+    <string name="transactions_filter_category">Category</string>
+    <string name="transactions_filter_all_categories">All categories</string>
+    <string name="transactions_filter_date_from">From %1$s</string>
+    <string name="transactions_filter_date_to">To %1$s</string>
+    <string name="transactions_date_ok">OK</string>
+    <string name="transactions_date_clear">Clear</string>
+    <string name="transactions_loading_more">Loading more…</string>
+    <string name="transactions_opening_balance">Opening balance</string>
+    <string name="transactions_uncategorized">Uncategorized</string>
+    <string name="transactions_type_expense">Expense</string>
+    <string name="transactions_type_income">Income</string>
+    <string name="transactions_type_transfer">Transfer</string>
+    <string name="transactions_frozen_wallet">Frozen wallet</string>
+    <string name="transactions_wallet_option_frozen">%1$s · Frozen (%2$s)</string>
+    <!-- Not language: a row title's parts and a Transfer's two legs, joined
+         around words that are resources themselves. -->
+    <string name="transactions_joined" translatable="false">%1$s · %2$s</string>
+    <string name="transactions_transfer_legs" translatable="false">%1$s → %2$s</string>
+    <string name="drafts_title">Drafts (%1$d)</string>
+    <string name="drafts_hint">Not yet transactions — they count for nothing until approved.</string>
+    <string name="drafts_untitled">Draft transaction</string>
+    <string name="drafts_missing_type">Type missing</string>
+    <string name="drafts_missing_amount">Amount missing</string>
+    <string name="drafts_missing_date">Date missing</string>
+    <string name="drafts_missing_wallet">Wallet missing</string>
+    <string name="drafts_missing_source">Source missing</string>
+    <string name="drafts_missing_destination">Destination missing</string>
+    <string name="drafts_approve">Approve</string>
+    <string name="drafts_discard">Discard</string>
+</resources>

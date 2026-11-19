@@ -425,7 +425,7 @@ class TabPagerTest {
 
     // --- Trivial in-memory gateways -----------------------------------------
 
-    private class CashWalletGateway : WalletGateway {
+    internal class CashWalletGateway : WalletGateway {
         override suspend fun fetchWallets(): List<WalletDto> =
             listOf(WalletDto(1, "Cash", WalletType.CASH, "0.00", false, "2026-08-01T10:00:00Z"))
         override suspend fun createWallet(name: String, type: WalletType, openingBalance: String): WalletDto =
@@ -444,7 +444,7 @@ class TabPagerTest {
         override suspend fun unfreezeWallet(id: Int): WalletDto = error("unused")
     }
 
-    private class EmptyCategoryGateway : CategoryGateway {
+    internal class EmptyCategoryGateway : CategoryGateway {
         override suspend fun fetchCategories(): List<CategoryDto> = emptyList()
         override suspend fun createCategory(name: String, type: CategoryType, icon: String, color: String): CategoryDto =
             error("unused")
@@ -454,7 +454,7 @@ class TabPagerTest {
         override suspend fun deleteCategory(id: Int) = error("unused")
     }
 
-    private class EmptyDashboardGateway : DashboardGateway {
+    internal class EmptyDashboardGateway : DashboardGateway {
         override suspend fun fetchSummary(month: String): DashboardSummaryDto =
             DashboardSummaryDto(
                 net_worth = "0.00",
@@ -550,7 +550,7 @@ class TabPagerTest {
         override suspend fun deleteCategory(id: Int) = error("unused")
     }
 
-    private class EmptyTransactionGateway : TransactionGateway {
+    internal class EmptyTransactionGateway : TransactionGateway {
         override suspend fun fetchPage(
             filters: TransactionFilters,
             cursor: String?,
@@ -563,7 +563,7 @@ class TabPagerTest {
         override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
     }
 
-    private class EmptyRecurringCostGateway : RecurringCostGateway {
+    internal class EmptyRecurringCostGateway : RecurringCostGateway {
         override suspend fun fetchRecurringCosts(includeFrozen: Boolean): List<RecurringCostDto> = emptyList()
         override suspend fun createRecurringCost(draft: RecurringCostDraft): RecurringCostDto = error("unused")
         override suspend fun updateRecurringCost(id: Int, draft: RecurringCostDraft): RecurringCostDto =
@@ -574,7 +574,7 @@ class TabPagerTest {
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
-    private class EmptyRecurringIncomeGateway : RecurringIncomeGateway {
+    internal class EmptyRecurringIncomeGateway : RecurringIncomeGateway {
         override suspend fun fetchRecurringIncomes(includeFrozen: Boolean): List<RecurringIncomeDto> = emptyList()
         override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused")
@@ -586,7 +586,7 @@ class TabPagerTest {
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
 
-    private class EmptyImportGateway : ImportGateway {
+    internal class EmptyImportGateway : ImportGateway {
         override suspend fun preview(fileName: String, content: ByteArray): ImportPreviewDto = error("unused")
         override suspend fun validateRow(
             row: ImportRowInput,
@@ -602,7 +602,7 @@ class TabPagerTest {
 
 /** The device GPS for the shell tests (ticket #29): permission already
  * held, no position — no system prompt can ever be raised. */
-private class ShellSilentLocation : DeviceLocation {
+internal class ShellSilentLocation : DeviceLocation {
     override fun permissionGranted(): Boolean = true
 
     override suspend fun currentPosition(): LatLng? = null

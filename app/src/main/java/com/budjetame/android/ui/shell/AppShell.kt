@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.shell
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -52,11 +53,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.assistant.AssistantGateway
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
@@ -77,6 +80,7 @@ import com.budjetame.android.ui.assistant.AssistantDialog
 import com.budjetame.android.ui.assistant.AssistantViewModel
 import com.budjetame.android.ui.categories.CategoriesScreen
 import com.budjetame.android.ui.common.LedgerJump
+import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.settings.AssistantSettingsSection
@@ -94,12 +98,12 @@ import kotlinx.coroutines.launch
 /** The five tabs in bottom-nav order, mirroring the web app's AppShell. The
  * enum's name is the pager page's stable identity: it keys the per-tab
  * saveable-state registry (ADR-0003) and the pager never reorders it. */
-private enum class Tab(val label: String, val icon: ImageVector) {
-    Dashboard("Dashboard", Icons.Filled.Home),
-    Wallets("Wallets", Icons.Filled.AccountBalanceWallet),
-    Transactions("Transactions", Icons.Filled.ReceiptLong),
-    Categories("Categories", Icons.Filled.Category),
-    Recurring("Recurring", Icons.Filled.EventRepeat),
+private enum class Tab(@StringRes val label: Int, val icon: ImageVector) {
+    Dashboard(R.string.shell_tab_dashboard, Icons.Filled.Home),
+    Wallets(R.string.shell_tab_wallets, Icons.Filled.AccountBalanceWallet),
+    Transactions(R.string.shell_tab_transactions, Icons.Filled.ReceiptLong),
+    Categories(R.string.shell_tab_categories, Icons.Filled.Category),
+    Recurring(R.string.shell_tab_recurring, Icons.Filled.EventRepeat),
 }
 
 private val TABS = Tab.entries
@@ -339,7 +343,7 @@ private fun AppHeader(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Budjetame",
+                    text = stringResource(R.string.shell_brand),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -356,7 +360,7 @@ private fun AppHeader(
                 IconButton(onClick = onOpenAssistant) {
                     Icon(
                         imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = "Assistant",
+                        contentDescription = stringResource(R.string.shell_assistant),
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -364,7 +368,7 @@ private fun AppHeader(
             IconButton(onClick = onOpenSettings) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
-                    contentDescription = "Settings",
+                    contentDescription = stringResource(R.string.shell_settings),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -378,7 +382,7 @@ private fun AppHeader(
                 contentPadding = PaddingValues(horizontal = 12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate600),
             ) {
-                Text("Sign out", fontSize = 13.sp)
+                Text(stringResource(R.string.shell_sign_out), fontSize = 13.sp)
             }
         }
     }
@@ -408,7 +412,7 @@ private fun BottomTabs(pagerState: PagerState) {
                         }
                     },
                     icon = { Icon(imageVector = tab.icon, contentDescription = null) },
-                    label = { Text(tab.label, fontSize = 11.sp) },
+                    label = { Text(stringResource(tab.label), fontSize = 11.sp) },
                 )
             }
         }
@@ -435,13 +439,15 @@ private fun SettingsDialog(
 ) {
     var confirmOpen by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var deleteFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    // Its own window: each slot re-applies the Account Locale (ADR-0010), so
+    // the Language choice re-renders the open dialog in place.
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Settings") },
-        text = {
+        title = localized { Text(stringResource(R.string.settings_title)) },
+        text = localized {
             // Scrolls: the Assistant Settings form can outgrow the screen.
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
@@ -460,12 +466,12 @@ private fun SettingsDialog(
                 RestoreSection(backupRepository, onRestored = onRestored, onCloseSettings = onClose)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
-                    text = "Delete account",
+                    text = stringResource(R.string.settings_delete_account),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = "Permanently deletes your Account and all its data.",
+                    text = stringResource(R.string.settings_delete_account_description),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -476,13 +482,15 @@ private fun SettingsDialog(
                     modifier = Modifier.padding(top = 4.dp),
                 ) {
                     Text(
-                        text = if (deleting) "Deleting…" else "Delete account",
+                        text = stringResource(
+                            if (deleting) R.string.common_deleting else R.string.settings_delete_account,
+                        ),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                error?.let {
+                if (deleteFailed) {
                     Text(
-                        text = it,
+                        text = stringResource(R.string.settings_delete_account_error),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp),
@@ -490,37 +498,37 @@ private fun SettingsDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onClose) { Text("Close") }
+        confirmButton = localized {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.common_close)) }
         },
     )
 
     if (confirmOpen) {
         AlertDialog(
             onDismissRequest = { if (!deleting) confirmOpen = false },
-            title = { Text("Delete account") },
-            text = { Text("This permanently deletes your Account and all its data. Continue?") },
-            confirmButton = {
+            title = localized { Text(stringResource(R.string.settings_delete_account)) },
+            text = localized { Text(stringResource(R.string.settings_delete_account_confirm)) },
+            confirmButton = localized {
                 TextButton(
                     onClick = {
                         confirmOpen = false
                         scope.launch {
                             deleting = true
-                            error = null
+                            deleteFailed = false
                             try {
                                 onDeleteAccount()
                             } catch (_: Exception) {
-                                error = "Could not delete the Account. Please try again."
+                                deleteFailed = true
                                 deleting = false
                             }
                         }
                     },
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { confirmOpen = false }) { Text("Cancel") }
+            dismissButton = localized {
+                TextButton(onClick = { confirmOpen = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }

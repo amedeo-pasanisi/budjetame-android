@@ -10,7 +10,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -20,12 +19,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.budjetame.android.data.api.AccountDto
-import com.budjetame.android.data.locale.displayLocale
-import com.budjetame.android.ui.common.LocalDisplayLocale
+import com.budjetame.android.ui.common.ProvideAccountLocale
 import com.budjetame.android.ui.login.LoginScreen
 import com.budjetame.android.ui.shell.AppShell
 
@@ -77,7 +76,8 @@ fun BudjetameApp(
     // dates in it, and a change in Settings recomposes the readers in place.
     val localeCode by container.authRepository.locale.collectAsStateWithLifecycle()
 
-    CompositionLocalProvider(LocalDisplayLocale provides displayLocale(localeCode)) {
+    // ... and every string resource resolves in it too (ADR-0010, issue #62).
+    ProvideAccountLocale(localeCode) {
         when (val state = authState) {
             AuthState.Checking -> CheckingScreen()
             AuthState.CheckingFailed -> CheckingFailedScreen(onRetry = { checkAttempt++ })
@@ -127,7 +127,7 @@ fun BudjetameApp(
 @Composable
 private fun CheckingScreen() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Signing you in…", style = MaterialTheme.typography.bodyMedium)
+        Text(text = stringResource(R.string.shell_checking), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -141,18 +141,18 @@ private fun CheckingFailedScreen(onRetry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Could not connect to Budjetame.",
+            text = stringResource(R.string.shell_checking_failed),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Check your connection and try again.",
+            text = stringResource(R.string.shell_checking_failed_hint),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
         )
         Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
-            Text("Retry")
+            Text(stringResource(R.string.common_retry))
         }
     }
 }

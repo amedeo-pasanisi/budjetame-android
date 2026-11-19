@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Transaction form (ADR-0010): the create/edit/delete modal, its
+     selects, the balance preview, the Location section and the date picker. -->
+<resources>
+    <string name="transaction_form_title_new">New transaction</string>
+    <string name="transaction_form_title_edit">Edit transaction</string>
+    <string name="transaction_form_save_transaction">Save transaction</string>
+    <string name="transaction_form_type_expense">Expense</string>
+    <string name="transaction_form_type_income">Income</string>
+    <string name="transaction_form_type_transfer">Transfer</string>
+    <string name="transaction_form_type_opening_balance">Opening balance</string>
+    <string name="transaction_form_amount">Amount (€)</string>
+    <string name="transaction_form_amount_placeholder">0.00</string>
+    <string name="transaction_form_date">Date</string>
+    <string name="transaction_form_date_ok">OK</string>
+    <string name="transaction_form_wallet">Wallet</string>
+    <string name="transaction_form_wallet_placeholder">Select a wallet</string>
+    <string name="transaction_form_wallet_contact_explanation">An expense on a contact wallet means the contact paid for this.</string>
+    <string name="transaction_form_wallet_income_no_contact">Incomes can\'t be recorded on contact wallets.</string>
+    <string name="transaction_form_from">From</string>
+    <string name="transaction_form_to">To</string>
+    <string name="transaction_form_select">Select</string>
+    <string name="transaction_form_new_wallet">New wallet…</string>
+    <string name="transaction_form_new_category">New category…</string>
+    <string name="transaction_form_transfer_no_category">Transfers never carry a category.</string>
+    <string name="transaction_form_category">Category</string>
+    <string name="transaction_form_none">None</string>
+    <string name="transaction_form_recurring_cost">Recurring Cost</string>
+    <string name="transaction_form_recurring_income">Recurring Income</string>
+    <string name="transaction_form_pays_occurrence">Pays the occurrence of %1$s.</string>
+    <string name="transaction_form_negative_cash_warning">This will make your Cash wallet negative.</string>
+    <string name="transaction_form_description">Description</string>
+    <string name="transaction_form_description_placeholder">Optional note</string>
+    <string name="transaction_form_location">Location</string>
+    <string name="transaction_form_location_none">No location attached.</string>
+    <string name="transaction_form_location_add">Add location</string>
+    <string name="transaction_form_location_change">Change location</string>
+    <string name="transaction_form_location_use_gps">Use my location</string>
+    <string name="transaction_form_location_locating">Locating…</string>
+    <string name="transaction_form_location_open_maps">Open in Google Maps ↗</string>
+    <string name="transaction_form_location_remove">Remove</string>
+    <string name="transaction_form_delete">Delete transaction</string>
+    <string name="transaction_form_delete_description">This permanently removes the transaction and updates the wallet balance.</string>
+</resources>

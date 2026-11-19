@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.transactions
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,10 +47,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
@@ -59,10 +62,12 @@ import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.transaction.Place
 import com.budjetame.android.data.transaction.formatLocation
 import com.budjetame.android.data.transaction.mapLink
+import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.LocalDisplayLocale
-import com.budjetame.android.ui.maps.MapPickerDialog
 import com.budjetame.android.ui.common.fieldErrorSupportingText
+import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.common.parseAmountInput
+import com.budjetame.android.ui.maps.MapPickerDialog
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 import java.time.Instant
@@ -141,8 +146,11 @@ fun TransactionModal(
     val editing = modal.isEditing
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
-        title = { Text(if (editing) "Edit transaction" else "New transaction") },
-        text = {
+        // Its own window: each slot re-applies the Account Locale (ADR-0010).
+        title = localized {
+            Text(stringResource(if (editing) R.string.transaction_form_title_edit else R.string.transaction_form_title_new))
+        },
+        text = localized {
             TransactionForm(
                 modal = modal,
                 wallets = wallets,
@@ -168,20 +176,22 @@ fun TransactionModal(
                 onDelete = onDelete,
             )
         },
-        confirmButton = {
+        confirmButton = localized {
             Button(onClick = onSubmit, enabled = modal.canSave, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
-                    when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Save transaction"
-                    },
+                    stringResource(
+                        when {
+                            modal.submitting -> R.string.common_saving
+                            editing -> R.string.common_save
+                            else -> R.string.transaction_form_save_transaction
+                        },
+                    ),
                 )
             }
         },
-        dismissButton = {
+        dismissButton = localized {
             TextButton(onClick = onClose, enabled = !modal.busy) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         },
     )
@@ -256,8 +266,8 @@ internal fun TransactionForm(
             OutlinedTextField(
                 value = modal.amount,
                 onValueChange = onAmountChange,
-                label = { Text("Amount (€)") },
-                placeholder = { Text("0.00") },
+                label = { Text(stringResource(R.string.transaction_form_amount)) },
+                placeholder = { Text(stringResource(R.string.transaction_form_amount_placeholder)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 isError = amountError != null,
@@ -308,7 +318,7 @@ internal fun TransactionForm(
 
         if (modal.isTransfer) {
             Text(
-                text = "Transfers never carry a category.",
+                text = stringResource(R.string.transaction_form_transfer_no_category),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
@@ -354,8 +364,8 @@ internal fun TransactionForm(
         OutlinedTextField(
             value = modal.description,
             onValueChange = onDescriptionChange,
-            label = { Text("Description") },
-            placeholder = { Text("Optional note") },
+            label = { Text(stringResource(R.string.transaction_form_description)) },
+            placeholder = { Text(stringResource(R.string.transaction_form_description_placeholder)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
@@ -419,21 +429,32 @@ internal fun TypeSelector(
                     onClick = { onSelect(type) },
                     enabled = enabled,
                 shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    Text(transactionTypeLabel(type))
+                    Text(stringResource(transactionTypeLabelRes(type)))
                 }
             } else {
                 OutlinedButton(
                     onClick = { onSelect(type) },
                     enabled = enabled,
                 shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    Text(transactionTypeLabel(type))
+                    Text(stringResource(transactionTypeLabelRes(type)))
                 }
             }
         }
     }
 }
 
-/** The type picker's word — "Expense", "Income", or "Transfer". */
+/** The type picker's word — "Expense", "Income", or "Transfer" — as a
+ * string resource in the Account's Locale (ADR-0010). */
+@StringRes
+internal fun transactionTypeLabelRes(type: TransactionType): Int = when (type) {
+    TransactionType.EXPENSE -> R.string.transaction_form_type_expense
+    TransactionType.INCOME -> R.string.transaction_form_type_income
+    TransactionType.TRANSFER -> R.string.transaction_form_type_transfer
+    TransactionType.OPENING_BALANCE -> R.string.transaction_form_type_opening_balance
+}
+
+/** The type word in English, for the Import screen's non-composable
+ * display text (ImportDisplay) until #63 moves it to [transactionTypeLabelRes]. */
 internal fun transactionTypeLabel(type: TransactionType): String = when (type) {
     TransactionType.EXPENSE -> "Expense"
     TransactionType.INCOME -> "Income"
@@ -459,6 +480,8 @@ private fun SingleWalletField(
     modifier: Modifier = Modifier,
 ) {
     val locale = LocalDisplayLocale.current
+    // Resolved here: the menu is its own window (ADR-0010).
+    val newWallet = stringResource(R.string.transaction_form_new_wallet)
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = modifier) {
         ExposedDropdownMenuBox(
@@ -474,8 +497,8 @@ private fun SingleWalletField(
                 readOnly = true,
                 enabled = enabled,
                 singleLine = true,
-                label = { Text("Wallet") },
-                placeholder = { Text("Select a wallet") },
+                label = { Text(stringResource(R.string.transaction_form_wallet)) },
+                placeholder = { Text(stringResource(R.string.transaction_form_wallet_placeholder)) },
                 isError = error != null,
                 supportingText = fieldErrorSupportingText(error),
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -498,7 +521,7 @@ private fun SingleWalletField(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text(ADD_WALLET_OPTION) },
+                    text = { Text(newWallet) },
                     onClick = {
                         // Revert-on-pick: the sentinel never becomes the
                         // field's value; it only opens the create form.
@@ -509,11 +532,13 @@ private fun SingleWalletField(
             }
         }
         Text(
-            text = if (type == TransactionType.EXPENSE) {
-                "An expense on a contact wallet means the contact paid for this."
-            } else {
-                "Incomes can't be recorded on contact wallets."
-            },
+            text = stringResource(
+                if (type == TransactionType.EXPENSE) {
+                    R.string.transaction_form_wallet_contact_explanation
+                } else {
+                    R.string.transaction_form_wallet_income_no_contact
+                },
+            ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
@@ -544,7 +569,7 @@ private fun TransferWalletFields(
         modifier = modifier,
     ) {
         WalletSelectField(
-            label = "From",
+            label = stringResource(R.string.transaction_form_from),
             wallets = wallets,
             value = sourceWalletId,
             error = sourceError,
@@ -555,7 +580,7 @@ private fun TransferWalletFields(
             modifier = Modifier.weight(1f),
         )
         WalletSelectField(
-            label = "To",
+            label = stringResource(R.string.transaction_form_to),
             wallets = wallets,
             value = destinationWalletId,
             error = destinationError,
@@ -582,6 +607,8 @@ private fun WalletSelectField(
     modifier: Modifier = Modifier,
 ) {
     val locale = LocalDisplayLocale.current
+    // Resolved here: the menu is its own window (ADR-0010).
+    val newWallet = stringResource(R.string.transaction_form_new_wallet)
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -595,7 +622,7 @@ private fun WalletSelectField(
             enabled = enabled,
             singleLine = true,
             label = { Text(label) },
-            placeholder = { Text("Select") },
+            placeholder = { Text(stringResource(R.string.transaction_form_select)) },
             isError = error != null,
             supportingText = fieldErrorSupportingText(error),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -618,7 +645,7 @@ private fun WalletSelectField(
                 )
             }
             DropdownMenuItem(
-                text = { Text(ADD_WALLET_OPTION) },
+                text = { Text(newWallet) },
                 onClick = {
                     onAdd()
                     expanded = false
@@ -642,6 +669,9 @@ private fun CategoryField(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Resolved here: the menu is its own window (ADR-0010).
+    val none = stringResource(R.string.transaction_form_none)
+    val newCategory = stringResource(R.string.transaction_form_new_category)
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -650,11 +680,11 @@ private fun CategoryField(
     ) {
         OutlinedTextField(
             value = value?.let { id -> categories.find { it.id == id } }
-                ?.let { categoryFilterLabel(it.name, it.icon) } ?: "None",
+                ?.let { categoryFilterLabel(it.name, it.icon) } ?: none,
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Category") },
+            label = { Text(stringResource(R.string.transaction_form_category)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -666,7 +696,7 @@ private fun CategoryField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("None") },
+                text = { Text(none) },
                 onClick = {
                     onChange(null)
                     expanded = false
@@ -682,7 +712,7 @@ private fun CategoryField(
                 )
             }
             DropdownMenuItem(
-                text = { Text(ADD_CATEGORY_OPTION) },
+                text = { Text(newCategory) },
                 onClick = {
                     onAdd()
                     expanded = false
@@ -716,6 +746,8 @@ private fun RecurringCostField(
     modifier: Modifier = Modifier,
 ) {
     if (costs.isEmpty() && value == null) return
+    // Resolved here: the menu is its own window (ADR-0010).
+    val none = stringResource(R.string.transaction_form_none)
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = modifier) {
         ExposedDropdownMenuBox(
@@ -723,11 +755,11 @@ private fun RecurringCostField(
             onExpandedChange = { expanded = it },
         ) {
             OutlinedTextField(
-                value = value?.let { id -> costs.find { it.id == id }?.name } ?: "None",
+                value = value?.let { id -> costs.find { it.id == id }?.name } ?: none,
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,
-                label = { Text("Recurring Cost") },
+                label = { Text(stringResource(R.string.transaction_form_recurring_cost)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -739,7 +771,7 @@ private fun RecurringCostField(
                 onDismissRequest = { expanded = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text("None") },
+                    text = { Text(none) },
                     onClick = {
                         onChange(null)
                         expanded = false
@@ -758,7 +790,7 @@ private fun RecurringCostField(
         }
         if (value != null && occurrenceDate != null) {
             Text(
-                text = "Pays the occurrence of $occurrenceDate.",
+                text = stringResource(R.string.transaction_form_pays_occurrence, occurrenceDate),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -791,6 +823,8 @@ private fun RecurringIncomeField(
     modifier: Modifier = Modifier,
 ) {
     if (incomes.isEmpty() && value == null) return
+    // Resolved here: the menu is its own window (ADR-0010).
+    val none = stringResource(R.string.transaction_form_none)
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = modifier) {
         ExposedDropdownMenuBox(
@@ -798,11 +832,11 @@ private fun RecurringIncomeField(
             onExpandedChange = { expanded = it },
         ) {
             OutlinedTextField(
-                value = value?.let { id -> incomes.find { it.id == id }?.name } ?: "None",
+                value = value?.let { id -> incomes.find { it.id == id }?.name } ?: none,
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,
-                label = { Text("Recurring Income") },
+                label = { Text(stringResource(R.string.transaction_form_recurring_income)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -814,7 +848,7 @@ private fun RecurringIncomeField(
                 onDismissRequest = { expanded = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text("None") },
+                    text = { Text(none) },
                     onClick = {
                         onChange(null)
                         expanded = false
@@ -833,7 +867,7 @@ private fun RecurringIncomeField(
         }
         if (value != null && occurrenceDate != null) {
             Text(
-                text = "Pays the occurrence of $occurrenceDate.",
+                text = stringResource(R.string.transaction_form_pays_occurrence, occurrenceDate),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -914,7 +948,7 @@ private fun BalancePreviewCard(
             }
             if (warn) {
                 Text(
-                    text = "⚠ This will make your Cash wallet negative.",
+                    text = "⚠ " + stringResource(R.string.transaction_form_negative_cash_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = AMBER_700,
                     modifier = Modifier.padding(top = 4.dp),
@@ -957,7 +991,9 @@ internal fun LocationButtons(
             modifier = Modifier.testTag("tx-location-open"),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(
-                text = if (location != null) "Change location" else "Add location",
+                text = stringResource(
+                    if (location != null) R.string.transaction_form_location_change else R.string.transaction_form_location_add,
+                ),
                 textAlign = TextAlign.Center,
             )
         }
@@ -967,7 +1003,9 @@ internal fun LocationButtons(
             modifier = Modifier.testTag("tx-location-gps"),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             Text(
-                text = if (locating) "Locating…" else "Use my location",
+                text = stringResource(
+                    if (locating) R.string.transaction_form_location_locating else R.string.transaction_form_location_use_gps,
+                ),
                 textAlign = TextAlign.Center,
             )
         }
@@ -999,7 +1037,7 @@ private fun LocationSection(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Location",
+            text = stringResource(R.string.transaction_form_location),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
@@ -1024,7 +1062,7 @@ private fun LocationSection(
                             contentPadding = ButtonDefaults.TextButtonContentPadding,
                             modifier = Modifier.testTag("tx-location-link"),
                         ) {
-                            Text("Open in Google Maps ↗")
+                            Text(stringResource(R.string.transaction_form_location_open_maps))
                         }
                         TextButton(
                             onClick = onRemove,
@@ -1034,14 +1072,14 @@ private fun LocationSection(
                             contentPadding = ButtonDefaults.TextButtonContentPadding,
                             modifier = Modifier.testTag("tx-location-remove"),
                         ) {
-                            Text("Remove")
+                            Text(stringResource(R.string.transaction_form_location_remove))
                         }
                     }
                 }
             }
         } else {
             Text(
-                text = "No location attached.",
+                text = stringResource(R.string.transaction_form_location_none),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -1083,7 +1121,7 @@ private fun FormDateField(
             readOnly = true,
             enabled = false,
             singleLine = true,
-            label = { Text("Date") },
+            label = { Text(stringResource(R.string.transaction_form_date)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             // Only a Draft that caught no date can leave it empty (ticket
             // #67); the field is disabled so the tap reaches the picker, and
@@ -1123,7 +1161,9 @@ private fun FormDateField(
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
         DatePickerDialog(
             onDismissRequest = { pickerOpen = false },
-            confirmButton = {
+            // Its own window (ADR-0010): the buttons and the picker's
+            // built-in month/day names follow the Account Locale.
+            confirmButton = localized {
                 TextButton(
                     onClick = {
                         pickerState.selectedDateMillis?.let { millis ->
@@ -1133,14 +1173,14 @@ private fun FormDateField(
                         pickerOpen = false
                     },
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.transaction_form_date_ok))
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+            dismissButton = localized {
+                TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         ) {
-            DatePicker(state = pickerState)
+            AccountLocaleResources { DatePicker(state = pickerState) }
         }
     }
 }
@@ -1152,12 +1192,12 @@ private fun DeleteSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Delete transaction",
+        text = stringResource(R.string.transaction_form_delete),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "This permanently removes the transaction and updates the wallet balance.",
+        text = stringResource(R.string.transaction_form_delete_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -1171,7 +1211,7 @@ private fun DeleteSection(
             .fillMaxWidth()
             .padding(top = 12.dp),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-        Text(if (modal.deleting) "Deleting…" else "Delete transaction")
+        Text(stringResource(if (modal.deleting) R.string.common_deleting else R.string.transaction_form_delete))
     }
 }
 

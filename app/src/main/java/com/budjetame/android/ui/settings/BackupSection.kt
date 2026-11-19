@@ -18,10 +18,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.budjetame.android.R
 import com.budjetame.android.data.backup.BackupFile
 import com.budjetame.android.data.backup.BackupGateway
 import java.io.File
@@ -51,12 +53,12 @@ fun BackupSection(backups: BackupGateway) {
 
     Column {
         Text(
-            text = "Export all",
+            text = stringResource(R.string.settings_export_all),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
         Text(
-            text = "Downloads your complete Account data as a multi-sheet backup workbook.",
+            text = stringResource(R.string.settings_export_all_description),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
@@ -66,7 +68,7 @@ fun BackupSection(backups: BackupGateway) {
             enabled = !state.downloading,
             modifier = Modifier.padding(top = 4.dp),
         ) {
-            Text(if (state.downloading) "Exporting…" else "Export all")
+            Text(stringResource(if (state.downloading) R.string.settings_exporting else R.string.settings_export_all))
         }
         BackupDelivery(viewModel)
     }
@@ -99,7 +101,7 @@ fun BackupDelivery(viewModel: BackupViewModel) {
     Column {
         state.backup?.let { backup ->
             Text(
-                text = "Backup ready: ${backup.filename}",
+                text = stringResource(R.string.settings_backup_ready, backup.filename),
                 style = MaterialTheme.typography.labelSmall,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -108,7 +110,7 @@ fun BackupDelivery(viewModel: BackupViewModel) {
                         viewModel.onDeliveryStarted()
                         saveLauncher.launch(backup.filename)
                     },
-                ) { Text("Save to device") }
+                ) { Text(stringResource(R.string.settings_backup_save)) }
                 TextButton(
                     onClick = {
                         viewModel.onDeliveryStarted()
@@ -116,7 +118,7 @@ fun BackupDelivery(viewModel: BackupViewModel) {
                             if (!shareBackup(context, backup)) viewModel.onDeliveryFailed(BackupDeliveryFailure.SHARE)
                         }
                     },
-                ) { Text("Share") }
+                ) { Text(stringResource(R.string.settings_backup_share)) }
             }
         }
 

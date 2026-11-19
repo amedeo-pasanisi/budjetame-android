@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wallets (ADR-0010): the list and the Wallet modal. -->
+<resources>
+    <string name="wallets_title">Wallets</string>
+    <string name="wallets_new">New wallet</string>
+    <string name="wallets_loading">Loading wallets…</string>
+    <string name="wallets_empty">No wallets yet. Add your first one to start tracking.</string>
+    <string name="wallets_frozen_header">Frozen wallets (%1$d)</string>
+    <!-- A frozen row's subtitle: "<type label> · Frozen". -->
+    <string name="wallets_frozen_subtitle">%1$s · Frozen</string>
+
+    <string name="wallets_type_contact">Contact</string>
+    <string name="wallets_type_checking">Checking</string>
+    <string name="wallets_type_credit_card">Credit Card</string>
+    <string name="wallets_type_cash">Cash</string>
+
+    <string name="wallets_section_contact">Contacts</string>
+    <string name="wallets_section_checking">Checking Accounts</string>
+    <string name="wallets_section_credit_card">Credit Cards</string>
+    <string name="wallets_section_cash">Cash</string>
+
+    <string name="wallet_form_title_edit">Edit wallet</string>
+    <string name="wallet_form_title_new">New wallet</string>
+    <!-- "<type label> · type cannot be changed" -->
+    <string name="wallet_form_type_locked">%1$s · type cannot be changed</string>
+    <string name="wallet_form_name">Name</string>
+    <string name="wallet_form_name_placeholder">e.g. Intesa checking</string>
+    <string name="wallet_form_type">Type</string>
+    <!-- "<type labels, comma-separated> · fixed for this form" -->
+    <string name="wallet_form_types_fixed">%1$s · fixed for this form</string>
+    <string name="wallet_form_opening_balance">Opening balance (optional)</string>
+    <string name="wallet_form_opening_balance_contact">Contact wallets start at €0 — money moves only through transfers.</string>
+    <!-- %1$s: zero, formatted in the display Locale (€0.00). -->
+    <string name="wallet_form_opening_balance_hint">Money you already have. Defaults to %1$s.</string>
+    <string name="wallet_form_create">Create wallet</string>
+    <string name="wallet_form_unfreeze">Unfreeze wallet</string>
+    <string name="wallet_form_unfreeze_description">Restore this wallet: it will accept transactions again and reappear in its type section.</string>
+    <string name="wallet_form_freeze">Freeze wallet</string>
+    <!-- %1$s: zero (€0.00), %2$s: the current balance, both formatted. -->
+    <string name="wallet_form_freeze_balance">Freeze requires %1$s balance (currently %2$s)</string>
+    <!-- %1$s: zero, formatted (€0.00). -->
+    <string name="wallet_form_freeze_description">Hides the wallet and makes it read-only. Only possible at %1$s balance; its transactions stay visible.</string>
+    <string name="wallet_form_amount_placeholder">0.00</string>
+</resources>
