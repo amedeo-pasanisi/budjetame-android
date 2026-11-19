@@ -69,8 +69,9 @@ class AssistantViewModel(
     private val recognizer: DictationRecognizer?,
     private val tones: DictationTones,
     /** The Account's Locale as the server serves it: the language a
-     * Dictation listens in. */
-    private val locale: String,
+     * Dictation listens in, read as each Dictation starts so a change in
+     * Settings reaches the next one (issue #59). */
+    private val locale: StateFlow<String>,
     /** Quick Dictation (ticket #65): the Assistant opened from outside the
      * app as a voice-only card, open from the start. */
     private val quick: Boolean = false,
@@ -215,7 +216,7 @@ class AssistantViewModel(
         this.dictation = dictation
         _uiState.update { it.copy(listening = true, dictationFailed = false) }
         recognizer.start(
-            recognitionLanguage(locale),
+            recognitionLanguage(locale.value),
             object : DictationRecognizer.Listener {
                 override fun onReadyForSpeech() {
                     if (dictation.dropped) return

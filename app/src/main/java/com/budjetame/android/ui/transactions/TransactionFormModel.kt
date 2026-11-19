@@ -12,6 +12,7 @@ import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.util.Money
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.Locale
 
 /**
  * Presentation-only logic for the Transaction form (ticket #20), ported from
@@ -51,8 +52,8 @@ fun matchingCategories(categories: List<CategoryDto>, type: TransactionType): Li
 
 /** A Wallet option in the form: "Name (€balance)" — frozen Wallets never
  * reach the form's pickers, so no Frozen mark here. */
-fun walletOptionLabel(wallet: WalletDto): String =
-    "${wallet.name} (${Money.formatEuros(wallet.balance)})"
+fun walletOptionLabel(wallet: WalletDto, locale: Locale = Locale.US): String =
+    "${wallet.name} (${Money.formatEuros(wallet.balance, locale)})"
 
 /** The inline-create sentinel's label in the Wallet selects (ADR-0013):
  * picking it opens the create form instead of selecting anything. */

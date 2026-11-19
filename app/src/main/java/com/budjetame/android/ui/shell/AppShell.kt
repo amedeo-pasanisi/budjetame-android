@@ -67,6 +67,7 @@ import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
 import com.budjetame.android.data.imports.ImportGateway
+import com.budjetame.android.data.locale.LocaleGateway
 import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
@@ -80,6 +81,7 @@ import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.settings.AssistantSettingsSection
 import com.budjetame.android.ui.settings.BackupSection
+import com.budjetame.android.ui.settings.LanguageSettingsSection
 import com.budjetame.android.ui.settings.RestoreSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
@@ -105,6 +107,10 @@ private val TABS = Tab.entries
 @Composable
 fun AppShell(
     account: AccountDto,
+    /** The Account's Locale (issue #59): the app's single observable source,
+     * fed by the `/auth/me` read that produced [account]. The Settings
+     * dialog changes it and the Assistant's Dictation listens in it. */
+    localeGateway: LocaleGateway,
     /** The Assistant Settings block of the Settings dialog (ticket #66). */
     assistantSettingsRepository: AssistantSettingsGateway,
     /** The Assistant's turns (ticket #68). */
@@ -144,7 +150,7 @@ fun AppShell(
             settings = assistantSettingsRepository,
             recognizer = dictationRecognizer,
             tones = dictationTones,
-            locale = account.language,
+            locale = localeGateway.locale,
         )
     }
     val assistantState by assistant.uiState.collectAsStateWithLifecycle()
@@ -283,6 +289,7 @@ fun AppShell(
     if (showSettings) {
         SettingsDialog(
             email = account.email,
+            localeGateway = localeGateway,
             assistantSettingsRepository = assistantSettingsRepository,
             backupRepository = backupRepository,
             // A restore replaces every row the undo entries point at: they
@@ -418,6 +425,7 @@ private fun BottomTabs(pagerState: PagerState) {
 @Composable
 private fun SettingsDialog(
     email: String,
+    localeGateway: LocaleGateway,
     assistantSettingsRepository: AssistantSettingsGateway,
     backupRepository: BackupGateway,
     /** A restore succeeded: the shell clears its undo stack. */
@@ -441,6 +449,8 @@ private fun SettingsDialog(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                LanguageSettingsSection(localeGateway)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 AssistantSettingsSection(assistantSettingsRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))

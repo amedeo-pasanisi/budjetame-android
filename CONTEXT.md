@@ -181,8 +181,12 @@ A client-side validation message attached to one form field and shown inline ben
 _Avoid_: validation message, inline error, form error
 
 **Amount Input**:
-The way money is typed into a form field: a decimal number tolerant of both separators — the last `.` or `,` is the decimal point, earlier ones are thousands groupings, and a lone separator followed by exactly three digits is a thousands grouping, so 17.5, 17,5, 2,002.01, and 1.000.420,45 all parse. Display, storage, the wire format, and Export stay US-canonical (1000420.45); the parser is locale-independent and is kept as-is when a language preference arrives (ADR-0009).
+The way money is typed into a form field: a decimal number tolerant of both separators — the last `.` or `,` is the decimal point, earlier ones are thousands groupings, and a lone separator followed by exactly three digits is a thousands grouping, so 17.5, 17,5, 2,002.01, and 1.000.420,45 all parse. Display follows the Account's Locale, while storage, the wire format, and Export/Backup stay US-canonical (1000420.45); the parser is locale-independent and is kept as-is then (ADR-0009).
 _Avoid_: money field, currency input, amount field
+
+**Locale**:
+The Account's display language, stored on the Account and served by the API so every client — web and Android — formats identically. Auto-detected once from the browser/device locale at first load (`it`/`it-IT` for Italian, `en` otherwise, existing Accounts included), changeable in Settings. It drives number and date formatting and, where translated, UI strings; wire formats and exported files are unaffected.
+_Avoid_: language setting, regional format, i18n setting
 
 ## Rules
 

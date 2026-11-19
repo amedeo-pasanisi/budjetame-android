@@ -28,6 +28,8 @@ import com.budjetame.android.data.dictation.DictationTones
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
 import com.budjetame.android.data.drafttransaction.ApiDraftTransactionRepository
 import com.budjetame.android.data.imports.ApiImportRepository
+import com.budjetame.android.data.locale.LocaleAutoDetection
+import com.budjetame.android.data.locale.PrefsLocaleDetectionStore
 import com.budjetame.android.data.location.AndroidDeviceLocation
 import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
@@ -48,7 +50,11 @@ class AppContainer(context: Context) {
 
     private val api = ApiClient(BuildConfig.API_BASE_URL) { session.token }
 
+    /** Also the Account's Locale (issue #59): see [ApiAuthRepository.locale]. */
     val authRepository = ApiAuthRepository(api.create(AuthApi::class.java), session)
+
+    /** The once-per-Account-per-device Locale auto-detect (issue #59). */
+    val localeAutoDetection = LocaleAutoDetection(authRepository, PrefsLocaleDetectionStore(context))
 
     val assistantSettingsRepository = ApiAssistantSettingsRepository(api.create(AssistantSettingsApi::class.java))
 

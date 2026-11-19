@@ -10,6 +10,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,7 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.budjetame.android.data.api.AccountDto
+import com.budjetame.android.data.locale.displayLocale
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.login.LoginScreen
 import com.budjetame.android.ui.shell.AppShell
 
@@ -69,43 +73,54 @@ fun BudjetameApp(
         (context as? ComponentActivity)?.viewModelStore?.clear()
     }
 
-    when (val state = authState) {
-        AuthState.Checking -> CheckingScreen()
-        AuthState.CheckingFailed -> CheckingFailedScreen(onRetry = { checkAttempt++ })
-        AuthState.SignedOut -> LoginScreen(
-            auth = container.authRepository,
-            onSignedIn = { account -> authState = AuthState.SignedIn(account) },
-        )
-        is AuthState.SignedIn -> AppShell(
-            account = state.account,
-            assistantSettingsRepository = container.assistantSettingsRepository,
-            assistantRepository = container.assistantRepository,
-            dictationRecognizer = container.dictationRecognizer,
-            dictationTones = container.dictationTones,
-            walletRepository = container.walletRepository,
-            categoryRepository = container.categoryRepository,
-            dashboardRepository = container.dashboardRepository,
-            transactionRepository = container.transactionRepository,
-            draftTransactionRepository = container.draftTransactionRepository,
-            importRepository = container.importRepository,
-            recurringCostRepository = container.recurringCostRepository,
-            recurringIncomeRepository = container.recurringIncomeRepository,
-            backupRepository = container.backupRepository,
-            location = container.deviceLocation,
-            showTransactions = showTransactions,
-            onTransactionsShown = onTransactionsShown,
-            onSignOut = {
-                container.authRepository.signOut()
-                clearSessionViewModels()
-                authState = AuthState.SignedOut
-            },
-            onDeleteAccount = {
-                container.authRepository.deleteAccount()
-                container.authRepository.signOut()
-                clearSessionViewModels()
-                authState = AuthState.SignedOut
-            },
-        )
+    // The Account's Locale (issue #59): every screen renders amounts and
+    // dates in it, and a change in Settings recomposes the readers in place.
+    val localeCode by container.authRepository.locale.collectAsStateWithLifecycle()
+
+    CompositionLocalProvider(LocalDisplayLocale provides displayLocale(localeCode)) {
+        when (val state = authState) {
+            AuthState.Checking -> CheckingScreen()
+            AuthState.CheckingFailed -> CheckingFailedScreen(onRetry = { checkAttempt++ })
+            AuthState.SignedOut -> LoginScreen(
+                auth = container.authRepository,
+                onSignedIn = { account -> authState = AuthState.SignedIn(account) },
+            )
+            is AuthState.SignedIn -> {
+                // Auto-detect the Locale once per Account on this device.
+                LaunchedEffect(state.account.id) { container.localeAutoDetection.run(state.account.id) }
+                AppShell(
+                    account = state.account,
+                    localeGateway = container.authRepository,
+                    assistantSettingsRepository = container.assistantSettingsRepository,
+                    assistantRepository = container.assistantRepository,
+                    dictationRecognizer = container.dictationRecognizer,
+                    dictationTones = container.dictationTones,
+                    walletRepository = container.walletRepository,
+                    categoryRepository = container.categoryRepository,
+                    dashboardRepository = container.dashboardRepository,
+                    transactionRepository = container.transactionRepository,
+                    draftTransactionRepository = container.draftTransactionRepository,
+                    importRepository = container.importRepository,
+                    recurringCostRepository = container.recurringCostRepository,
+                    recurringIncomeRepository = container.recurringIncomeRepository,
+                    backupRepository = container.backupRepository,
+                    location = container.deviceLocation,
+                    showTransactions = showTransactions,
+                    onTransactionsShown = onTransactionsShown,
+                    onSignOut = {
+                        container.authRepository.signOut()
+                        clearSessionViewModels()
+                        authState = AuthState.SignedOut
+                    },
+                    onDeleteAccount = {
+                        container.authRepository.deleteAccount()
+                        container.authRepository.signOut()
+                        clearSessionViewModels()
+                        authState = AuthState.SignedOut
+                    },
+                )
+            }
+        }
     }
 }
 

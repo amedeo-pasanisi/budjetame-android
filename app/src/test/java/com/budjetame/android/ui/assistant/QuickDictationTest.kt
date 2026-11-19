@@ -9,6 +9,7 @@ import com.budjetame.android.data.assistant.ApiAssistantSettingsRepository
 import com.budjetame.android.data.dictation.DictationRecognizer
 import com.budjetame.android.data.dictation.DictationTones
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -132,7 +133,7 @@ class QuickDictationTest {
             settings = ApiAssistantSettingsRepository(client.create(AssistantSettingsApi::class.java)),
             recognizer = recognizer,
             tones = tones,
-            locale = "it",
+            locale = MutableStateFlow("it"),
             quick = true,
         )
     }
