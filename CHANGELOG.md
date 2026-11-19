@@ -15,6 +15,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 - **Settings** — a new **Export all** section downloads a complete Backup of the Account as one multi-sheet Excel workbook (Transactions including Opening Balances, Wallets, Categories, Recurring Costs and Incomes, and skips), which you can save to the device or share. Unlike the ledger Export, it carries everything (#57).
 
+- **Settings** — **Restore from backup**: pick a Backup workbook, confirm twice (the first step offers a fresh Export all of the current state), and all the Account's data is replaced atomically with the file's contents — a malformed file changes nothing. A Backup that came from another Account is restored and then flagged with a notice; pending Undo entries are cleared. A Restore cannot be undone (#60).
+
 ### Changed
 
 - **Forms** — Save is always clickable: pressing it on an invalid form saves nothing and shows what is wrong in red under each field ("Enter an amount", "Choose a wallet.", …), and the errors refresh on the next Save. Amounts accept both `17.5` and `17,5` (and `1.000,45` or `1,000.45`). Switching an Expense on a contact wallet to Income no longer silently swaps the wallet: it stays selected and the form says incomes can't be recorded there. A Draft that the rules rejected opens with its missing fields already marked. Now on the Transaction form (#49, #50, #51).
