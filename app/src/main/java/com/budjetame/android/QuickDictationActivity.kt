@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -20,6 +21,7 @@ import com.budjetame.android.ui.assistant.QuickDictationFrame
 import com.budjetame.android.ui.assistant.QuickDictationNoRecognizer
 import com.budjetame.android.ui.assistant.QuickDictationStart
 import com.budjetame.android.ui.assistant.quickDictationStart
+import com.budjetame.android.ui.common.ProvideAccountLocale
 import com.budjetame.android.ui.theme.BudjetameTheme
 
 /**
@@ -43,44 +45,52 @@ class QuickDictationActivity : ComponentActivity() {
         enableEdgeToEdge()
         val container = (application as BudjetameApplication).container
         setContent {
-            BudjetameTheme {
-                var start by remember { mutableStateOf<QuickDictationStart>(QuickDictationStart.Checking) }
-                LaunchedEffect(Unit) { start = quickDictationStart(container.authRepository) }
+            // The card speaks the Account's Locale like the app (ADR-0010): the
+            // same single source, applied again at this Activity's own root.
+            val localeCode by container.authRepository.locale.collectAsStateWithLifecycle()
+            ProvideAccountLocale(localeCode) {
+                BudjetameTheme { QuickDictationCard(container) }
+            }
+        }
+    }
 
-                // The card's ViewModel, once the Account is read: a touch on the
-                // card cancels its auto-close.
-                var onTouch by remember { mutableStateOf<() -> Unit>({}) }
-                QuickDictationFrame(onClose = ::finish, onTouch = { onTouch() }) {
-                    when (val current = start) {
-                        QuickDictationStart.Checking -> QuickDictationChecking()
-                        is QuickDictationStart.CannotRun -> QuickDictationCannotRun(current.reason) { openApp(false) }
-                        is QuickDictationStart.Ready -> {
-                            val assistant: AssistantViewModel = viewModel {
-                                AssistantViewModel(
-                                    turns = container.assistantRepository,
-                                    settings = container.assistantSettingsRepository,
-                                    recognizer = container.dictationRecognizer,
-                                    tones = container.dictationTones,
-                                    locale = container.authRepository.locale,
-                                    quick = true,
-                                )
-                            }
-                            SideEffect { onTouch = assistant::holdOpen }
-                            val state by assistant.uiState.collectAsStateWithLifecycle()
-                            // The auto-close closes the Assistant: the card goes with it.
-                            LaunchedEffect(state.open) { if (!state.open) finish() }
-                            val cannotRun = state.cannotRun
-                            when {
-                                cannotRun != null -> QuickDictationCannotRun(cannotRun) { openApp(false) }
-                                !state.dictationAvailable -> QuickDictationNoRecognizer { openApp(false) }
-                                else -> QuickDictationContent(
-                                    state = state,
-                                    onStartDictation = assistant::startDictation,
-                                    onStopDictation = assistant::stopDictation,
-                                    onOpenInApp = { openApp(true) },
-                                )
-                            }
-                        }
+    @Composable
+    private fun QuickDictationCard(container: AppContainer) {
+        var start by remember { mutableStateOf<QuickDictationStart>(QuickDictationStart.Checking) }
+        LaunchedEffect(Unit) { start = quickDictationStart(container.authRepository) }
+
+        // The card's ViewModel, once the Account is read: a touch on the
+        // card cancels its auto-close.
+        var onTouch by remember { mutableStateOf<() -> Unit>({}) }
+        QuickDictationFrame(onClose = ::finish, onTouch = { onTouch() }) {
+            when (val current = start) {
+                QuickDictationStart.Checking -> QuickDictationChecking()
+                is QuickDictationStart.CannotRun -> QuickDictationCannotRun(current.reason) { openApp(false) }
+                is QuickDictationStart.Ready -> {
+                    val assistant: AssistantViewModel = viewModel {
+                        AssistantViewModel(
+                            turns = container.assistantRepository,
+                            settings = container.assistantSettingsRepository,
+                            recognizer = container.dictationRecognizer,
+                            tones = container.dictationTones,
+                            locale = container.authRepository.locale,
+                            quick = true,
+                        )
+                    }
+                    SideEffect { onTouch = assistant::holdOpen }
+                    val state by assistant.uiState.collectAsStateWithLifecycle()
+                    // The auto-close closes the Assistant: the card goes with it.
+                    LaunchedEffect(state.open) { if (!state.open) finish() }
+                    val cannotRun = state.cannotRun
+                    when {
+                        cannotRun != null -> QuickDictationCannotRun(cannotRun) { openApp(false) }
+                        !state.dictationAvailable -> QuickDictationNoRecognizer { openApp(false) }
+                        else -> QuickDictationContent(
+                            state = state,
+                            onStartDictation = assistant::startDictation,
+                            onStopDictation = assistant::stopDictation,
+                            onOpenInApp = { openApp(true) },
+                        )
                     }
                 }
             }

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Settings dialog's sections (ADR-0010): Language, Assistant Settings,
+     Backup (Export all) and Restore. The dialog's frame and the account
+     deletion live in strings_shell.xml. -->
+<resources>
+    <!-- Language -->
+    <string name="settings_language">Language</string>
+    <string name="settings_language_description">Display Locale: numbers and dates format according to this setting.</string>
+
+    <!-- Assistant Settings -->
+    <string name="settings_assistant">Assistant</string>
+    <string name="settings_assistant_description">Dictate or type money movements: the Assistant turns them into Draft Transactions. Choose a provider and enter its key.</string>
+    <string name="settings_assistant_status_configured">Configured: %1$s / %2$s, key ends in …%3$s</string>
+    <string name="settings_assistant_status_default_model">provider\'s default</string>
+    <string name="settings_assistant_status_not_configured">Not configured.</string>
+    <string name="settings_assistant_replace">Replace</string>
+    <string name="settings_assistant_remove">Remove</string>
+    <string name="settings_assistant_removing">Removing…</string>
+    <string name="settings_assistant_key">Assistant Key</string>
+    <string name="settings_assistant_provider">Provider</string>
+    <string name="settings_assistant_model">Model</string>
+    <string name="settings_assistant_model_placeholder">Provider\'s default</string>
+    <string name="settings_assistant_model_free">%1$s (free)</string>
+
+    <!-- Backup: Export all -->
+    <string name="settings_export_all">Export all</string>
+    <string name="settings_export_all_description">Downloads your complete Account data as a multi-sheet backup workbook.</string>
+    <string name="settings_exporting">Exporting…</string>
+    <string name="settings_backup_ready">Backup ready: %1$s</string>
+    <string name="settings_backup_save">Save to device</string>
+    <string name="settings_backup_share">Share</string>
+
+    <!-- Restore -->
+    <string name="settings_restore">Restore from backup…</string>
+    <string name="settings_restore_description">Replace all your data with the contents of a previously exported backup workbook.</string>
+    <string name="settings_restore_choose_file">Choose file…</string>
+    <string name="settings_restore_title">Restore from backup</string>
+    <string name="settings_restore_confirm_text">This will replace all your current Transactions, Wallets, Categories, and Recurring definitions with the backup file\'s contents. This cannot be undone.</string>
+    <string name="settings_restore_confirm_lost">Everything entered after this backup was made will be lost.</string>
+    <string name="settings_restore_export_first">Export current state first</string>
+    <string name="settings_restore_continue">Continue</string>
+    <string name="settings_restore_final_text">All your current data will be replaced with the contents of %1$s. This cannot be undone.</string>
+    <string name="settings_restore_button">Restore from backup</string>
+    <string name="settings_restore_restoring">Restoring…</string>
+    <string name="settings_restore_restoring_text">Replacing your data from the backup file.</string>
+    <string name="settings_restore_warning_title">Origin mismatch</string>
+    <string name="settings_restore_warning_text">The backup was exported from a different Account. Restoring will replace all your data with the backup\'s contents. This is a legitimate way to migrate data between Accounts.</string>
+    <string name="settings_restore_done_title">Restore complete</string>
+    <string name="settings_restore_done_text">Your Account data has been replaced with the backup file\'s contents.</string>
+    <string name="settings_restore_done">Done</string>
+    <string name="settings_restore_error_title">Restore failed</string>
+    <string name="settings_restore_error_text">The backup file could not be restored. No data was changed.</string>
+    <string name="settings_restore_try_again">Try again</string>
+</resources>

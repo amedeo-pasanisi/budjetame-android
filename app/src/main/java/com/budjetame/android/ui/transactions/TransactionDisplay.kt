@@ -1,10 +1,12 @@
 package com.budjetame.android.ui.transactions
 
+import com.budjetame.android.R
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.util.Money
 import java.util.Locale
 
@@ -40,23 +42,30 @@ fun descriptionText(description: String?): String? {
  * with no Category is labeled "Uncategorized" (ticket #19) — then the whole
  * Description, falling back to the type word only when neither exists.
  */
-fun transactionTitle(transaction: TransactionDto, categoryName: String?): String {
-    if (transaction.type == TransactionType.OPENING_BALANCE) return "Opening balance"
+fun transactionTitle(transaction: TransactionDto, categoryName: String?): UiText {
+    if (transaction.type == TransactionType.OPENING_BALANCE) return UiText.of(R.string.transactions_opening_balance)
     val description = descriptionText(transaction.description)
-    val parts = buildList {
-        when {
-            categoryName != null -> add(categoryName)
-            transaction.type == TransactionType.EXPENSE -> add("Uncategorized")
-        }
-        if (description != null) add(description)
+    val lead: UiText? = when {
+        categoryName != null -> UiText.Raw(categoryName)
+        transaction.type == TransactionType.EXPENSE -> UiText.of(R.string.transactions_uncategorized)
+        else -> null
     }
-    if (parts.isNotEmpty()) return parts.joinToString(" · ")
-    return when (transaction.type) {
-        TransactionType.EXPENSE -> "Expense"
-        TransactionType.INCOME -> "Income"
-        else -> "Transfer"
+    return when {
+        lead != null && description != null -> UiText.of(R.string.transactions_joined, lead, description)
+        lead != null -> lead
+        description != null -> UiText.Raw(description)
+        else -> rowTypeWord(transaction.type)
     }
 }
+
+/** The type word a row falls back to: Expense, Income, else Transfer. */
+private fun rowTypeWord(type: TransactionType): UiText = UiText.of(
+    when (type) {
+        TransactionType.EXPENSE -> R.string.transactions_type_expense
+        TransactionType.INCOME -> R.string.transactions_type_income
+        else -> R.string.transactions_type_transfer
+    },
+)
 
 fun hasLocation(transaction: TransactionDto): Boolean =
     transaction.latitude != null && transaction.longitude != null
@@ -109,7 +118,7 @@ fun isEditable(transaction: TransactionDto, wallets: List<WalletDto>): Boolean =
 enum class FilterChipKey { WALLET, CATEGORY, DATES, RECURRING }
 
 /** One filtered-line chip: which filter it stands for and its label. */
-data class FilterChipSpec(val key: FilterChipKey, val label: String)
+data class FilterChipSpec(val key: FilterChipKey, val label: UiText)
 
 /**
  * The merged date chip's label (web issue #92): "From X" and "To Y"
@@ -118,10 +127,10 @@ data class FilterChipSpec(val key: FilterChipKey, val label: String)
  * raw API-day strings, exactly as the web renders its date inputs'
  * values.
  */
-fun filterDateChipLabel(fromDate: String?, toDate: String?): String? = when {
-    fromDate != null && toDate != null -> "$fromDate – $toDate"
-    fromDate != null -> "From $fromDate"
-    toDate != null -> "To $toDate"
+fun filterDateChipLabel(fromDate: String?, toDate: String?): UiText? = when {
+    fromDate != null && toDate != null -> UiText.Raw("$fromDate – $toDate")
+    fromDate != null -> UiText.of(R.string.transactions_filter_date_from, fromDate)
+    toDate != null -> UiText.of(R.string.transactions_filter_date_to, toDate)
     else -> null
 }
 
@@ -137,12 +146,12 @@ fun filterDateChipLabel(fromDate: String?, toDate: String?): String? = when {
 fun activeFilterChips(state: TransactionsViewModel.UiState): List<FilterChipSpec> = buildList {
     state.filterWalletId?.let { id ->
         state.wallets.find { it.id == id }?.name?.let { name ->
-            add(FilterChipSpec(FilterChipKey.WALLET, name))
+            add(FilterChipSpec(FilterChipKey.WALLET, UiText.Raw(name)))
         }
     }
     state.filterCategoryId?.let { id ->
         state.categories.find { it.id == id }?.name?.let { name ->
-            add(FilterChipSpec(FilterChipKey.CATEGORY, name))
+            add(FilterChipSpec(FilterChipKey.CATEGORY, UiText.Raw(name)))
         }
     }
     filterDateChipLabel(state.filterFromDate, state.filterToDate)?.let { label ->
@@ -156,27 +165,36 @@ fun activeFilterChips(state: TransactionsViewModel.UiState): List<FilterChipSpec
             RecurringFilterKind.COST -> state.recurringCosts.find { it.id == selection.id }?.name
             RecurringFilterKind.INCOME -> state.recurringIncomes.find { it.id == selection.id }?.name
         }
-        if (name != null) add(FilterChipSpec(FilterChipKey.RECURRING, name))
+        if (name != null) add(FilterChipSpec(FilterChipKey.RECURRING, UiText.Raw(name)))
     }
 }
 
 /** The Wallet name for a row's subtitle; unknown → "Frozen wallet" (the web app). */
-fun walletName(wallets: List<WalletDto>, walletId: Int?): String =
-    walletId?.let { id -> wallets.find { it.id == id }?.name } ?: "Frozen wallet"
+fun walletName(wallets: List<WalletDto>, walletId: Int?): UiText =
+    walletId?.let { id -> wallets.find { it.id == id }?.name }?.let { UiText.Raw(it) }
+        ?: UiText.of(R.string.transactions_frozen_wallet)
 
 /** The row's wallet line: "Source → Destination" for a Transfer, else the Wallet. */
-fun walletLabel(transaction: TransactionDto, wallets: List<WalletDto>): String =
+fun walletLabel(transaction: TransactionDto, wallets: List<WalletDto>): UiText =
     if (transaction.type == TransactionType.TRANSFER) {
-        "${walletName(wallets, transaction.source_wallet_id)} → ${walletName(wallets, transaction.destination_wallet_id)}"
+        UiText.of(
+            R.string.transactions_transfer_legs,
+            walletName(wallets, transaction.source_wallet_id),
+            walletName(wallets, transaction.destination_wallet_id),
+        )
     } else {
         walletName(wallets, transaction.wallet_id)
     }
 
 /** A Wallet option in the filter bar: "Name · Frozen (€balance)" — the
  * "· Frozen" mark is the filter bar's promise to include frozen wallets. */
-fun walletFilterLabel(wallet: WalletDto, locale: Locale = Locale.US): String {
-    val name = if (wallet.frozen) "${wallet.name} · Frozen" else wallet.name
-    return "$name (${Money.formatEuros(wallet.balance, locale)})"
+fun walletFilterLabel(wallet: WalletDto, locale: Locale = Locale.US): UiText {
+    val balance = Money.formatEuros(wallet.balance, locale)
+    return if (wallet.frozen) {
+        UiText.of(R.string.transactions_wallet_option_frozen, wallet.name, balance)
+    } else {
+        UiText.Raw("${wallet.name} ($balance)")
+    }
 }
 
 /** A Category option in the filter bar: the icon leads when set. */
@@ -196,12 +214,14 @@ fun recurringFilterLabel(
     selection: RecurringFilter?,
     costs: List<RecurringCostDto>,
     incomes: List<RecurringIncomeDto>,
-): String {
-    if (selection == null) return "All transactions"
+): UiText {
+    if (selection == null) return UiText.of(R.string.transactions_filter_all_transactions)
     // Each kind resolves against its own list: the two DTO types share no
     // common id-holding interface, so the lookup branches by kind.
-    return when (selection.kind) {
-        RecurringFilterKind.COST -> costs.find { it.id == selection.id }?.name
-        RecurringFilterKind.INCOME -> incomes.find { it.id == selection.id }?.name
-    } ?: ""
+    return UiText.Raw(
+        when (selection.kind) {
+            RecurringFilterKind.COST -> costs.find { it.id == selection.id }?.name
+            RecurringFilterKind.INCOME -> incomes.find { it.id == selection.id }?.name
+        } ?: "",
+    )
 }

@@ -9,6 +9,7 @@ import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
+import com.budjetame.android.ui.common.english
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -101,7 +102,7 @@ class TransactionDisplayTest {
             transactionTitle(
                 transaction(1, TransactionType.EXPENSE, categoryId = 3, description = " Coffee at home "),
                 categoryName = "Food",
-            ),
+            ).english(),
         )
     }
 
@@ -109,7 +110,7 @@ class TransactionDisplayTest {
     fun `an uncategorized expense is labeled Uncategorized`() {
         assertEquals(
             "Uncategorized",
-            transactionTitle(transaction(1, TransactionType.EXPENSE), categoryName = null),
+            transactionTitle(transaction(1, TransactionType.EXPENSE), categoryName = null).english(),
         )
         // The label stands in the Category's leading slot.
         assertEquals(
@@ -117,7 +118,7 @@ class TransactionDisplayTest {
             transactionTitle(
                 transaction(1, TransactionType.EXPENSE, description = "Groceries"),
                 categoryName = null,
-            ),
+            ).english(),
         )
     }
 
@@ -128,17 +129,17 @@ class TransactionDisplayTest {
             transactionTitle(
                 transaction(1, TransactionType.OPENING_BALANCE, categoryId = 3, description = "Start"),
                 categoryName = "Food",
-            ),
+            ).english(),
         )
     }
 
     @Test
     fun `without a category or description the type word survives`() {
-        assertEquals("Income", transactionTitle(transaction(1, TransactionType.INCOME), categoryName = null))
+        assertEquals("Income", transactionTitle(transaction(1, TransactionType.INCOME), categoryName = null).english())
         assertEquals("Transfer", transactionTitle(
             transaction(1, TransactionType.TRANSFER, sourceWalletId = 1, destinationWalletId = 2),
             categoryName = null,
-        ))
+        ).english())
     }
 
     @Test
@@ -148,7 +149,7 @@ class TransactionDisplayTest {
             transactionTitle(
                 transaction(1, TransactionType.EXPENSE, description = "   "),
                 categoryName = null,
-            ),
+            ).english(),
         )
         assertNull(descriptionText("   "))
         assertNull(descriptionText(null))
@@ -200,28 +201,28 @@ class TransactionDisplayTest {
 
     @Test
     fun `wallet names fall back to Frozen wallet when unknown and transfers show both legs`() {
-        assertEquals("Wallet 1", walletName(listOf(activeWallet), 1))
-        assertEquals("Frozen wallet", walletName(listOf(activeWallet), null))
-        assertEquals("Frozen wallet", walletName(listOf(activeWallet), 99))
+        assertEquals("Wallet 1", walletName(listOf(activeWallet), 1).english())
+        assertEquals("Frozen wallet", walletName(listOf(activeWallet), null).english())
+        assertEquals("Frozen wallet", walletName(listOf(activeWallet), 99).english())
         assertEquals(
             "Wallet 1 → Wallet 2",
             walletLabel(
                 transaction(1, TransactionType.TRANSFER, sourceWalletId = 1, destinationWalletId = 2),
                 listOf(activeWallet, frozenWallet),
-            ),
+            ).english(),
         )
         assertEquals(
             "Wallet 1",
-            walletLabel(transaction(1, TransactionType.EXPENSE, walletId = 1), listOf(activeWallet)),
+            walletLabel(transaction(1, TransactionType.EXPENSE, walletId = 1), listOf(activeWallet)).english(),
         )
     }
 
     @Test
     fun `the filter wallet option marks frozen wallets and carries the balance`() {
-        assertEquals("Cash (€100.00)", walletFilterLabel(activeWallet.copy(name = "Cash", balance = "100.00")))
+        assertEquals("Cash (€100.00)", walletFilterLabel(activeWallet.copy(name = "Cash", balance = "100.00")).english())
         assertEquals(
             "Old Card · Frozen (€0.00)",
-            walletFilterLabel(frozenWallet.copy(name = "Old Card")),
+            walletFilterLabel(frozenWallet.copy(name = "Old Card")).english(),
         )
     }
 
@@ -235,25 +236,25 @@ class TransactionDisplayTest {
         val costs = listOf(rent)
         val incomes = listOf(salary, freelance)
 
-        assertEquals("All transactions", recurringFilterLabel(null, costs, incomes))
+        assertEquals("All transactions", recurringFilterLabel(null, costs, incomes).english())
         assertEquals(
             "Rent",
-            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, rent.id), costs, incomes),
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, rent.id), costs, incomes).english(),
         )
         // The same id on the income side is the Salary, never the Rent.
         assertEquals(
             "Salary",
-            recurringFilterLabel(RecurringFilter(RecurringFilterKind.INCOME, salary.id), costs, incomes),
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.INCOME, salary.id), costs, incomes).english(),
         )
         // An id that exists only on the other kind is no match for this pick.
         assertEquals(
             "",
-            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, freelance.id), costs, incomes),
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, freelance.id), costs, incomes).english(),
         )
         // A pick whose definition is gone from the refreshed lists reads empty.
         assertEquals(
             "",
-            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, 99), costs, incomes),
+            recurringFilterLabel(RecurringFilter(RecurringFilterKind.COST, 99), costs, incomes).english(),
         )
     }
 
@@ -325,12 +326,12 @@ class TransactionDisplayTest {
         // the plain names (no balances, no frozen marks, no icons).
         assertEquals(
             listOf(
-                FilterChipSpec(FilterChipKey.WALLET, "Cash"),
-                FilterChipSpec(FilterChipKey.CATEGORY, "Food"),
-                FilterChipSpec(FilterChipKey.DATES, "2026-01-01 – 2026-01-31"),
-                FilterChipSpec(FilterChipKey.RECURRING, "Rent"),
+                FilterChipKey.WALLET to "Cash",
+                FilterChipKey.CATEGORY to "Food",
+                FilterChipKey.DATES to "2026-01-01 – 2026-01-31",
+                FilterChipKey.RECURRING to "Rent",
             ),
-            activeFilterChips(state),
+            chipsOf(state),
         )
     }
 
@@ -347,16 +348,16 @@ class TransactionDisplayTest {
         // recurring chip, in the web's order.
         assertEquals(
             listOf(
-                FilterChipSpec(FilterChipKey.WALLET, "Cash"),
-                FilterChipSpec(FilterChipKey.CATEGORY, "Food"),
-                FilterChipSpec(FilterChipKey.DATES, "From 2026-01-01"),
+                FilterChipKey.WALLET to "Cash",
+                FilterChipKey.CATEGORY to "Food",
+                FilterChipKey.DATES to "From 2026-01-01",
             ),
-            activeFilterChips(base.copy(filterFromDate = "2026-01-01")),
+            chipsOf(base.copy(filterFromDate = "2026-01-01")),
         )
         // To alone: "To …". Neither bound: no date chip at all.
         assertEquals(
-            FilterChipSpec(FilterChipKey.DATES, "To 2026-01-31"),
-            activeFilterChips(base.copy(filterToDate = "2026-01-31")).last(),
+            FilterChipKey.DATES to "To 2026-01-31",
+            chipsOf(base.copy(filterToDate = "2026-01-31")).last(),
         )
         assertNull(filterDateChipLabel(null, null))
         assertNull(activeFilterChips(base).firstOrNull { it.key == FilterChipKey.DATES })
@@ -376,10 +377,10 @@ class TransactionDisplayTest {
         )
         assertEquals(
             listOf(
-                FilterChipSpec(FilterChipKey.WALLET, "Cash"),
-                FilterChipSpec(FilterChipKey.RECURRING, "Salary"),
+                FilterChipKey.WALLET to "Cash",
+                FilterChipKey.RECURRING to "Salary",
             ),
-            activeFilterChips(state),
+            chipsOf(state),
         )
     }
 
@@ -395,8 +396,8 @@ class TransactionDisplayTest {
             filterCategoryId = 1,
         )
         assertEquals(
-            listOf(FilterChipSpec(FilterChipKey.CATEGORY, "Food")),
-            activeFilterChips(state),
+            listOf(FilterChipKey.CATEGORY to "Food"),
+            chipsOf(state),
         )
         // The recurring pick whose definition vanished reads no chip too.
         val orphaned = state.copy(
@@ -405,8 +406,12 @@ class TransactionDisplayTest {
             filterRecurring = RecurringFilter(RecurringFilterKind.COST, 99),
         )
         assertEquals(
-            listOf(FilterChipSpec(FilterChipKey.WALLET, "Cash")),
-            activeFilterChips(orphaned),
+            listOf(FilterChipKey.WALLET to "Cash"),
+            chipsOf(orphaned),
         )
     }
+
+    /** The chips as (key, English label): the labels are UiText (ADR-0010). */
+    private fun chipsOf(state: TransactionsViewModel.UiState): List<Pair<FilterChipKey, String>> =
+        activeFilterChips(state).map { it.key to it.label.english() }
 }

@@ -1,5 +1,7 @@
 package com.budjetame.android.ui.wallets
 
+import androidx.annotation.StringRes
+import com.budjetame.android.R
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 
@@ -16,25 +18,28 @@ private val WALLET_SECTION_TYPES: List<WalletType> = listOf(
     WalletType.CASH,
 )
 
-/** Singular type label for row subtitles (mirrors the web app). */
-fun walletTypeLabel(type: WalletType): String = when (type) {
-    WalletType.CONTACT -> "Contact"
-    WalletType.CHECKING -> "Checking"
-    WalletType.CREDIT_CARD -> "Credit Card"
-    WalletType.CASH -> "Cash"
+/** Singular type label for row subtitles (mirrors the web app): a string
+ * resource the composable resolves in the Account's Locale (ADR-0010). */
+@StringRes
+fun walletTypeLabel(type: WalletType): Int = when (type) {
+    WalletType.CONTACT -> R.string.wallets_type_contact
+    WalletType.CHECKING -> R.string.wallets_type_checking
+    WalletType.CREDIT_CARD -> R.string.wallets_type_credit_card
+    WalletType.CASH -> R.string.wallets_type_cash
 }
 
 /** Plural section header (mirrors the web app); "Cash" has no plural. */
-fun walletSectionLabel(type: WalletType): String = when (type) {
-    WalletType.CONTACT -> "Contacts"
-    WalletType.CHECKING -> "Checking Accounts"
-    WalletType.CREDIT_CARD -> "Credit Cards"
-    WalletType.CASH -> "Cash"
+@StringRes
+fun walletSectionLabel(type: WalletType): Int = when (type) {
+    WalletType.CONTACT -> R.string.wallets_section_contact
+    WalletType.CHECKING -> R.string.wallets_section_checking
+    WalletType.CREDIT_CARD -> R.string.wallets_section_credit_card
+    WalletType.CASH -> R.string.wallets_section_cash
 }
 
 data class WalletSection(
     val type: WalletType,
-    val label: String,
+    @StringRes val label: Int,
     val items: List<WalletDto>,
 )
 

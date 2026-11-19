@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Dashboard (ADR-0010): header, Net Worth, Budget, category pie and
+     monthly trend cards, and the month picker. Amounts and months arrive
+     as preformatted %n$s arguments. -->
+<resources>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_net_worth">NET WORTH</string>
+    <string name="dashboard_net_worth_description">The sum of every wallet balance — contact wallets included.</string>
+    <string name="dashboard_budget_spendable_today">SPENDABLE TODAY</string>
+    <string name="dashboard_month">Month</string>
+    <string name="dashboard_budget_frame_line">%1$s this month (%2$s income − %3$s costs)</string>
+    <string name="dashboard_budget_per_day">%1$s per day</string>
+    <string name="dashboard_budget_over_today">%1$s over today\'s budget</string>
+    <string name="dashboard_budget_over_month">%1$s over this month\'s budget</string>
+    <string name="dashboard_budget_left_month">%1$s left this month</string>
+    <string name="dashboard_kind_expenses">Expenses</string>
+    <string name="dashboard_kind_incomes">Incomes</string>
+    <string name="dashboard_pie_title_expenses">%1$s · Expenses by Category</string>
+    <string name="dashboard_pie_title_incomes">%1$s · Incomes by Category</string>
+    <string name="dashboard_pie_no_expenses">No expenses recorded in %1$s.</string>
+    <string name="dashboard_pie_no_incomes">No incomes recorded in %1$s.</string>
+    <string name="dashboard_trend_title_expenses">Expenses Trend · %1$s – %2$s</string>
+    <string name="dashboard_trend_title_incomes">Incomes Trend · %1$s – %2$s</string>
+    <string name="dashboard_trend_no_expenses">No expenses recorded between %1$s and %2$s.</string>
+    <string name="dashboard_trend_no_incomes">No incomes recorded between %1$s and %2$s.</string>
+    <string name="dashboard_trend_from">From</string>
+    <string name="dashboard_trend_to">To</string>
+    <string name="dashboard_month_picker_title">Select month</string>
+    <string name="dashboard_month_picker_previous_year_cd">Previous year</string>
+    <string name="dashboard_month_picker_next_year_cd">Next year</string>
+</resources>

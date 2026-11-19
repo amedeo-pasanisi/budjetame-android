@@ -1,6 +1,7 @@
 package com.budjetame.android.ui.dashboard
 
 import com.budjetame.android.data.api.BudgetDto
+import com.budjetame.android.ui.common.english
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -46,10 +47,10 @@ class BudgetDisplayTest {
         assertNull(text.bucketNote)
         assertEquals(
             "€500.00 this month (€2100.00 income − €850.00 costs)",
-            text.frameLine,
+            text.frameLine.english(),
         )
-        assertEquals("€16.60 per day", text.dailyLine)
-        assertEquals("€333.40 left this month", text.remainingLine)
+        assertEquals("€16.60 per day", text.dailyLine.english())
+        assertEquals("€333.40 left this month", text.remainingLine.english())
         assertFalse(text.remainingOver)
     }
 
@@ -58,8 +59,8 @@ class BudgetDisplayTest {
         val text = budgetCardText(budget(spendableToday = "-12.34", remaining = "300.00"))
 
         assertEquals("0.00", text.spendableToday)
-        assertEquals("€12.34 over today's budget", text.bucketNote)
-        assertEquals("€300.00 left this month", text.remainingLine)
+        assertEquals("€12.34 over today's budget", text.bucketNote?.english())
+        assertEquals("€300.00 left this month", text.remainingLine.english())
         assertFalse(text.remainingOver)
     }
 
@@ -69,7 +70,7 @@ class BudgetDisplayTest {
 
         assertEquals("0.00", text.spendableToday)
         assertNull(text.bucketNote)
-        assertEquals("€100.00 over this month's budget", text.remainingLine)
+        assertEquals("€100.00 over this month's budget", text.remainingLine.english())
         assertTrue(text.remainingOver)
     }
 
@@ -80,7 +81,7 @@ class BudgetDisplayTest {
         // Never two over-notes at once — and this bucket has none to give.
         assertEquals("2.00", text.spendableToday)
         assertNull(text.bucketNote)
-        assertEquals("€100.00 over this month's budget", text.remainingLine)
+        assertEquals("€100.00 over this month's budget", text.remainingLine.english())
         assertTrue(text.remainingOver)
     }
 }

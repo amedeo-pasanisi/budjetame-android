@@ -1,7 +1,9 @@
 package com.budjetame.android.ui.transactions
 
+import com.budjetame.android.R
 import com.budjetame.android.data.api.DraftTransactionDto
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.util.Money
 import java.util.Locale
 
@@ -31,13 +33,13 @@ fun draftIsTransfer(draft: DraftTransactionDto): Boolean {
 
 /** The row's bold line: the Category and the Description when caught, else
  * the type word, else "Draft transaction" when not even the type is. */
-fun draftTitle(draft: DraftTransactionDto, categoryName: String?): String {
+fun draftTitle(draft: DraftTransactionDto, categoryName: String?): UiText {
     val parts = listOfNotNull(categoryName, descriptionText(draft.description))
-    if (parts.isNotEmpty()) return parts.joinToString(" · ")
+    if (parts.isNotEmpty()) return UiText.Raw(parts.joinToString(" · "))
     return when (draft.type) {
-        null -> "Draft transaction"
-        TransactionType.INCOME -> "Income"
-        TransactionType.TRANSFER -> "Transfer"
-        else -> "Expense"
+        null -> UiText.of(R.string.drafts_untitled)
+        TransactionType.INCOME -> UiText.of(R.string.transactions_type_income)
+        TransactionType.TRANSFER -> UiText.of(R.string.transactions_type_transfer)
+        else -> UiText.of(R.string.transactions_type_expense)
     }
 }

@@ -2,6 +2,7 @@ package com.budjetame.android.ui.transactions
 
 import com.budjetame.android.data.api.DraftTransactionDto
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.ui.common.english
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -47,9 +48,9 @@ class DraftTransactionDisplayTest {
 
     @Test
     fun `the title leads with the category and description, else the type word`() {
-        assertEquals("Food · Esselunga", draftTitle(draft(description = " Esselunga "), "Food"))
-        assertEquals("Esselunga", draftTitle(draft(description = "Esselunga"), null))
-        assertEquals("Income", draftTitle(draft(type = TransactionType.INCOME), null))
-        assertEquals("Draft transaction", draftTitle(draft(type = null, description = "  "), null))
+        assertEquals("Food · Esselunga", draftTitle(draft(description = " Esselunga "), "Food").english())
+        assertEquals("Esselunga", draftTitle(draft(description = "Esselunga"), null).english())
+        assertEquals("Income", draftTitle(draft(type = TransactionType.INCOME), null).english())
+        assertEquals("Draft transaction", draftTitle(draft(type = null, description = "  "), null).english())
     }
 }

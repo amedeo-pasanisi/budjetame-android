@@ -23,15 +23,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.AssistantModelDto
 import com.budjetame.android.data.api.AssistantProvider
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
+import com.budjetame.android.ui.common.AccountLocaleResources
 
 /** The most model rows the picker lists at once; typing narrows the list
  * (OpenRouter's catalogue runs to hundreds). */
@@ -57,13 +60,12 @@ fun AssistantSettingsSection(assistantSettings: AssistantSettingsGateway) {
 
     Column {
         Text(
-            text = "Assistant",
+            text = stringResource(R.string.settings_assistant),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
         Text(
-            text = "Dictate or type money movements: the Assistant turns them into Draft Transactions. " +
-                "Choose a provider and enter its key.",
+            text = stringResource(R.string.settings_assistant_description),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
@@ -78,10 +80,12 @@ fun AssistantSettingsSection(assistantSettings: AssistantSettingsGateway) {
             AssistantSettingsForm(state, viewModel)
         } else if (state.configured) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = viewModel::startReplace, enabled = !state.saving) { Text("Replace") }
+                TextButton(onClick = viewModel::startReplace, enabled = !state.saving) { Text(stringResource(R.string.settings_assistant_replace)) }
                 TextButton(onClick = viewModel::remove, enabled = !state.saving) {
                     Text(
-                        text = if (state.saving) "Removing…" else "Remove",
+                        text = stringResource(
+                            if (state.saving) R.string.settings_assistant_removing else R.string.settings_assistant_remove,
+                        ),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -99,15 +103,19 @@ fun AssistantSettingsSection(assistantSettings: AssistantSettingsGateway) {
     }
 }
 
+@Composable
 private fun statusLine(state: AssistantSettingsViewModel.UiState): String {
     val status = state.status
     return when {
-        state.loading -> "Loading…"
+        state.loading -> stringResource(R.string.common_loading)
         status == null -> ""
-        status.configured && status.provider != null ->
-            "Configured: ${status.provider.label} / ${status.model ?: "provider's default"}, " +
-                "key ends in …${status.last4.orEmpty()}"
-        else -> "Not configured."
+        status.configured && status.provider != null -> stringResource(
+            R.string.settings_assistant_status_configured,
+            status.provider.label,
+            status.model ?: stringResource(R.string.settings_assistant_status_default_model),
+            status.last4.orEmpty(),
+        )
+        else -> stringResource(R.string.settings_assistant_status_not_configured)
     }
 }
 
@@ -124,7 +132,7 @@ private fun AssistantSettingsForm(
         OutlinedTextField(
             value = state.key,
             onValueChange = viewModel::onKeyChange,
-            label = { Text("Assistant Key") },
+            label = { Text(stringResource(R.string.settings_assistant_key)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
@@ -142,10 +150,10 @@ private fun AssistantSettingsForm(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = viewModel::save, enabled = !state.saving) {
-                Text(if (state.saving) "Saving…" else "Save")
+                Text(stringResource(if (state.saving) R.string.common_saving else R.string.common_save))
             }
             if (state.configured) {
-                TextButton(onClick = viewModel::cancelReplace, enabled = !state.saving) { Text("Cancel") }
+                TextButton(onClick = viewModel::cancelReplace, enabled = !state.saving) { Text(stringResource(R.string.common_cancel)) }
             }
         }
     }
@@ -160,7 +168,7 @@ private fun ProviderField(value: AssistantProvider, onSelect: (AssistantProvider
             value = value.label,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Provider") },
+            label = { Text(stringResource(R.string.settings_assistant_provider)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -201,8 +209,8 @@ private fun ModelField(
                 onChange(it)
                 expanded = true
             },
-            label = { Text("Model") },
-            placeholder = { Text("Provider's default") },
+            label = { Text(stringResource(R.string.settings_assistant_model)) },
+            placeholder = { Text(stringResource(R.string.settings_assistant_model_placeholder)) },
             singleLine = true,
             supportingText = hint?.let { { Text(it) } },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -214,14 +222,25 @@ private fun ModelField(
             expanded = expanded && matches.isNotEmpty(),
             onDismissRequest = { expanded = false },
         ) {
-            matches.forEach { model ->
-                DropdownMenuItem(
-                    text = { Text(if (model.free) "${model.label} (free)" else model.label) },
-                    onClick = {
-                        onChange(model.id)
-                        expanded = false
-                    },
-                )
+            // Its own window (ADR-0010): re-apply the Account Locale.
+            AccountLocaleResources {
+                matches.forEach { model ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (model.free) {
+                                    stringResource(R.string.settings_assistant_model_free, model.label)
+                                } else {
+                                    model.label
+                                },
+                            )
+                        },
+                        onClick = {
+                            onChange(model.id)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }

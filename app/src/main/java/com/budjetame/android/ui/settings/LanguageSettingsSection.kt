@@ -18,10 +18,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.locale.LOCALE_EN
 import com.budjetame.android.data.locale.LOCALE_IT
 import com.budjetame.android.data.locale.LocaleGateway
@@ -45,12 +47,12 @@ fun LanguageSettingsSection(locale: LocaleGateway) {
 
     Column {
         Text(
-            text = "Language",
+            text = stringResource(R.string.settings_language),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
         Text(
-            text = "Display Locale: numbers and dates format according to this setting.",
+            text = stringResource(R.string.settings_language_description),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
@@ -65,7 +67,7 @@ fun LanguageSettingsSection(locale: LocaleGateway) {
                 onValueChange = {},
                 readOnly = true,
                 enabled = !state.saving,
-                label = { Text("Language") },
+                label = { Text(stringResource(R.string.settings_language)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()

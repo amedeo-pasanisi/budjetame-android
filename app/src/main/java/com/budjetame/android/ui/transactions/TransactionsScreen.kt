@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
@@ -87,10 +89,13 @@ import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
+import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.MessageBody
+import com.budjetame.android.ui.common.localized
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.imports.ImportScreen
 import com.budjetame.android.ui.imports.ImportViewModel
 import com.budjetame.android.ui.theme.Slate400
@@ -251,7 +256,7 @@ fun TransactionsScreen(
         val file = exportFile ?: return@LaunchedEffect
         val uri = withContext(Dispatchers.IO) { cacheExportFile(context, file) }
         if (uri == null) {
-            viewModel.onExportError("Could not save the export file.")
+            viewModel.onExportError(context.getString(R.string.transactions_export_save_error))
         } else {
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = EXPORT_MIME_TYPE
@@ -264,7 +269,7 @@ fun TransactionsScreen(
                 // No app on the device can take the file (a bare test
                 // harness): the error line reports it and the export is
                 // consumed, so a later press fetches afresh.
-                viewModel.onExportError("Could not share the export file.")
+                viewModel.onExportError(context.getString(R.string.transactions_export_share_error))
             }
         }
         viewModel.onExportHandled()
@@ -296,7 +301,7 @@ fun TransactionsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
-                text = "Transactions",
+                text = stringResource(R.string.transactions_title),
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -315,7 +320,7 @@ fun TransactionsScreen(
                 // text sits ~12 dp from the New transaction button like the
                 // web's gap-3 (ticket #44).
                 Text(
-                    text = "Import",
+                    text = stringResource(R.string.transactions_import),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = Slate600,
@@ -331,7 +336,7 @@ fun TransactionsScreen(
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
-                    Text("New transaction")
+                    Text(stringResource(R.string.transactions_new))
                 }
             }
         }
@@ -357,7 +362,7 @@ fun TransactionsScreen(
         val loadError = state.loadError
         when {
             state.loading -> MessageBody(
-                text = "Loading…",
+                text = stringResource(R.string.common_loading),
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
@@ -470,7 +475,7 @@ private fun Ledger(
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
-                    Text(if (state.filtersOpen) "Filters ▾" else "Filters ▸")
+                    Text("${stringResource(R.string.transactions_filters)} ${if (state.filtersOpen) "▾" else "▸"}")
                 }
             }
         }
@@ -518,7 +523,7 @@ private fun Ledger(
                     stickyHeader(key = "frozen-banner") {
                         Surface(color = MaterialTheme.colorScheme.background) {
                             FrozenBanner(
-                                text = "This wallet is frozen — its history is viewable but read-only.",
+                                text = stringResource(R.string.transactions_frozen_banner),
                                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                             )
                         }
@@ -585,7 +590,7 @@ private fun SearchField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        placeholder = { Text("Search transactions…") },
+        placeholder = { Text(stringResource(R.string.transactions_search_placeholder)) },
         leadingIcon = {
             Icon(Icons.Filled.Search, contentDescription = null, tint = Slate500)
         },
@@ -628,7 +633,11 @@ private fun TextLink(
  */
 @Composable
 private fun ExportToExcelButton(exporting: Boolean, onExport: () -> Unit) {
-    TextLink(text = if (exporting) "Exporting…" else "Export to Excel", enabled = !exporting, onClick = onExport)
+    TextLink(
+        text = stringResource(if (exporting) R.string.transactions_exporting else R.string.transactions_export_to_excel),
+        enabled = !exporting,
+        onClick = onExport,
+    )
 }
 
 /**
@@ -669,7 +678,7 @@ private fun FilterChipsLine(
                 modifier = Modifier.horizontalScroll(scrollState),
             ) {
                 activeFilterChips(state).forEach { chip ->
-                    FilterChip(label = chip.label) { removeFilterChip(viewModel, chip.key) }
+                    FilterChip(label = chip.label.resolve()) { removeFilterChip(viewModel, chip.key) }
                 }
             }
             // The edge fades (web ADR-0025): each end that hides chips is
@@ -693,7 +702,7 @@ private fun FilterChipsLine(
                 scrollState.scrollTo(scrollState.maxValue)
             }
         }
-        TextLink(text = "Clear all", onClick = viewModel::clearFiltersAndSearch)
+        TextLink(text = stringResource(R.string.transactions_clear_all), onClick = viewModel::clearFiltersAndSearch)
     }
 }
 
@@ -748,6 +757,7 @@ private fun removeFilterChip(viewModel: TransactionsViewModel, key: FilterChipKe
  * pill. */
 @Composable
 private fun FilterChip(label: String, onRemove: () -> Unit) {
+    val removeDescription = stringResource(R.string.transactions_remove_filter_cd, label)
     Surface(
         shape = RoundedCornerShape(50),
         color = MaterialTheme.colorScheme.surface,
@@ -770,7 +780,7 @@ private fun FilterChip(label: String, onRemove: () -> Unit) {
                 color = Slate400,
                 modifier = Modifier
                     .clickable(onClick = onRemove)
-                    .semantics { contentDescription = "Remove $label filter" }
+                    .semantics { contentDescription = removeDescription }
                     .padding(start = 2.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
             )
         }
@@ -809,13 +819,13 @@ private fun FilterBar(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DateFilterField(
-                    label = "From",
+                    label = stringResource(R.string.transactions_filter_from),
                     value = state.filterFromDate,
                     onSelect = viewModel::onFilterFromDateChange,
                     modifier = Modifier.weight(1f),
                 )
                 DateFilterField(
-                    label = "To",
+                    label = stringResource(R.string.transactions_filter_to),
                     value = state.filterToDate,
                     onSelect = viewModel::onFilterToDateChange,
                     modifier = Modifier.weight(1f),
@@ -846,7 +856,7 @@ private fun FilterBar(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (state.filtersActive) {
-                    TextLink(text = "Clear all filters", onClick = viewModel::clearPanelFilters)
+                    TextLink(text = stringResource(R.string.transactions_clear_all_filters), onClick = viewModel::clearPanelFilters)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 ExportToExcelButton(exporting = state.exporting, onExport = viewModel::export)
@@ -864,16 +874,19 @@ private fun WalletFilterField(
 ) {
     val locale = LocalDisplayLocale.current
     var expanded by remember { mutableStateOf(false) }
+    // The menu is its own window (ADR-0010): its labels resolve here.
+    val allWallets = stringResource(R.string.transactions_filter_all_wallets)
+    val walletLabels = wallets.map { walletFilterLabel(it, locale).resolve() }
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
     ) {
         OutlinedTextField(
-            value = selected?.let { walletFilterLabel(it, locale) } ?: "All wallets",
+            value = selected?.let { walletFilterLabel(it, locale).resolve() } ?: allWallets,
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Wallet") },
+            label = { Text(stringResource(R.string.transactions_filter_wallet)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -884,15 +897,15 @@ private fun WalletFilterField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("All wallets") },
+                text = { Text(allWallets) },
                 onClick = {
                     onSelect(null)
                     expanded = false
                 },
             )
-            wallets.forEach { wallet ->
+            wallets.zip(walletLabels).forEach { (wallet, label) ->
                 DropdownMenuItem(
-                    text = { Text(walletFilterLabel(wallet, locale)) },
+                    text = { Text(label) },
                     onClick = {
                         onSelect(wallet.id)
                         expanded = false
@@ -920,16 +933,20 @@ private fun RecurringFilterField(
     onSelect: (RecurringFilter?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // The menu is its own window (ADR-0010): its labels resolve here.
+    val allTransactions = stringResource(R.string.transactions_filter_all_transactions)
+    val costsCaption = stringResource(R.string.transactions_filter_recurring_costs)
+    val incomesCaption = stringResource(R.string.transactions_filter_recurring_incomes)
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
     ) {
         OutlinedTextField(
-            value = recurringFilterLabel(selected, costs, incomes),
+            value = recurringFilterLabel(selected, costs, incomes).resolve(),
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Recurring") },
+            label = { Text(stringResource(R.string.transactions_filter_recurring)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -940,14 +957,14 @@ private fun RecurringFilterField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("All transactions") },
+                text = { Text(allTransactions) },
                 onClick = {
                     onSelect(null)
                     expanded = false
                 },
             )
             if (costs.isNotEmpty()) {
-                FilterKindCaption("Recurring costs")
+                FilterKindCaption(costsCaption)
                 costs.forEach { cost ->
                     DropdownMenuItem(
                         text = { Text(cost.name) },
@@ -959,7 +976,7 @@ private fun RecurringFilterField(
                 }
             }
             if (incomes.isNotEmpty()) {
-                FilterKindCaption("Recurring incomes")
+                FilterKindCaption(incomesCaption)
                 incomes.forEach { income ->
                     DropdownMenuItem(
                         text = { Text(income.name) },
@@ -999,16 +1016,18 @@ private fun CategoryFilterField(
     onSelect: (Int?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // The menu is its own window (ADR-0010): its labels resolve here.
+    val allCategories = stringResource(R.string.transactions_filter_all_categories)
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
     ) {
         OutlinedTextField(
-            value = selected?.let { categoryFilterLabel(it.name, it.icon) } ?: "All categories",
+            value = selected?.let { categoryFilterLabel(it.name, it.icon) } ?: allCategories,
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            label = { Text("Category") },
+            label = { Text(stringResource(R.string.transactions_filter_category)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1019,7 +1038,7 @@ private fun CategoryFilterField(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("All categories") },
+                text = { Text(allCategories) },
                 onClick = {
                     onSelect(null)
                     expanded = false
@@ -1057,7 +1076,7 @@ private fun DateFilterField(
             enabled = false,
             singleLine = true,
             label = { Text(label) },
-            placeholder = { Text("Any date") },
+            placeholder = { Text(stringResource(R.string.transactions_filter_any_date)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             colors = OutlinedTextFieldDefaults.colors(
                 // Disabled but styled like an enabled field: the tap goes to
@@ -1084,7 +1103,8 @@ private fun DateFilterField(
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
         DatePickerDialog(
             onDismissRequest = { pickerOpen = false },
-            confirmButton = {
+            // Its own window (ADR-0010): each slot re-applies the Account Locale.
+            confirmButton = localized {
                 TextButton(
                     onClick = {
                         pickerState.selectedDateMillis?.let { millis ->
@@ -1094,10 +1114,10 @@ private fun DateFilterField(
                         pickerOpen = false
                     },
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.transactions_date_ok))
                 }
             },
-            dismissButton = {
+            dismissButton = localized {
                 Row {
                     if (value != null) {
                         TextButton(
@@ -1106,14 +1126,14 @@ private fun DateFilterField(
                                 pickerOpen = false
                             },
                         ) {
-                            Text("Clear")
+                            Text(stringResource(R.string.transactions_date_clear))
                         }
                     }
-                    TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+                    TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.common_cancel)) }
                 }
             },
         ) {
-            DatePicker(state = pickerState)
+            AccountLocaleResources { DatePicker(state = pickerState) }
         }
     }
 }
@@ -1151,7 +1171,7 @@ private fun TransactionRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transactionTitle(transaction, categoryName),
+                    text = transactionTitle(transaction, categoryName).resolve(),
                     // The web row type: text-sm font-medium — 14 sp Medium,
                     // one step down from the old bodyLarge SemiBold (ticket
                     // #44's exact web mapping).
@@ -1163,7 +1183,7 @@ private fun TransactionRow(
                 )
                 val location = locationSuffix(transaction).orEmpty()
                 Text(
-                    text = "${Dates.ledgerDate(transaction.date, locale)} · ${walletLabel(transaction, state.wallets)}$location",
+                    text = "${Dates.ledgerDate(transaction.date, locale)} · ${walletLabel(transaction, state.wallets).resolve()}$location",
                     // The web subtitle type: text-xs text-slate-500 — 12 sp
                     // Normal in the web's exact gray (ticket #44).
                     fontSize = 12.sp,
@@ -1240,7 +1260,7 @@ private fun LoadMoreSentinel(
     ) {
         when {
             loading -> Text(
-                text = "Loading more…",
+                text = stringResource(R.string.transactions_loading_more),
                 fontSize = 12.sp,
                 color = Slate500,
             )
@@ -1250,7 +1270,7 @@ private fun LoadMoreSentinel(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
-                TextButton(onClick = onRetry) { Text("Retry") }
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.common_retry)) }
             }
         }
     }

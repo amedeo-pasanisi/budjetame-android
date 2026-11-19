@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.budjetame.android.R
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.common.LedgerJump
@@ -70,7 +72,7 @@ fun WalletsScreen(
         val loadError = state.loadError
         when {
             state.loading -> MessageBody(
-                text = "Loading wallets…",
+                text = stringResource(R.string.wallets_loading),
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
@@ -79,7 +81,7 @@ fun WalletsScreen(
                 modifier = Modifier.weight(1f),
             )
             state.wallets.isEmpty() -> MessageBody(
-                text = "No wallets yet. Add your first one to start tracking.",
+                text = stringResource(R.string.wallets_empty),
                 modifier = Modifier.weight(1f),
             )
             else -> WalletsList(state = state, viewModel = viewModel, onLedgerJump = onLedgerJump, modifier = Modifier.weight(1f))
@@ -109,7 +111,7 @@ private fun WalletsHeader(onNewWallet: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Wallets",
+            text = stringResource(R.string.wallets_title),
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -120,7 +122,7 @@ private fun WalletsHeader(onNewWallet: () -> Unit) {
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
-            Text("New wallet")
+            Text(stringResource(R.string.wallets_new))
         }
     }
 }
@@ -140,7 +142,7 @@ private fun WalletsList(
         visibleSections.forEach { section ->
             item(key = "section-${section.type}") {
                 Text(
-                    text = section.label,
+                    text = stringResource(section.label),
                     style = MaterialTheme.typography.titleSmall,
                     color = Slate700,
                     modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
@@ -149,7 +151,7 @@ private fun WalletsList(
             items(section.items, key = { it.id }) { wallet ->
                 WalletCard(
                     name = wallet.name,
-                    subtitle = walletTypeLabel(wallet.type),
+                    subtitle = stringResource(walletTypeLabel(wallet.type)),
                     balance = wallet.balance,
                     onOpenLedger = { onLedgerJump(LedgerJump.Wallet(wallet.id)) },
                     actions = {
@@ -191,13 +193,13 @@ private fun FrozenSection(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         ) {
-            Text("Frozen wallets (${frozenWallets.size})")
+            Text(stringResource(R.string.wallets_frozen_header, frozenWallets.size))
         }
         if (expanded) {
             frozenWallets.forEach { wallet ->
                 WalletCard(
                     name = wallet.name,
-                    subtitle = "${walletTypeLabel(wallet.type)} · Frozen",
+                    subtitle = stringResource(R.string.wallets_frozen_subtitle, stringResource(walletTypeLabel(wallet.type))),
                     balance = wallet.balance,
                     onOpenLedger = { onOpenLedger(LedgerJump.Wallet(wallet.id)) },
                     actions = {

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transaction_form_title_new">Nuova transazione</string>
+    <string name="transaction_form_title_edit">Modifica transazione</string>
+    <string name="transaction_form_save_transaction">Salva transazione</string>
+    <string name="transaction_form_type_expense">Spesa</string>
+    <string name="transaction_form_type_income">Entrata</string>
+    <string name="transaction_form_type_transfer">Trasferimento</string>
+    <string name="transaction_form_type_opening_balance">Saldo iniziale</string>
+    <string name="transaction_form_amount">Importo (€)</string>
+    <string name="transaction_form_amount_placeholder">0,00</string>
+    <string name="transaction_form_date">Data</string>
+    <string name="transaction_form_date_ok">OK</string>
+    <string name="transaction_form_wallet">Portafoglio</string>
+    <string name="transaction_form_wallet_placeholder">Seleziona un portafoglio</string>
+    <string name="transaction_form_wallet_contact_explanation">Una spesa su un portafoglio contatto significa che il contatto ha pagato per questa.</string>
+    <string name="transaction_form_wallet_income_no_contact">Le entrate non possono essere registrate su portafogli contatto.</string>
+    <string name="transaction_form_from">Da</string>
+    <string name="transaction_form_to">A</string>
+    <string name="transaction_form_select">Seleziona</string>
+    <string name="transaction_form_new_wallet">Nuovo portafoglio…</string>
+    <string name="transaction_form_new_category">Nuova categoria…</string>
+    <string name="transaction_form_transfer_no_category">I trasferimenti non hanno categoria.</string>
+    <string name="transaction_form_category">Categoria</string>
+    <string name="transaction_form_none">Nessuna</string>
+    <string name="transaction_form_recurring_cost">Uscita ricorrente</string>
+    <string name="transaction_form_recurring_income">Entrata ricorrente</string>
+    <string name="transaction_form_pays_occurrence">Paga l\'occorrenza del %1$s.</string>
+    <string name="transaction_form_negative_cash_warning">Questo renderà negativo il tuo portafoglio Contanti.</string>
+    <string name="transaction_form_description">Descrizione</string>
+    <string name="transaction_form_description_placeholder">Nota opzionale</string>
+    <string name="transaction_form_location">Posizione</string>
+    <string name="transaction_form_location_none">Nessuna posizione.</string>
+    <string name="transaction_form_location_add">Aggiungi posizione</string>
+    <string name="transaction_form_location_change">Cambia posizione</string>
+    <string name="transaction_form_location_use_gps">Usa la mia posizione</string>
+    <string name="transaction_form_location_locating">Ricerca posizione…</string>
+    <string name="transaction_form_location_open_maps">Apri in Google Maps ↗</string>
+    <string name="transaction_form_location_remove">Rimuovi</string>
+    <string name="transaction_form_delete">Elimina transazione</string>
+    <string name="transaction_form_delete_description">Questo rimuove definitivamente la transazione e aggiorna il saldo del portafoglio.</string>
+</resources>

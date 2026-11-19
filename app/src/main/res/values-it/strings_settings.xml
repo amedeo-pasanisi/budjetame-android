@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Language -->
+    <string name="settings_language">Lingua</string>
+    <string name="settings_language_description">Lingua di visualizzazione: numeri e date vengono formattati secondo questa impostazione.</string>
+
+    <!-- Assistant Settings -->
+    <string name="settings_assistant">Assistente</string>
+    <string name="settings_assistant_description">Detta o scrivi i movimenti di denaro: l\'Assistente li trasforma in Bozze di transazione. Scegli un provider e inserisci la sua chiave.</string>
+    <string name="settings_assistant_status_configured">Configurato: %1$s / %2$s, la chiave termina con …%3$s</string>
+    <string name="settings_assistant_status_default_model">predefinito del provider</string>
+    <string name="settings_assistant_status_not_configured">Non configurato.</string>
+    <string name="settings_assistant_replace">Sostituisci</string>
+    <string name="settings_assistant_remove">Rimuovi</string>
+    <string name="settings_assistant_removing">Rimozione…</string>
+    <string name="settings_assistant_key">Chiave dell\'Assistente</string>
+    <string name="settings_assistant_provider">Provider</string>
+    <string name="settings_assistant_model">Modello</string>
+    <string name="settings_assistant_model_placeholder">Predefinito del provider</string>
+    <string name="settings_assistant_model_free">%1$s (gratuito)</string>
+
+    <!-- Backup: Export all -->
+    <string name="settings_export_all">Esporta tutto</string>
+    <string name="settings_export_all_description">Scarica tutti i dati del tuo Account come workbook di backup multi-foglio.</string>
+    <string name="settings_exporting">Esportazione…</string>
+    <string name="settings_backup_ready">Backup pronto: %1$s</string>
+    <string name="settings_backup_save">Salva sul dispositivo</string>
+    <string name="settings_backup_share">Condividi</string>
+
+    <!-- Restore -->
+    <string name="settings_restore">Ripristina da backup…</string>
+    <string name="settings_restore_description">Sostituisci tutti i tuoi dati con il contenuto di un workbook di backup precedentemente esportato.</string>
+    <string name="settings_restore_choose_file">Scegli file…</string>
+    <string name="settings_restore_title">Ripristino da backup</string>
+    <string name="settings_restore_confirm_text">Questo sostituirà tutte le tue Transazioni, Portafogli, Categorie e definizioni Ricorrenti con il contenuto del file di backup. Questa operazione non può essere annullata.</string>
+    <string name="settings_restore_confirm_lost">Tutto ciò che è stato inserito dopo la creazione di questo backup andrà perso.</string>
+    <string name="settings_restore_export_first">Prima esporta lo stato attuale</string>
+    <string name="settings_restore_continue">Continua</string>
+    <string name="settings_restore_final_text">Tutti i tuoi dati attuali saranno sostituiti con il contenuto di %1$s. Questa operazione non può essere annullata.</string>
+    <string name="settings_restore_button">Ripristina da backup</string>
+    <string name="settings_restore_restoring">Ripristino in corso…</string>
+    <string name="settings_restore_restoring_text">Sostituzione dei dati dal file di backup.</string>
+    <string name="settings_restore_warning_title">Account di origine diverso</string>
+    <string name="settings_restore_warning_text">Il backup è stato esportato da un Account diverso. Il ripristino sostituirà tutti i tuoi dati con il contenuto del backup. Questo è un modo legittimo per migrare dati tra Account.</string>
+    <string name="settings_restore_done_title">Ripristino completato</string>
+    <string name="settings_restore_done_text">I dati del tuo Account sono stati sostituiti con il contenuto del file di backup.</string>
+    <string name="settings_restore_done">Fatto</string>
+    <string name="settings_restore_error_title">Ripristino fallito</string>
+    <string name="settings_restore_error_text">Il file di backup non può essere ripristinato. Nessun dato è stato modificato.</string>
+    <string name="settings_restore_try_again">Riprova</string>
+</resources>

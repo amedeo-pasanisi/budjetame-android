@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_checking">Accesso in corso…</string>
+    <string name="shell_checking_failed">Impossibile connettersi a Budjetame.</string>
+    <string name="shell_checking_failed_hint">Controlla la connessione e riprova.</string>
+    <string name="shell_brand">Budjetame</string>
+    <string name="shell_assistant">Assistente</string>
+    <string name="shell_settings">Impostazioni</string>
+    <string name="shell_sign_out">Esci</string>
+    <string name="shell_tab_dashboard">Home</string>
+    <string name="shell_tab_wallets">Portafogli</string>
+    <string name="shell_tab_transactions">Transazioni</string>
+    <string name="shell_tab_categories">Categorie</string>
+    <string name="shell_tab_recurring">Ricorrenti</string>
+    <string name="settings_title">Impostazioni</string>
+    <string name="settings_delete_account">Elimina account</string>
+    <string name="settings_delete_account_description">Elimina permanentemente il tuo Account e tutti i suoi dati.</string>
+    <string name="settings_delete_account_confirm">Questo elimina permanentemente il tuo Account e tutti i suoi dati. Continuare?</string>
+    <string name="settings_delete_account_error">Impossibile eliminare l\'Account. Riprova.</string>
+</resources>

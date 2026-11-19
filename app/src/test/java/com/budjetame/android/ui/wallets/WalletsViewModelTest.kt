@@ -9,6 +9,7 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.WalletUpdateRequest
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.ui.common.AmountInputMessages
+import com.budjetame.android.ui.common.EnglishStrings
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -196,7 +197,7 @@ class WalletsViewModelTest {
         )
         assertEquals(
             listOf("Contacts", "Checking Accounts", "Credit Cards", "Cash"),
-            state.sections.map { it.label },
+            state.sections.map { EnglishStrings.string(it.label) },
         )
         assertEquals(listOf("anna", "Leo", "Marco", "zara"), state.sections[0].items.map { it.name })
         assertEquals(listOf("Intesa"), state.sections[1].items.map { it.name })

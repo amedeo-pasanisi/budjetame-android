@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dashboard_title">Home</string>
+    <string name="dashboard_net_worth">PATRIMONIO NETTO</string>
+    <string name="dashboard_net_worth_description">La somma di tutti i saldi dei portafogli — portafogli contatto inclusi.</string>
+    <string name="dashboard_budget_spendable_today">DISPONIBILE OGGI</string>
+    <string name="dashboard_month">Mese</string>
+    <string name="dashboard_budget_frame_line">%1$s questo mese (%2$s entrate − %3$s uscite)</string>
+    <string name="dashboard_budget_per_day">%1$s al giorno</string>
+    <string name="dashboard_budget_over_today">%1$s oltre il budget odierno</string>
+    <string name="dashboard_budget_over_month">%1$s oltre il budget di questo mese</string>
+    <string name="dashboard_budget_left_month">%1$s rimanenti questo mese</string>
+    <string name="dashboard_kind_expenses">Spese</string>
+    <string name="dashboard_kind_incomes">Entrate</string>
+    <string name="dashboard_pie_title_expenses">%1$s · Spese per Categoria</string>
+    <string name="dashboard_pie_title_incomes">%1$s · Entrate per Categoria</string>
+    <string name="dashboard_pie_no_expenses">Nessuna spesa registrata a %1$s.</string>
+    <string name="dashboard_pie_no_incomes">Nessuna entrata registrata a %1$s.</string>
+    <string name="dashboard_trend_title_expenses">Spese · %1$s – %2$s</string>
+    <string name="dashboard_trend_title_incomes">Entrate · %1$s – %2$s</string>
+    <string name="dashboard_trend_no_expenses">Nessuna spesa tra %1$s e %2$s.</string>
+    <string name="dashboard_trend_no_incomes">Nessuna entrata tra %1$s e %2$s.</string>
+    <string name="dashboard_trend_from">Da</string>
+    <string name="dashboard_trend_to">A</string>
+    <string name="dashboard_month_picker_title">Seleziona mese</string>
+    <string name="dashboard_month_picker_previous_year_cd">Anno precedente</string>
+    <string name="dashboard_month_picker_next_year_cd">Anno successivo</string>
+</resources>
