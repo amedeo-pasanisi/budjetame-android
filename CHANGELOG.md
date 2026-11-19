@@ -17,6 +17,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 - **Settings** — **Restore from backup**: pick a Backup workbook, confirm twice (the first step offers a fresh Export all of the current state), and all the Account's data is replaced atomically with the file's contents — a malformed file changes nothing. A Backup that came from another Account is restored and then flagged with a notice; pending Undo entries are cleared. A Restore cannot be undone (#60).
 
+- **Settings** — a **Language** choice (English / Italiano), stored on the Account so the web app and the phone agree; on an Italian device it is set to Italian automatically once. Under Italiano, amounts read `1.000,42 €` and month labels, trend labels and dates are in Italian; Dictation and Quick Dictation listen in the chosen language. Stored amounts, Export and Backup files are unchanged (#59).
+
 ### Changed
 
 - **Forms** — Save is always clickable: pressing it on an invalid form saves nothing and shows what is wrong in red under each field ("Enter an amount", "Choose a wallet.", …), and the errors refresh on the next Save. Amounts accept both `17.5` and `17,5` (and `1.000,45` or `1,000.45`). Switching an Expense on a contact wallet to Income no longer silently swaps the wallet: it stays selected and the form says incomes can't be recorded there. A Draft that the rules rejected opens with its missing fields already marked. Now on the Transaction form (#49, #50, #51).
