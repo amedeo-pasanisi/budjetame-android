@@ -13,6 +13,7 @@ import com.budjetame.android.data.api.TransactionTransferCostLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionTransferIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.data.api.TransactionUndoRequest
 import com.budjetame.android.data.api.toApiException
 import retrofit2.HttpException
 
@@ -67,6 +68,12 @@ interface TransactionGateway {
     /** Delete a Transaction; the result carries the Cash negative-balance
      * indicator. */
     suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto
+
+    /** Undo a delete (web ADR-0031): send back the row held when it was
+     * deleted; the server re-inserts the very same Transaction and answers
+     * it. A failure carries the server's `detail` (403 foreign or missing
+     * reference, 422 rule error) and restores nothing. */
+    suspend fun undoTransaction(row: TransactionDto): TransactionDto
 
     /** The whole filtered ledger as the import template's .xlsx (US 7.3):
      * every Transaction matching `filters` — the same filter set the
@@ -270,6 +277,9 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
     override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
         call { api.delete(id) }
 
+    override suspend fun undoTransaction(row: TransactionDto): TransactionDto =
+        call { api.undo(undoRequestOf(row)) }
+
     override suspend fun export(filters: TransactionFilters): ExportFile {
         // A raw-body endpoint: Retrofit does not throw for a non-2xx (the
         // body is .xlsx, not JSON), so the mapping checks the response and
@@ -298,6 +308,27 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
         throw error.toApiException()
     }
 }
+
+/** The undo body for a held row: exactly the fields the backend's
+ * TransactionUndoRequest takes, nothing else (it forbids extra keys). */
+internal fun undoRequestOf(row: TransactionDto): TransactionUndoRequest = TransactionUndoRequest(
+    id = row.id,
+    type = row.type,
+    amount = row.amount,
+    date = row.date,
+    wallet_id = row.wallet_id,
+    source_wallet_id = row.source_wallet_id,
+    destination_wallet_id = row.destination_wallet_id,
+    category_id = row.category_id,
+    recurring_cost_id = row.recurring_cost_id,
+    recurring_income_id = row.recurring_income_id,
+    occurrence_date = row.occurrence_date,
+    description = row.description,
+    latitude = row.latitude,
+    longitude = row.longitude,
+    place_name = row.place_name,
+    place_id = row.place_id,
+)
 
 /**
  * The create body for a form draft — the ledger's create and the Draft

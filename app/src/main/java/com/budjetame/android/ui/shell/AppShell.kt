@@ -3,6 +3,7 @@ package com.budjetame.android.ui.shell
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -80,6 +81,8 @@ import com.budjetame.android.ui.settings.AssistantSettingsSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
+import com.budjetame.android.ui.undo.UndoStackViewModel
+import com.budjetame.android.ui.undo.UndoToastStack
 import com.budjetame.android.ui.wallets.WalletsScreen
 import kotlinx.coroutines.launch
 
@@ -154,6 +157,16 @@ fun AppShell(
     var pendingLedgerJump by remember { mutableStateOf<LedgerJump?>(null) }
     val scope = rememberCoroutineScope()
 
+    // The Undo stack (web ADR-0031, lifted to the app shell by web
+    // ADR-0034; ticket #58): one stack for every tab, owned here so a tab
+    // switch never forfeits an undo — the pager disposes the pages, never
+    // the shell. Held in the Activity's ViewModel store like the pages'
+    // ViewModels: it survives configuration changes and goes with the
+    // store on sign-out (ADR-0003). Screens report deletes into it; the
+    // shell renders it above the bottom bar and runs its Undo handler.
+    val undoStack = viewModel { UndoStackViewModel(transactionRepository) }.stack
+    val undoState by undoStack.state.collectAsStateWithLifecycle()
+
     // The five tabs in one finger-following pager (ADR-0003): the content
     // drags with the finger, a release snaps to the nearest tab, a fling
     // crosses one tab, and the bottom bar's taps animate to the page. The
@@ -203,51 +216,62 @@ fun AppShell(
         },
         bottomBar = { BottomTabs(pagerState) },
     ) { innerPadding ->
-        HorizontalPager(
-            state = pagerState,
-            // The header and the bottom bar stay fixed; only the content
-            // area pages. The tag lets the UI tests drag the pager itself
-            // (never a scrollable card inside a page).
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .testTag("tab-pager"),
-        ) { page ->
-            val tab = TABS[page]
-            tabState.SaveableStateProvider(key = tab.name) {
-                when (tab) {
-                    Tab.Dashboard -> DashboardScreen(
-                        dashboardRepository,
-                        recurringCostRepository,
-                        recurringIncomeRepository,
-                    )
-                    Tab.Wallets -> WalletsScreen(
-                        walletRepository,
-                        onLedgerJump = requestLedgerJump,
-                    )
-                    Tab.Transactions -> TransactionsScreen(
-                        transactionRepository,
-                        draftTransactionRepository,
-                        importRepository,
-                        walletRepository,
-                        categoryRepository,
-                        recurringCostRepository,
-                        recurringIncomeRepository,
-                        location = location,
-                        pendingLedgerJump = pendingLedgerJump,
-                        onLedgerJumpConsumed = { pendingLedgerJump = null },
-                    )
-                    Tab.Categories -> CategoriesScreen(
-                        categoryRepository,
-                        onLedgerJump = requestLedgerJump,
-                    )
-                    Tab.Recurring -> RecurringScreen(
-                        recurringCostRepository,
-                        recurringIncomeRepository,
-                        onLedgerJump = requestLedgerJump,
-                    )
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            HorizontalPager(
+                state = pagerState,
+                // The header and the bottom bar stay fixed; only the content
+                // area pages. The tag lets the UI tests drag the pager itself
+                // (never a scrollable card inside a page).
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("tab-pager"),
+            ) { page ->
+                val tab = TABS[page]
+                tabState.SaveableStateProvider(key = tab.name) {
+                    when (tab) {
+                        Tab.Dashboard -> DashboardScreen(
+                            dashboardRepository,
+                            recurringCostRepository,
+                            recurringIncomeRepository,
+                        )
+                        Tab.Wallets -> WalletsScreen(
+                            walletRepository,
+                            onLedgerJump = requestLedgerJump,
+                        )
+                        Tab.Transactions -> TransactionsScreen(
+                            transactionRepository,
+                            draftTransactionRepository,
+                            importRepository,
+                            walletRepository,
+                            categoryRepository,
+                            recurringCostRepository,
+                            recurringIncomeRepository,
+                            location = location,
+                            pendingLedgerJump = pendingLedgerJump,
+                            onLedgerJumpConsumed = { pendingLedgerJump = null },
+                            undoSink = undoStack,
+                        )
+                        Tab.Categories -> CategoriesScreen(
+                            categoryRepository,
+                            onLedgerJump = requestLedgerJump,
+                        )
+                        Tab.Recurring -> RecurringScreen(
+                            recurringCostRepository,
+                            recurringIncomeRepository,
+                            onLedgerJump = requestLedgerJump,
+                        )
+                    }
                 }
             }
+
+            // Outside the pager, over whichever page shows: the entries stay
+            // put while the pages slide underneath.
+            UndoToastStack(
+                state = undoState,
+                onUndo = undoStack::undo,
+                onDismiss = undoStack::dismiss,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 

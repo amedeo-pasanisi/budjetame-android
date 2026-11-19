@@ -5,6 +5,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeUp
@@ -386,6 +388,37 @@ class TabPagerTest {
         assertTrue(composeRule.onAllNodesWithText("Row 01").fetchSemanticsNodes().isEmpty())
     }
 
+    @Test
+    fun `an undo entry pushed on the transactions tab is still shown after switching tabs`() {
+        // The Undo stack lives in the shell (web ADR-0034, ticket #58): a
+        // single-tap delete on the Transactions tab pushes its entry, and
+        // leaving the tab neither hides nor forfeits it.
+        val transactions = LedgerTransactionGateway(rows = 3)
+        launchShell(
+            walletRepository = CashWalletGateway(),
+            transactionRepository = transactions,
+        )
+
+        composeRule.onNodeWithText("Transactions").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Row 01").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Row 01").performClick()
+        composeRule.onNode(hasText("Delete transaction") and hasClickAction())
+            .performScrollTo()
+            .performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Transaction deleted · Row 01")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(listOf(1), transactions.deletedIds)
+
+        composeRule.onNodeWithText("Dashboard").performClick()
+        waitForDashboard()
+        composeRule.onNodeWithText("Transaction deleted · Row 01").assertIsDisplayed()
+        composeRule.onNodeWithText("Undo").assertIsDisplayed()
+    }
+
     // --- Trivial in-memory gateways -----------------------------------------
 
     private class CashWalletGateway : WalletGateway {
@@ -443,7 +476,7 @@ class TabPagerTest {
         walletId: Int = 1,
         categoryId: Int? = null,
     ) : TransactionGateway {
-        val rows: List<TransactionDto> = (1..rows).map { index ->
+        val rows: MutableList<TransactionDto> = (1..rows).mapTo(mutableListOf()) { index ->
             TransactionDto(
                 id = index,
                 type = TransactionType.EXPENSE,
@@ -457,6 +490,7 @@ class TabPagerTest {
         }
         var fetchCount = 0
         val seenFilters = mutableListOf<TransactionFilters>()
+        val deletedIds = mutableListOf<Int>()
 
         override suspend fun fetchPage(
             filters: TransactionFilters,
@@ -465,15 +499,19 @@ class TabPagerTest {
         ): TransactionPageDto {
             fetchCount++
             seenFilters += filters
-            return TransactionPageDto(items = rows, next_cursor = null)
+            return TransactionPageDto(items = rows.toList(), next_cursor = null)
         }
 
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto =
             error("unused")
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto =
             error("unused")
-        override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
-            error("unused")
+        override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto {
+            deletedIds += id
+            rows.removeAll { it.id == id }
+            return TransactionDeleteResultDto(warning = false)
+        }
+        override suspend fun undoTransaction(row: TransactionDto): TransactionDto = error("unused")
         override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
     }
 
@@ -517,6 +555,7 @@ class TabPagerTest {
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto = error("unused")
+        override suspend fun undoTransaction(row: TransactionDto): TransactionDto = error("unused")
         override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
     }
 

@@ -156,6 +156,10 @@ _Avoid_: confirm, save, accept, promote
 The removal of a Draft Transaction without creating anything, at once and with no Undo. Nothing it referred to changes.
 _Avoid_: delete, reject, cancel
 
+**Undo**:
+The 10-second window after deleting a Transaction in which that deletion can be reversed. A delete is a single tap; one stack of up to three entries (newest first) sits above the bottom bar on every tab, each naming what was deleted and running its own countdown, and tapping Undo re-creates the very same Transaction (same id, same date, same Recurring pin) from the row the app held when it was deleted. If the pinned Occurrence was already paid in the meantime, the undo fails with the server's message rather than re-linking. The window is client-enforced and dies with the app process.
+_Avoid_: undo history, redo, soft delete, trash
+
 **Export**:
 A generated .xlsx of the Account's Transactions in the import template's format, downloaded from the ledger with the current filters and search applied. It carries only what the template carries: Opening Balance Transactions are left out (the template's type vocabulary has no value for them), Recurring links are never carried, and Places flatten to coordinates. Re-importing an Export into the same Account flags every row as a Duplicate; into a fresh Account it restores the ledger once its Wallets and Categories exist.
 _Avoid_: backup, dump, statement

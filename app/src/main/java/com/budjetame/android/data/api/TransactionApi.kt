@@ -256,6 +256,36 @@ data class TransactionTransferIncomeLinkUpdateRequest(
     val place_id: String?,
 )
 
+/**
+ * Undo a Transaction delete (web ADR-0031, ticket #58): the row the client
+ * held when the user deleted it, sent back field for field so the server
+ * re-inserts the very same Transaction — same id, same date, same
+ * Recurring pin (`recurring_cost_id`/`recurring_income_id` with the
+ * `occurrence_date` it paid). The backend forbids extra keys, so only these
+ * fields exist. A field left at its null default is dropped from the wire
+ * (the converter skips default-valued fields even with `explicitNulls`),
+ * and the backend reads a missing field as null.
+ */
+@Serializable
+data class TransactionUndoRequest(
+    val id: Int,
+    val type: TransactionType,
+    val amount: String,
+    val date: String,
+    val wallet_id: Int? = null,
+    val source_wallet_id: Int? = null,
+    val destination_wallet_id: Int? = null,
+    val category_id: Int? = null,
+    val recurring_cost_id: Int? = null,
+    val recurring_income_id: Int? = null,
+    val occurrence_date: String? = null,
+    val description: String? = null,
+    val latitude: String? = null,
+    val longitude: String? = null,
+    val place_name: String? = null,
+    val place_id: String? = null,
+)
+
 /** The result of a Transaction delete (US10/ID8): the Cash negative-balance
  * indicator — true exactly when the delete left a Cash Wallet negative. */
 @Serializable
@@ -368,4 +398,11 @@ interface TransactionApi {
      * or an Opening Balance (both are read-only). */
     @DELETE("transactions/{id}")
     suspend fun delete(@Path("id") id: Int): TransactionDeleteResultDto
+
+    /** 201 with the re-inserted Transaction under its original id; 403 when
+     * a referenced Wallet, Category or definition is foreign or gone, 422
+     * on a rule error (the pinned Occurrence already paid, a frozen
+     * Wallet). */
+    @POST("transactions/undo")
+    suspend fun undo(@Body body: TransactionUndoRequest): TransactionDto
 }
