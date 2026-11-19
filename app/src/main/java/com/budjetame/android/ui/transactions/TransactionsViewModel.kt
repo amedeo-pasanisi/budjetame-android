@@ -29,7 +29,9 @@ import com.budjetame.android.data.transaction.latLngFromWire
 import com.budjetame.android.data.transaction.placeFromWire
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
+import com.budjetame.android.ui.common.FieldErrors
 import com.budjetame.android.ui.common.LedgerJump
+import com.budjetame.android.ui.common.parseAmountInput
 import com.budjetame.android.ui.undo.DeletedEntity
 import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.ui.wallets.WalletModalState
@@ -240,7 +242,12 @@ class TransactionsViewModel(
          * the screen watches this flag, launches the system request, and
          * reports the answer back through `onLocationPermissionResult`. */
         val requestingLocationPermission: Boolean = false,
+        /** The server's rejection banner — never a Field Error. */
         val error: String? = null,
+        /** The Field Errors the last Save revealed (ADR-0009), field key
+         * ([TransactionFields]) → message; empty = none shown. Typing never
+         * clears them — only the next Save refreshes them. */
+        val fieldErrors: FieldErrors = emptyMap(),
         val submitting: Boolean = false,
         val deleting: Boolean = false,
     ) {
@@ -250,23 +257,10 @@ class TransactionsViewModel(
 
         val busy: Boolean get() = submitting || deleting
 
-        /** Mandatory fields gate Save: a strictly positive amount and the
-         * Wallet(s) the type needs — a Transfer also needs two distinct
-         * Wallets, and a date. A new form's date defaults to today in
-         * Europe/Rome and cannot be cleared; only a Draft's form whose Draft
-         * caught no date starts empty (ticket #67). Save is also blocked while the GPS
-         * lookup is in flight (locating), mirroring the web form. */
-        val canSubmit: Boolean
-            get() {
-                if (busy || locating || date.isEmpty() || parseAmount(amount) == null) return false
-                return if (isTransfer) {
-                    sourceWalletId != null &&
-                        destinationWalletId != null &&
-                        sourceWalletId != destinationWalletId
-                } else {
-                    walletId != null
-                }
-            }
+        /** Save is disabled only for in-flight work (ADR-0009) — a save or
+         * delete, or the GPS lookup, mirroring the web form — never because
+         * the form is invalid: an invalid Save reveals Field Errors. */
+        val canSave: Boolean get() = !busy && !locating
     }
 
     /**
@@ -603,24 +597,17 @@ class TransactionsViewModel(
                             ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id),
                         error = null,
                     )
-                    TransactionType.INCOME -> {
-                        // ADR-0017: an Income never rides a stale Contact
-                        // Wallet selection to the API — reset to a spendable
-                        // Wallet, like the initial seed.
-                        val selected = modal.walletId
-                            ?.let { id -> _uiState.value.wallets.find { it.id == id } }
-                        modal.copy(
-                            type = value,
-                            walletId = if (selected?.type == WalletType.CONTACT) {
-                                spendable.firstOrNull()?.id
-                            } else {
-                                modal.walletId ?: spendable.firstOrNull()?.id
-                            },
-                            categoryId = null,
-                            recurringCostId = null,
-                            error = null,
-                        )
-                    }
+                    // No silent swap (ADR-0009): a Contact Wallet picked for
+                    // an Expense stays selected, and Save flags it with the
+                    // "Incomes can't be recorded on contact wallets." Field
+                    // Error — ADR-0017's rule, enforced at Save.
+                    TransactionType.INCOME -> modal.copy(
+                        type = value,
+                        walletId = modal.walletId ?: spendable.firstOrNull()?.id,
+                        categoryId = null,
+                        recurringCostId = null,
+                        error = null,
+                    )
                     TransactionType.EXPENSE -> modal.copy(
                         type = value,
                         categoryId = null,
@@ -1085,7 +1072,7 @@ class TransactionsViewModel(
     /**
      * The Transaction form pre-filled from a Draft (the web form's seed
      * rules): the create form, type and Wallets choosable, each field the
-     * Draft caught filled in. A missing date stays empty for the Save gate
+     * Draft caught filled in. A missing date stays empty for a Field Error
      * to point at — never silently today; a missing type starts as an
      * Expense; a Wallet the Draft did not catch, or one that is frozen or
      * gone, falls back to the new form's default, like the web's.
@@ -1100,34 +1087,38 @@ class TransactionsViewModel(
         _uiState.update { state ->
             val active = activeWallets(state.wallets)
             val offered = { id: Int? -> id?.takeIf { wanted -> active.any { it.id == wanted } } }
+            val form = ModalState(
+                approving = draft,
+                type = type,
+                amount = draft.amount.orEmpty(),
+                date = draft.date.orEmpty(),
+                walletId = if (transfer) {
+                    null
+                } else {
+                    offered(draft.wallet_id) ?: spendableWallets(state.wallets).firstOrNull()?.id
+                },
+                sourceWalletId = if (transfer) {
+                    offered(draft.source_wallet_id) ?: active.firstOrNull()?.id
+                } else {
+                    null
+                },
+                destinationWalletId = if (transfer) {
+                    offered(draft.destination_wallet_id)
+                        ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id)
+                } else {
+                    null
+                },
+                categoryId = if (transfer) null else draft.category_id,
+                recurringCostId = draft.recurring_cost_id,
+                recurringIncomeId = draft.recurring_income_id,
+                description = draft.description.orEmpty(),
+                error = error,
+            )
+            // A rejected Approve (error set) reveals the Field Errors on what
+            // the Draft is missing at once, beside the rule banner; Edit opens
+            // clean, and the user's own Save reveals them.
             state.copy(
-                modal = ModalState(
-                    approving = draft,
-                    type = type,
-                    amount = draft.amount.orEmpty(),
-                    date = draft.date.orEmpty(),
-                    walletId = if (transfer) {
-                        null
-                    } else {
-                        offered(draft.wallet_id) ?: spendableWallets(state.wallets).firstOrNull()?.id
-                    },
-                    sourceWalletId = if (transfer) {
-                        offered(draft.source_wallet_id) ?: active.firstOrNull()?.id
-                    } else {
-                        null
-                    },
-                    destinationWalletId = if (transfer) {
-                        offered(draft.destination_wallet_id)
-                            ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id)
-                    } else {
-                        null
-                    },
-                    categoryId = if (transfer) null else draft.category_id,
-                    recurringCostId = draft.recurring_cost_id,
-                    recurringIncomeId = draft.recurring_income_id,
-                    description = draft.description.orEmpty(),
-                    error = error,
-                ),
+                modal = if (error != null) form.copy(fieldErrors = validateTransactionForm(form, state.wallets)) else form,
             )
         }
         refreshRecurringCosts()
@@ -1181,9 +1172,18 @@ class TransactionsViewModel(
         }
     }
 
+    /**
+     * Save, submit-and-validate (ADR-0009): the form is judged first. Any
+     * Field Error is revealed under its field and nothing is written; a
+     * valid form clears them and saves exactly as before — Approve for a
+     * Draft's form, the update for an edit, else the create.
+     */
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (!modal.canSave) return
+        val fieldErrors = validateTransactionForm(modal, _uiState.value.wallets)
+        updateModal { it.copy(fieldErrors = fieldErrors) }
+        if (fieldErrors.isNotEmpty()) return
         when {
             modal.approving != null -> approveFromForm(modal)
             modal.isEditing -> update(modal)
@@ -1299,7 +1299,10 @@ class TransactionsViewModel(
         val destination = modal.destinationWalletId?.let { id -> wallets.find { it.id == id } }
         return TransactionDraft(
             type = modal.type,
-            amount = modal.amount.trim(),
+            // The tolerant Amount Input (ADR-0009) sends the parsed value —
+            // "17,5" reaches the API as "17.5" — never the typed text. Only
+            // a validated form gets here, so the amount always parses.
+            amount = parseAmountInput(modal.amount)!!.toPlainString(),
             date = modal.date,
             walletId = if (modal.isTransfer) null else modal.walletId,
             sourceWalletId = if (modal.isTransfer) modal.sourceWalletId else null,

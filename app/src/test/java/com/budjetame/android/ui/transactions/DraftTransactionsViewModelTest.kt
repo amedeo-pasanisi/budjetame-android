@@ -25,6 +25,7 @@ import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
 import com.budjetame.android.data.transaction.ApiTransactionRepository
 import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.wallet.ApiWalletRepository
+import com.budjetame.android.ui.common.AmountInputMessages
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -40,7 +41,6 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -360,6 +360,43 @@ class DraftTransactionsViewModelTest {
     }
 
     @Test
+    fun `a rejected approve reveals the field errors on what the draft is missing`() = runBlocking {
+        walletStore.add(wallet(1, "Card"))
+        draftStore.add(draft(7, amount = null, date = null))
+        createViewModel()
+        awaitState { it.drafts.isNotEmpty() }
+
+        viewModel.approveDraft(viewModel.uiState.value.drafts.single())
+
+        awaitState { it.modal != null }
+        val modal = viewModel.uiState.value.modal!!
+        // The rule message stays the banner; the Field Errors point at
+        // what is left to fill, at once, without a Save first.
+        assertEquals("Amount is required", modal.error)
+        assertEquals(
+            mapOf(
+                TransactionFields.AMOUNT to AmountInputMessages.EMPTY,
+                TransactionFields.DATE to "Choose a date",
+            ),
+            modal.fieldErrors,
+        )
+        assertEquals(1, callsTo("POST", "/api/draft-transactions/7/approve").size)
+
+        // A Save with the fields still missing writes nothing more.
+        viewModel.submit()
+        assertEquals(1, callsTo("POST", "/api/draft-transactions/7/approve").size)
+
+        viewModel.onAmountChange("12,5")
+        viewModel.onDateChange("2026-11-18")
+        viewModel.submit()
+        awaitState { it.modal == null && it.drafts.isEmpty() }
+        val body = json.parseToJsonElement(
+            callsTo("POST", "/api/draft-transactions/7/approve").last().body,
+        ).jsonObject
+        assertEquals("12.5", body["amount"].toString().trim('"'))
+    }
+
+    @Test
     fun `the pre-filled form's save completes the approval with the edited fields`() = runBlocking {
         walletStore.add(wallet(1, "Card"))
         draftStore.add(draft(7, walletId = null))
@@ -443,9 +480,10 @@ class DraftTransactionsViewModelTest {
         assertEquals(TransactionType.TRANSFER, modal.type)
         assertEquals("50.00", modal.amount)
         assertEquals(1, modal.sourceWalletId)
-        // A missing date stays empty, never silently today: Save waits for it.
+        // A missing date stays empty, never silently today — and Edit shows
+        // no Field Errors until the user's own Save.
         assertEquals("", modal.date)
-        assertFalse(modal.canSubmit)
+        assertEquals(emptyMap<String, String>(), modal.fieldErrors)
         assertNull(modal.error)
         assertEquals(before, calls.size)
 
