@@ -122,11 +122,12 @@ class WalletsViewModelTest {
                 }
             }
 
-            method == "DELETE" && path.matches(Regex("/api/wallets/\\d+")) -> {
-                val id = path.removePrefix("/api/wallets/").toInt()
+            method == "POST" && path.matches(Regex("/api/wallets/\\d+/freeze")) -> {
+                val id = path.removePrefix("/api/wallets/").removeSuffix("/freeze").toInt()
                 val index = store.indexOfFirst { it.id == id }
-                store[index] = store[index].copy(frozen = true)
-                MockResponse().setResponseCode(204)
+                val frozen = store[index].copy(frozen = true)
+                store[index] = frozen
+                jsonResponse(200, json.encodeToString(frozen))
             }
 
             method == "POST" && path.matches(Regex("/api/wallets/\\d+/unfreeze")) -> {
@@ -345,7 +346,8 @@ class WalletsViewModelTest {
 
         assertTrue(viewModel.uiState.value.wallets.first { it.id == 1 }.frozen)
         assertEquals(listOf("To Freeze"), viewModel.uiState.value.frozenWallets.map { it.name })
-        assertTrue(calls.toList().any { it.method == "DELETE" && it.path == "/api/wallets/1" })
+        assertTrue(calls.toList().any { it.method == "POST" && it.path == "/api/wallets/1/freeze" })
+        assertFalse(calls.toList().any { it.method == "DELETE" })
     }
 
     @Test
