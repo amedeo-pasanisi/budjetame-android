@@ -257,18 +257,6 @@ class TransactionsViewModel(
         val canSave: Boolean get() = !busy && !locating
     }
 
-    /** The Transaction form's Field Errors for [modal] as it stands. */
-    private fun validate(modal: ModalState, wallets: List<WalletDto>): FieldErrors =
-        validateTransactionForm(
-            type = modal.type,
-            amount = modal.amount,
-            date = modal.date,
-            walletId = modal.walletId,
-            selectedWalletType = modal.walletId?.let { id -> wallets.find { it.id == id } }?.type,
-            sourceWalletId = modal.sourceWalletId,
-            destinationWalletId = modal.destinationWalletId,
-        )
-
     /**
      * The inline "New wallet…" modal (ADR-0013): a create-only
      * WalletModalState draft plus the exact Wallet field whose sentinel was
@@ -1124,7 +1112,7 @@ class TransactionsViewModel(
             // the Draft is missing at once, beside the rule banner; Edit opens
             // clean, and the user's own Save reveals them.
             state.copy(
-                modal = if (error != null) form.copy(fieldErrors = validate(form, state.wallets)) else form,
+                modal = if (error != null) form.copy(fieldErrors = validateTransactionForm(form, state.wallets)) else form,
             )
         }
         refreshRecurringCosts()
@@ -1187,7 +1175,7 @@ class TransactionsViewModel(
     fun submit() {
         val modal = _uiState.value.modal ?: return
         if (!modal.canSave) return
-        val fieldErrors = validate(modal, _uiState.value.wallets)
+        val fieldErrors = validateTransactionForm(modal, _uiState.value.wallets)
         updateModal { it.copy(fieldErrors = fieldErrors) }
         if (fieldErrors.isNotEmpty()) return
         when {

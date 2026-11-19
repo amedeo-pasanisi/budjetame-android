@@ -165,36 +165,39 @@ object TransactionFields {
 
 /**
  * Submit-and-validate (ADR-0009, mirror of the web TransactionForm's
- * `validate()`): one Field Error per wrong field, empty when the form may
- * save. [selectedWalletType] is the type of the Expense/Income's picked
- * Wallet — an Income on a Contact Wallet is flagged here rather than
- * silently swapped (ADR-0017's guard moved to Save). The date is
- * picker-set and cannot be cleared on a new form; only a Draft that caught
- * no date (ticket #67) can leave it empty.
+ * `validate()`): one Field Error per wrong field of [form], empty when it
+ * may save. [wallets] resolves the Expense/Income's picked Wallet — an
+ * Income on a Contact Wallet is flagged here rather than silently swapped
+ * (ADR-0017's guard moved to Save). The date is picker-set and cannot be
+ * cleared on a new form; only a Draft that caught no date (ticket #67) can
+ * leave it empty, so "Choose a date" (the web's copy) fires only there.
  */
 fun validateTransactionForm(
-    type: TransactionType,
-    amount: String,
-    date: String,
-    walletId: Int?,
-    selectedWalletType: WalletType?,
-    sourceWalletId: Int?,
-    destinationWalletId: Int?,
+    form: TransactionsViewModel.ModalState,
+    wallets: List<WalletDto>,
 ): FieldErrors = buildMap {
-    amountFieldError(amount)?.let { put(TransactionFields.AMOUNT, it) }
-    if (date.isBlank()) put(TransactionFields.DATE, "Choose a date")
-    if (type == TransactionType.TRANSFER) {
-        if (sourceWalletId == null) put(TransactionFields.SOURCE, "Choose the source wallet.")
-        if (destinationWalletId == null) put(TransactionFields.DESTINATION, "Choose the destination wallet.")
-        if (sourceWalletId != null && sourceWalletId == destinationWalletId) {
+    amountFieldError(form.amount)?.let { put(TransactionFields.AMOUNT, it) }
+    if (form.date.isBlank()) put(TransactionFields.DATE, "Choose a date")
+    if (form.isTransfer) {
+        val source = form.sourceWalletId
+        val destination = form.destinationWalletId
+        if (source == null) put(TransactionFields.SOURCE, "Choose the source wallet.")
+        if (destination == null) put(TransactionFields.DESTINATION, "Choose the destination wallet.")
+        if (source != null && source == destination) {
             // Both legs are equally wrong: the same message under each.
-            put(TransactionFields.SOURCE, "Source and destination must be different wallets.")
-            put(TransactionFields.DESTINATION, "Source and destination must be different wallets.")
+            val sameWallet = "Source and destination must be different wallets."
+            put(TransactionFields.SOURCE, sameWallet)
+            put(TransactionFields.DESTINATION, sameWallet)
         }
-    } else if (walletId == null) {
-        put(TransactionFields.WALLET, "Choose a wallet.")
-    } else if (type == TransactionType.INCOME && selectedWalletType == WalletType.CONTACT) {
-        put(TransactionFields.WALLET, "Incomes can't be recorded on contact wallets.")
+    } else {
+        val walletId = form.walletId
+        if (walletId == null) {
+            put(TransactionFields.WALLET, "Choose a wallet.")
+        } else if (form.type == TransactionType.INCOME &&
+            wallets.find { it.id == walletId }?.type == WalletType.CONTACT
+        ) {
+            put(TransactionFields.WALLET, "Incomes can't be recorded on contact wallets.")
+        }
     }
 }
 

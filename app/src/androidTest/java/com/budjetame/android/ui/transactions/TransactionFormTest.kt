@@ -123,15 +123,7 @@ class TransactionFormTest {
                 onAddWallet = onAddWallet,
                 onAddCategory = onAddCategory,
                 onSubmit = {
-                    val errors = validateTransactionForm(
-                        type = modal.type,
-                        amount = modal.amount,
-                        date = modal.date,
-                        walletId = modal.walletId,
-                        selectedWalletType = wallets.find { it.id == modal.walletId }?.type,
-                        sourceWalletId = modal.sourceWalletId,
-                        destinationWalletId = modal.destinationWalletId,
-                    )
+                    val errors = validateTransactionForm(modal, wallets)
                     modal = modal.copy(fieldErrors = errors)
                     if (errors.isEmpty()) submitted++
                 },
