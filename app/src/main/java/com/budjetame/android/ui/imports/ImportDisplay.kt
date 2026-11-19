@@ -3,6 +3,8 @@ package com.budjetame.android.ui.imports
 import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.ui.transactions.transactionTypeLabel
+import com.budjetame.android.util.Dates
+import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -26,8 +28,8 @@ fun importStatusWord(status: ImportRowStatus): String = when (status) {
 /** A row card's identifying line: "date · Type", with the web's "—" for a
  * field the file did not yield (a parse-error row may have neither). The
  * type word is the Transaction form's own label. */
-fun importRowTitleLine(date: String?, type: TransactionType?): String {
-    val day = date ?: "—"
+fun importRowTitleLine(date: String?, type: TransactionType?, locale: Locale = Locale.US): String {
+    val day = date?.let { Dates.ledgerDate(it, locale) } ?: "—"
     val kind = type?.let(::transactionTypeLabel) ?: "—"
     return "$day · $kind"
 }

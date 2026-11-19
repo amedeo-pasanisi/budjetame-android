@@ -11,6 +11,7 @@ import com.budjetame.android.data.dictation.DictationTones
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -44,6 +45,9 @@ class AssistantDictationTest {
 
     private lateinit var server: MockWebServer
     private lateinit var viewModel: AssistantViewModel
+
+    /** The app's shared Locale the ViewModel reads. */
+    private lateinit var localeFlow: MutableStateFlow<String>
 
     private val turnTexts = ConcurrentLinkedQueue<String>()
 
@@ -130,7 +134,7 @@ class AssistantDictationTest {
             settings = ApiAssistantSettingsRepository(client.create(AssistantSettingsApi::class.java)),
             recognizer = if (withRecognizer) recognizer else null,
             tones = tones,
-            locale = locale,
+            locale = MutableStateFlow(locale).also { localeFlow = it },
         )
         awaitState { it.available }
     }
@@ -326,6 +330,17 @@ class AssistantDictationTest {
 
         assertTrue(viewModel.uiState.value.dictationAvailable)
         assertEquals(listOf("start en-US"), events)
+    }
+
+    @Test
+    fun `a Locale changed in Settings is the next Dictation's language`() {
+        createViewModel(locale = "en")
+        viewModel.open()
+
+        localeFlow.value = "it"
+        viewModel.startDictation()
+
+        assertEquals(listOf("start it-IT"), events)
     }
 
     @Test

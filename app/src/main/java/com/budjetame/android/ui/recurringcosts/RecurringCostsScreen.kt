@@ -35,9 +35,11 @@ import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.ui.common.FrozenSectionToggle
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.theme.Slate500
+import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 
 // The web app's Tailwind red palette, ported for the Backlog badge
@@ -193,6 +195,7 @@ private fun RecurringCostRow(
     onLedgerJump: () -> Unit,
     onEdit: () -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     val shape = RoundedCornerShape(16.dp)
     Surface(
         shape = shape,
@@ -227,7 +230,7 @@ private fun RecurringCostRow(
                     )
                     Text(
                         text = "${intervalText(cost.interval_value, cost.interval_unit)} · " +
-                            "next due ${cost.next_due_date ?: "—"}",
+                            "next due ${cost.next_due_date?.let { Dates.ledgerDate(it, locale) } ?: "—"}",
                         // The web subtitle type: text-xs text-slate-500 (ticket #44).
                         fontSize = 12.sp,
                         color = Slate500,
@@ -238,7 +241,7 @@ private fun RecurringCostRow(
                     modifier = Modifier.padding(start = 8.dp),
                 ) {
                     Text(
-                        text = Money.formatEuros(cost.amount),
+                        text = Money.formatEuros(cost.amount, locale),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,

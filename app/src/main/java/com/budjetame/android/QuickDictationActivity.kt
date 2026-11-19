@@ -61,7 +61,7 @@ class QuickDictationActivity : ComponentActivity() {
                                     settings = container.assistantSettingsRepository,
                                     recognizer = container.dictationRecognizer,
                                     tones = container.dictationTones,
-                                    locale = current.locale,
+                                    locale = container.authRepository.locale,
                                     quick = true,
                                 )
                             }

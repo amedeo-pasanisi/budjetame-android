@@ -4,6 +4,7 @@ import com.budjetame.android.MainDispatcherRule
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.backup.BackupFile
 import com.budjetame.android.data.backup.BackupGateway
+import com.budjetame.android.data.backup.RestoreResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -35,6 +36,9 @@ class BackupViewModelTest {
             calls++
             return pending.await()
         }
+
+        override suspend fun restore(filename: String, content: ByteArray): RestoreResult =
+            error("Export all never restores")
     }
 
     private val backups = FakeBackups()

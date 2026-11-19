@@ -15,9 +15,13 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 - **Settings** — a new **Export all** section downloads a complete Backup of the Account as one multi-sheet Excel workbook (Transactions including Opening Balances, Wallets, Categories, Recurring Costs and Incomes, and skips), which you can save to the device or share. Unlike the ledger Export, it carries everything (#57).
 
+- **Settings** — **Restore from backup**: pick a Backup workbook, confirm twice (the first step offers a fresh Export all of the current state), and all the Account's data is replaced atomically with the file's contents — a malformed file changes nothing. A Backup that came from another Account is restored and then flagged with a notice; pending Undo entries are cleared. A Restore cannot be undone (#60).
+
+- **Settings** — a **Language** choice (English / Italiano), stored on the Account so the web app and the phone agree; on an Italian device it is set to Italian automatically once. Under Italiano, amounts read `1.000,42 €` and month labels, trend labels and dates are in Italian; Dictation and Quick Dictation listen in the chosen language. Stored amounts, Export and Backup files are unchanged (#59).
+
 ### Changed
 
-- **Forms** — Save is always clickable: pressing it on an invalid form saves nothing and shows what is wrong in red under each field ("Enter an amount", "Choose a wallet.", …), and the errors refresh on the next Save. Amounts accept both `17.5` and `17,5` (and `1.000,45` or `1,000.45`). Switching an Expense on a contact wallet to Income no longer silently swaps the wallet: it stays selected and the form says incomes can't be recorded there. A Draft that the rules rejected opens with its missing fields already marked. Now on the Transaction form (#49, #50, #51).
+- **Forms** — Save is always clickable: pressing it on an invalid form saves nothing and shows what is wrong in red under each field ("Enter an amount", "Choose a wallet.", …), and the errors refresh on the next Save. Amounts accept both `17.5` and `17,5` (and `1.000,45` or `1,000.45`). Switching an Expense on a contact wallet to Income no longer silently swaps the wallet: it stays selected and the form says incomes can't be recorded there. A Draft that the rules rejected opens with its missing fields already marked. Now on the Transaction and Recurring Income forms (#49, #50, #51, #53).
 - **Transactions** — deleting a Transaction is now a single tap: the "Tap again to confirm" step is gone, and an Undo entry ("Transaction deleted · …") with a 10-second countdown appears at the bottom of the screen, on every tab. Up to three stack, newest first; tapping Undo brings back the very same Transaction, with its original date and Recurring link. If the undo fails — for example because another Transaction already paid that Recurring Occurrence — the entry says why and nothing is restored (#58, #61).
 
 ### Fixed

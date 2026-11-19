@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.FreezeSection
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.UnfreezeSection
 import com.budjetame.android.util.Money
 
@@ -61,6 +62,7 @@ fun WalletModal(
     onUnfreeze: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     val wallet = modal.wallet
     val editing = wallet != null
 
@@ -135,7 +137,7 @@ fun WalletModal(
                         text = if (modal.type == WalletType.CONTACT) {
                             "Contact wallets start at €0 — money moves only through transfers."
                         } else {
-                            "Money you already have. Defaults to €0.00."
+                            "Money you already have. Defaults to ${Money.formatEuros("0.00", locale)}."
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -167,9 +169,9 @@ fun WalletModal(
                             confirmingFreeze = modal.confirmingFreeze,
                             freezeError = modal.freezeError,
                             onFreeze = onFreeze,
-                            disabledLabel = if (!modal.canFreeze) "Freeze requires €0.00 balance (currently ${Money.formatEuros(wallet.balance)})" else null,
+                            disabledLabel = if (!modal.canFreeze) "Freeze requires ${Money.formatEuros("0.00", locale)} balance (currently ${Money.formatEuros(wallet.balance, locale)})" else null,
                             heading = "Freeze wallet",
-                            description = "Hides the wallet and makes it read-only. Only possible at €0.00 balance; its transactions stay visible.",
+                            description = "Hides the wallet and makes it read-only. Only possible at ${Money.formatEuros("0.00", locale)} balance; its transactions stay visible.",
                         )
                     }
                 }

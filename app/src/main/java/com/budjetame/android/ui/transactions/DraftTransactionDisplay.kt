@@ -2,6 +2,8 @@ package com.budjetame.android.ui.transactions
 
 import com.budjetame.android.data.api.DraftTransactionDto
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.util.Money
+import java.util.Locale
 
 /**
  * Presentation-only logic for the pinned Drafts block (ADR-0036 in the web
@@ -11,12 +13,12 @@ import com.budjetame.android.data.api.TransactionType
 
 /** The row's amount, signed like a ledger row's; unsigned when the type is
  * unknown, and null when the Draft has no amount — the row marks it. */
-fun draftSignedAmount(draft: DraftTransactionDto): String? {
-    val amount = draft.amount ?: return null
+fun draftSignedAmount(draft: DraftTransactionDto, locale: Locale = Locale.US): String? {
+    val amount = Money.formatEuros(draft.amount ?: return null, locale)
     return when (draft.type) {
-        TransactionType.EXPENSE -> "-€$amount"
-        TransactionType.INCOME -> "+€$amount"
-        else -> "€$amount"
+        TransactionType.EXPENSE -> "-$amount"
+        TransactionType.INCOME -> "+$amount"
+        else -> amount
     }
 }
 

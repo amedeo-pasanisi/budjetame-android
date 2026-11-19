@@ -6,6 +6,7 @@ import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.util.Money
+import java.util.Locale
 
 /**
  * Presentation-only logic for the ledger rows and the filter chrome
@@ -17,10 +18,13 @@ import com.budjetame.android.util.Money
  */
 
 /** Expense/Income show signs; a Transfer and an Opening Balance never do. */
-fun signedAmount(transaction: TransactionDto): String = when (transaction.type) {
-    TransactionType.EXPENSE -> "-€${transaction.amount}"
-    TransactionType.INCOME -> "+€${transaction.amount}"
-    else -> "€${transaction.amount}"
+fun signedAmount(transaction: TransactionDto, locale: Locale = Locale.US): String {
+    val amount = Money.formatEuros(transaction.amount, locale)
+    return when (transaction.type) {
+        TransactionType.EXPENSE -> "-$amount"
+        TransactionType.INCOME -> "+$amount"
+        else -> amount
+    }
 }
 
 /** The Description as display text: trimmed, or null when missing or blank —
@@ -170,9 +174,9 @@ fun walletLabel(transaction: TransactionDto, wallets: List<WalletDto>): String =
 
 /** A Wallet option in the filter bar: "Name · Frozen (€balance)" — the
  * "· Frozen" mark is the filter bar's promise to include frozen wallets. */
-fun walletFilterLabel(wallet: WalletDto): String {
+fun walletFilterLabel(wallet: WalletDto, locale: Locale = Locale.US): String {
     val name = if (wallet.frozen) "${wallet.name} · Frozen" else wallet.name
-    return "$name (${Money.formatEuros(wallet.balance)})"
+    return "$name (${Money.formatEuros(wallet.balance, locale)})"
 }
 
 /** A Category option in the filter bar: the icon leads when set. */

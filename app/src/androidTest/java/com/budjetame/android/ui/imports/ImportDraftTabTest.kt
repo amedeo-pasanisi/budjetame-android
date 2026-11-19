@@ -38,6 +38,7 @@ import com.budjetame.android.data.transaction.ExportFile
 import com.budjetame.android.data.transaction.TransactionFilters
 import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
+import com.budjetame.android.ui.settings.FixedLocaleGateway
 import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
 import com.budjetame.android.ui.settings.NoBackupGateway
@@ -68,6 +69,7 @@ class ImportDraftTabTest {
         composeRule.setContent {
             AppShell(
                 account = AccountDto(id = 1, email = "test@budjetame.de"),
+                localeGateway = FixedLocaleGateway(),
                 assistantSettingsRepository = NoAssistantSettingsGateway(),
                 assistantRepository = NoAssistantGateway(),
                 dictationRecognizer = null,

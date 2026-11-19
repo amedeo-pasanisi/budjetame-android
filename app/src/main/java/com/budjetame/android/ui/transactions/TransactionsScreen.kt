@@ -89,6 +89,7 @@ import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.imports.ImportScreen
 import com.budjetame.android.ui.imports.ImportViewModel
@@ -861,13 +862,14 @@ private fun WalletFilterField(
     wallets: List<WalletDto>,
     onSelect: (Int?) -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
     ) {
         OutlinedTextField(
-            value = selected?.let(::walletFilterLabel) ?: "All wallets",
+            value = selected?.let { walletFilterLabel(it, locale) } ?: "All wallets",
             onValueChange = {},
             readOnly = true,
             singleLine = true,
@@ -890,7 +892,7 @@ private fun WalletFilterField(
             )
             wallets.forEach { wallet ->
                 DropdownMenuItem(
-                    text = { Text(walletFilterLabel(wallet)) },
+                    text = { Text(walletFilterLabel(wallet, locale)) },
                     onClick = {
                         onSelect(wallet.id)
                         expanded = false
@@ -1127,6 +1129,7 @@ private fun TransactionRow(
     state: TransactionsViewModel.UiState,
     onOpenEdit: () -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     val categoryName = transaction.category_id
         ?.let { id -> state.categories.find { it.id == id }?.name }
     val editable = isEditable(transaction, state.wallets)
@@ -1160,7 +1163,7 @@ private fun TransactionRow(
                 )
                 val location = locationSuffix(transaction).orEmpty()
                 Text(
-                    text = "${transaction.date} · ${walletLabel(transaction, state.wallets)}$location",
+                    text = "${Dates.ledgerDate(transaction.date, locale)} · ${walletLabel(transaction, state.wallets)}$location",
                     // The web subtitle type: text-xs text-slate-500 — 12 sp
                     // Normal in the web's exact gray (ticket #44).
                     fontSize = 12.sp,
@@ -1170,7 +1173,7 @@ private fun TransactionRow(
                 )
             }
             Text(
-                text = signedAmount(transaction),
+                text = signedAmount(transaction, locale),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,

@@ -46,6 +46,7 @@ import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.ui.categories.CategoryModal
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.transactions.descriptionText
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Money
@@ -382,6 +383,7 @@ private fun ImportRowCard(
     onToggle: () -> Unit,
     onEdit: () -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     val checkable = row.status == ImportRowStatus.OK
     val border = when (row.status) {
         ImportRowStatus.OK -> EMERALD_200
@@ -424,7 +426,7 @@ private fun ImportRowCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = importRowTitleLine(row.date, row.type),
+                        text = importRowTitleLine(row.date, row.type, locale),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -452,7 +454,7 @@ private fun ImportRowCard(
                     )
                 }
                 Text(
-                    text = row.amount?.let(Money::formatEuros) ?: "—",
+                    text = row.amount?.let { Money.formatEuros(it, locale) } ?: "—",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -600,7 +602,7 @@ private fun DonePhase(
 
 /** Read a picked document into memory: its display name and bytes, or null
  * when the read failed (the pick phase then surfaces its error). */
-private fun readPickedFile(resolver: ContentResolver, uri: Uri): Pair<String, ByteArray>? = try {
+internal fun readPickedFile(resolver: ContentResolver, uri: Uri): Pair<String, ByteArray>? = try {
     val name = resolver.query(
         uri,
         arrayOf(OpenableColumns.DISPLAY_NAME),

@@ -3,6 +3,7 @@ package com.budjetame.android.data.backup
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.BackupApi
+import com.budjetame.android.data.api.DataVersion
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -10,6 +11,8 @@ import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
@@ -97,5 +100,67 @@ class BackupRepositoryTest {
         } catch (error: ApiException) {
             assertEquals(500, error.status)
         }
+    }
+
+    // --- Restore (ticket #60, web #115): POST /backup/restore ---
+
+    @Test
+    fun `a restore uploads the picked workbook as the multipart file and bumps the data version`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"status":"ok"}"""),
+        )
+        val before = DataVersion.current()
+
+        val result = repository.restore("budjetame-backup-2026-11-01.xlsx", workbook)
+
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/api/backup/restore", request.requestUrl?.encodedPath)
+        assertEquals("Bearer secret-token", request.getHeader("Authorization"))
+        assertTrue(request.getHeader("Content-Type")!!.startsWith("multipart/form-data"))
+        val body = request.body.readByteArray()
+        val text = String(body, Charsets.ISO_8859_1)
+        assertTrue(text.contains("name=\"file\"; filename=\"budjetame-backup-2026-11-01.xlsx\""))
+        assertTrue(text.contains(String(workbook, Charsets.ISO_8859_1)))
+        assertNull(result.warning)
+        // A restore is a write: every screen revalidates (ADR-0002).
+        assertTrue(DataVersion.current() > before)
+    }
+
+    @Test
+    fun `a restore's origin-mismatch warning is parsed`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"status":"ok","warning":"Backup was exported from a@x.com, not from b@x.com"}"""),
+        )
+
+        val result = repository.restore("backup.xlsx", workbook)
+
+        assertEquals("Backup was exported from a@x.com, not from b@x.com", result.warning)
+    }
+
+    @Test
+    fun `a malformed workbook's 422 throws with the server's detail and bumps nothing`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(422)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"detail":"Could not parse workbook: not a zip file"}"""),
+        )
+        val before = DataVersion.current()
+
+        try {
+            repository.restore("backup.xlsx", workbook)
+            fail("expected the 422 to throw")
+        } catch (error: ApiException) {
+            assertEquals(422, error.status)
+            assertEquals("Could not parse workbook: not a zip file", error.detail)
+        }
+        assertEquals(before, DataVersion.current())
     }
 }

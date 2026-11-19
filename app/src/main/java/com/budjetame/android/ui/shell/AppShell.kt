@@ -67,6 +67,7 @@ import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
 import com.budjetame.android.data.imports.ImportGateway
+import com.budjetame.android.data.locale.LocaleGateway
 import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
@@ -80,6 +81,8 @@ import com.budjetame.android.ui.dashboard.DashboardScreen
 import com.budjetame.android.ui.recurring.RecurringScreen
 import com.budjetame.android.ui.settings.AssistantSettingsSection
 import com.budjetame.android.ui.settings.BackupSection
+import com.budjetame.android.ui.settings.LanguageSettingsSection
+import com.budjetame.android.ui.settings.RestoreSection
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
 import com.budjetame.android.ui.transactions.TransactionsScreen
@@ -104,6 +107,10 @@ private val TABS = Tab.entries
 @Composable
 fun AppShell(
     account: AccountDto,
+    /** The Account's Locale (issue #59): the app's single observable source,
+     * fed by the `/auth/me` read that produced [account]. The Settings
+     * dialog changes it and the Assistant's Dictation listens in it. */
+    localeGateway: LocaleGateway,
     /** The Assistant Settings block of the Settings dialog (ticket #66). */
     assistantSettingsRepository: AssistantSettingsGateway,
     /** The Assistant's turns (ticket #68). */
@@ -143,7 +150,7 @@ fun AppShell(
             settings = assistantSettingsRepository,
             recognizer = dictationRecognizer,
             tones = dictationTones,
-            locale = account.language,
+            locale = localeGateway.locale,
         )
     }
     val assistantState by assistant.uiState.collectAsStateWithLifecycle()
@@ -282,8 +289,12 @@ fun AppShell(
     if (showSettings) {
         SettingsDialog(
             email = account.email,
+            localeGateway = localeGateway,
             assistantSettingsRepository = assistantSettingsRepository,
             backupRepository = backupRepository,
+            // A restore replaces every row the undo entries point at: they
+            // are stale by definition (ticket #60, web ADR-0034).
+            onRestored = undoStack::clear,
             onClose = {
                 showSettings = false
                 assistant.refreshAvailability()
@@ -406,15 +417,19 @@ private fun BottomTabs(pagerState: PagerState) {
 
 /**
  * The app's settings (web issue #84): the account email, the Assistant
- * Settings, the Backup's Export all (ticket #57), and the destructive
+ * Settings, the Backup's Export all (ticket #57) and Restore (ticket #60),
+ * and the destructive
  * account-deletion action behind its own confirm step, with the web app's
  * exact copy.
  */
 @Composable
 private fun SettingsDialog(
     email: String,
+    localeGateway: LocaleGateway,
     assistantSettingsRepository: AssistantSettingsGateway,
     backupRepository: BackupGateway,
+    /** A restore succeeded: the shell clears its undo stack. */
+    onRestored: () -> Unit,
     onClose: () -> Unit,
     onDeleteAccount: suspend () -> Unit,
 ) {
@@ -435,9 +450,14 @@ private fun SettingsDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                LanguageSettingsSection(localeGateway)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 AssistantSettingsSection(assistantSettingsRepository)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 BackupSection(backupRepository)
+                // Next to Export all, in the same dialog: step one's fresh
+                // Backup shares the Backup block's held workbook (ticket #60).
+                RestoreSection(backupRepository, onRestored = onRestored, onCloseSettings = onClose)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text(
                     text = "Delete account",
