@@ -11,6 +11,8 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.10.0] — 2026-11-19
+
 ### Added
 
 - **Settings** — a new **Export all** section downloads a complete Backup of the Account as one multi-sheet Excel workbook (Transactions including Opening Balances, Wallets, Categories, Recurring Costs and Incomes, and skips), which you can save to the device or share. Unlike the ledger Export, it carries everything (#57).
@@ -330,6 +332,7 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.10.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.10.0
 [v1.9.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.9.0
 [v1.7.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.7.1
 [v1.7.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.7.0
