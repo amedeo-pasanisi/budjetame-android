@@ -72,6 +72,7 @@ class TransactionInlineCreateTest {
                 categories = categoryGateway,
                 recurringCosts = recurringCostGateway,
                 recurringIncomes = recurringIncomeGateway,
+                drafts = NoDraftTransactions(),
                 location = InlineSilentLocation(),
             )
         }

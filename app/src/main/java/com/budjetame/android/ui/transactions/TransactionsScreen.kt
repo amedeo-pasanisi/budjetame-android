@@ -78,6 +78,7 @@ import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
 import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
@@ -134,6 +135,8 @@ private val AMBER_700 = Color(0xFFB45309)
 @Composable
 fun TransactionsScreen(
     transactions: TransactionGateway,
+    /** The Draft Transactions pinned above the ledger (ticket #67). */
+    drafts: DraftTransactionGateway,
     imports: ImportGateway,
     wallets: WalletGateway,
     categories: CategoryGateway,
@@ -159,6 +162,7 @@ fun TransactionsScreen(
             categories,
             recurringCosts,
             recurringIncomes,
+            drafts,
             location = location,
             // A jump that arrives before this page was ever visited seeds
             // the ViewModel's initial state: its very first fetch already
@@ -512,6 +516,28 @@ private fun Ledger(
                                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                             )
                         }
+                    }
+                }
+            }
+
+            // The pinned Drafts (ADR-0036 in the web repo, ticket #67):
+            // above the records, whatever the filters and search say — a
+            // Draft is not a Transaction and is never filtered as one — and
+            // sticky like the rest of the list head (ADR-0005). Absent when
+            // there is none.
+            if (state.drafts.isNotEmpty()) {
+                stickyHeader(key = "drafts") {
+                    Surface(color = MaterialTheme.colorScheme.background) {
+                        DraftTransactionsBlock(
+                            drafts = state.drafts,
+                            wallets = state.wallets,
+                            categories = state.categories,
+                            error = state.draftError,
+                            onApprove = viewModel::approveDraft,
+                            onEdit = viewModel::editDraft,
+                            onDiscard = viewModel::discardDraft,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                        )
                     }
                 }
             }

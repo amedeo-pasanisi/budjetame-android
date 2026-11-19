@@ -7,6 +7,7 @@ import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.AuthApi
 import com.budjetame.android.data.api.CategoryApi
 import com.budjetame.android.data.api.DashboardApi
+import com.budjetame.android.data.api.DraftTransactionApi
 import com.budjetame.android.data.api.RecurringCostApi
 import com.budjetame.android.data.api.RecurringIncomeApi
 import com.budjetame.android.data.api.ImportApi
@@ -15,6 +16,7 @@ import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.auth.ApiAuthRepository
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.dashboard.ApiDashboardRepository
+import com.budjetame.android.data.drafttransaction.ApiDraftTransactionRepository
 import com.budjetame.android.data.imports.ApiImportRepository
 import com.budjetame.android.data.location.AndroidDeviceLocation
 import com.budjetame.android.data.location.DeviceLocation
@@ -45,6 +47,9 @@ class AppContainer(context: Context) {
     val dashboardRepository = ApiDashboardRepository(api.create(DashboardApi::class.java))
 
     val transactionRepository = ApiTransactionRepository(api.create(TransactionApi::class.java))
+
+    /** The Draft Transactions pinned above the ledger (ticket #67). */
+    val draftTransactionRepository = ApiDraftTransactionRepository(api.create(DraftTransactionApi::class.java))
 
     val importRepository = ApiImportRepository(api.create(ImportApi::class.java))
 

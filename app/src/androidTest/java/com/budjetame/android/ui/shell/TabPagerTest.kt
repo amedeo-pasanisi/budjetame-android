@@ -57,6 +57,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.budjetame.android.ui.transactions.NoDraftTransactions
 
 /**
  * The shell's swipeable tabs (ADR-0003, ticket #41) through the composed
@@ -86,6 +87,7 @@ class TabPagerTest {
                 categoryRepository = categoryRepository,
                 dashboardRepository = EmptyDashboardGateway(),
                 transactionRepository = transactionRepository,
+                draftTransactionRepository = NoDraftTransactions(),
                 importRepository = EmptyImportGateway(),
                 recurringCostRepository = EmptyRecurringCostGateway(),
                 recurringIncomeRepository = EmptyRecurringIncomeGateway(),

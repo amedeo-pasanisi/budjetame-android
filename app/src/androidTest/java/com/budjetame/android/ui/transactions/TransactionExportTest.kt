@@ -72,6 +72,7 @@ class TransactionExportTest {
                 categoryRepository = FakeCategoryGateway(),
                 dashboardRepository = FakeDashboardGateway(),
                 transactionRepository = transactions,
+                draftTransactionRepository = NoDraftTransactions(),
                 importRepository = FakeImportGateway(),
                 recurringCostRepository = FakeRecurringCostGateway(),
                 recurringIncomeRepository = FakeRecurringIncomeGateway(),

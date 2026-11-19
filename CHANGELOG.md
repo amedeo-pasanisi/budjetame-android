@@ -20,6 +20,7 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 ### Added
 
 - **Dashboard** — the Budget card now supports a **month selector**
+- **Transactions** — Draft Transactions written by the Assistant (on the web or on another device) now sit pinned above the ledger, each with the same columns as a Transaction row and its missing fields marked in amber. **Approve** turns a complete Draft into a Transaction in one tap; a Draft the rules reject opens the Transaction form pre-filled, with the reason in its banner, and its Save completes the approval. **Edit** opens that form directly, and **Discard** removes the Draft at once, with no Undo. Drafts count toward nothing — no Balance, Budget, dashboard figure or Export (#67).
 
 ### Fixed
 
