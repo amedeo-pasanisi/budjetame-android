@@ -6,6 +6,7 @@ import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
+import com.budjetame.android.data.api.DraftTransactionDto
 import com.budjetame.android.data.api.RecurringCostDto
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
@@ -14,6 +15,7 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
 import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
@@ -77,6 +79,10 @@ class TransactionsViewModel(
     private val categories: CategoryGateway,
     private val recurringCosts: RecurringCostGateway,
     private val recurringIncomes: RecurringIncomeGateway,
+    /** The Draft Transactions pinned above the ledger (ADR-0036 in the web
+     * repo, ticket #67): listed on every reload, Approved, Edited into the
+     * form, or Discarded from their own rows. */
+    private val drafts: DraftTransactionGateway,
     private val searchDebounceMillis: Long = SEARCH_DEBOUNCE_MILLIS,
     /** The device GPS (ticket #29): the form's "Use my location" pick and
      * its first-save prefill. The permission *prompt* is a screen concern —
@@ -111,6 +117,14 @@ class TransactionsViewModel(
          * the ledger itself. */
         val recurringIncomes: List<RecurringIncomeDto> = emptyList(),
         val transactions: List<TransactionDto> = emptyList(),
+        /** The Account's Draft Transactions, oldest first, pinned above the
+         * ledger whatever the filters and search say — a Draft is not a
+         * Transaction and is never filtered, counted or exported as one.
+         * Fetched on every reload; a failed fetch keeps the held list. */
+        val drafts: List<DraftTransactionDto> = emptyList(),
+        /** The last failed Approve or Discard on a Draft row, shown in the
+         * Drafts block; null = none. Cleared by the next Draft action. */
+        val draftError: String? = null,
         val nextCursor: String? = null,
         val loadingMore: Boolean = false,
         val loadMoreError: String? = null,
@@ -184,6 +198,11 @@ class TransactionsViewModel(
      */
     data class ModalState(
         val editing: TransactionDto? = null,
+        /** The Draft Transaction this form approves (ADR-0036 in the web
+         * repo, ticket #67), null otherwise: the form is the create form,
+         * pre-filled from the Draft, and its Save goes through Approve with
+         * the edited fields instead of the plain create. */
+        val approving: DraftTransactionDto? = null,
         val type: TransactionType = TransactionType.EXPENSE,
         val amount: String = "",
         val date: String = "",
@@ -227,12 +246,13 @@ class TransactionsViewModel(
 
         /** Mandatory fields gate Save: a strictly positive amount and the
          * Wallet(s) the type needs — a Transfer also needs two distinct
-         * Wallets. The date defaults to today in Europe/Rome and cannot be
-         * cleared, so it is always set. Save is also blocked while the GPS
+         * Wallets, and a date. A new form's date defaults to today in
+         * Europe/Rome and cannot be cleared; only a Draft's form whose Draft
+         * caught no date starts empty (ticket #67). Save is also blocked while the GPS
          * lookup is in flight (locating), mirroring the web form. */
         val canSubmit: Boolean
             get() {
-                if (busy || locating || parseAmount(amount) == null) return false
+                if (busy || locating || date.isEmpty() || parseAmount(amount) == null) return false
                 return if (isTransfer) {
                     sourceWalletId != null &&
                         destinationWalletId != null &&
@@ -989,10 +1009,180 @@ class TransactionsViewModel(
         _uiState.update { it.copy(exportError = message) }
     }
 
+    // --- Draft Transactions (ADR-0036 in the web repo, ticket #67) ---
+
+    /**
+     * Approve, the one tap: the atomic endpoint judges the Draft as it
+     * stands, creates the Transaction and removes the Draft in one request.
+     * The row goes at once on success, and the write's data-version bump
+     * reloads the ledger, which now shows the Transaction.
+     */
+    fun approveDraft(draft: DraftTransactionDto) {
+        _uiState.update { it.copy(draftError = null) }
+        viewModelScope.launch {
+            try {
+                val saved = drafts.approve(draft.id)
+                onDraftApproved(draft, saved)
+            } catch (error: ApiException) {
+                // 422: the rules reject the Draft as it stands — a missing
+                // field, a frozen Wallet, a Category of the wrong type. The
+                // form opens pre-filled with the rule in its banner, and its
+                // Save goes back through Approve.
+                if (error.status == 422) {
+                    openDraftForm(draft, approveRuleMessage(error))
+                } else {
+                    onDraftApproveFailed()
+                }
+            } catch (_: Exception) {
+                onDraftApproveFailed()
+            }
+        }
+    }
+
+    /**
+     * Edit: the same pre-filled form, opened directly — no request first,
+     * no message; its Save goes through Approve all the same.
+     */
+    fun editDraft(draft: DraftTransactionDto) {
+        _uiState.update { it.copy(draftError = null) }
+        openDraftForm(draft, error = null)
+    }
+
+    /**
+     * Discard: the row goes at once — a Draft has no history, so there is
+     * nothing to undo and no reason to wait — and the request follows; its
+     * success bumps the data version like any write (ADR-0002). A failure
+     * puts the row back where it was, with a message.
+     */
+    fun discardDraft(draft: DraftTransactionDto) {
+        _uiState.update { state ->
+            state.copy(draftError = null, drafts = state.drafts.filterNot { it.id == draft.id })
+        }
+        viewModelScope.launch {
+            try {
+                drafts.discard(draft.id)
+            } catch (_: Exception) {
+                _uiState.update { state ->
+                    state.copy(
+                        draftError = DRAFT_DISCARD_ERROR,
+                        drafts = if (state.drafts.any { it.id == draft.id }) {
+                            state.drafts
+                        } else {
+                            (state.drafts + draft).sortedBy { it.id }
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * The Transaction form pre-filled from a Draft (the web form's seed
+     * rules): the create form, type and Wallets choosable, each field the
+     * Draft caught filled in. A missing date stays empty for the Save gate
+     * to point at — never silently today; a missing type starts as an
+     * Expense; a Wallet the Draft did not catch, or one that is frozen or
+     * gone, falls back to the new form's default, like the web's.
+     */
+    private fun openDraftForm(draft: DraftTransactionDto, error: String?) {
+        val type = when (draft.type) {
+            TransactionType.INCOME -> TransactionType.INCOME
+            TransactionType.TRANSFER -> TransactionType.TRANSFER
+            else -> TransactionType.EXPENSE
+        }
+        val transfer = type == TransactionType.TRANSFER
+        _uiState.update { state ->
+            val active = activeWallets(state.wallets)
+            val offered = { id: Int? -> id?.takeIf { wanted -> active.any { it.id == wanted } } }
+            state.copy(
+                modal = ModalState(
+                    approving = draft,
+                    type = type,
+                    amount = draft.amount.orEmpty(),
+                    date = draft.date.orEmpty(),
+                    walletId = if (transfer) {
+                        null
+                    } else {
+                        offered(draft.wallet_id) ?: spendableWallets(state.wallets).firstOrNull()?.id
+                    },
+                    sourceWalletId = if (transfer) {
+                        offered(draft.source_wallet_id) ?: active.firstOrNull()?.id
+                    } else {
+                        null
+                    },
+                    destinationWalletId = if (transfer) {
+                        offered(draft.destination_wallet_id)
+                            ?: (active.getOrNull(1)?.id ?: active.firstOrNull()?.id)
+                    } else {
+                        null
+                    },
+                    categoryId = if (transfer) null else draft.category_id,
+                    recurringCostId = draft.recurring_cost_id,
+                    recurringIncomeId = draft.recurring_income_id,
+                    description = draft.description.orEmpty(),
+                    error = error,
+                ),
+            )
+        }
+        refreshRecurringCosts()
+        refreshRecurringIncomes()
+    }
+
+    /** A Draft became a Transaction: its row goes at once (the write's
+     * data-version bump reloads the ledger and the Drafts anyway), the form
+     * closes, and the save's Cash warning shows. */
+    private fun onDraftApproved(draft: DraftTransactionDto, saved: TransactionDto) {
+        _uiState.update { state ->
+            state.copy(
+                drafts = state.drafts.filterNot { it.id == draft.id },
+                modal = null,
+                savedWarning = savedWarningOf(saved),
+            )
+        }
+    }
+
+    /** Any other Approve failure — the Draft approved or discarded from
+     * another device (403), the network — leaves a message on the block and
+     * refetches the Drafts, so a Draft that is gone leaves with it. */
+    private fun onDraftApproveFailed() {
+        _uiState.update { it.copy(draftError = DRAFT_APPROVE_ERROR) }
+        refreshDrafts()
+    }
+
+    /** The pre-filled form's Save: Approve with the edited fields. A rule
+     * error keeps the form open with its message, the Draft in place. */
+    private fun approveFromForm(modal: ModalState) {
+        val draft = modal.approving ?: return
+        viewModelScope.launch {
+            updateModal { it.copy(submitting = true, error = null) }
+            try {
+                val saved = drafts.approve(draft.id, draftOf(modal, _uiState.value.wallets))
+                onDraftApproved(draft, saved)
+            } catch (error: ApiException) {
+                updateModal {
+                    it.copy(
+                        submitting = false,
+                        error = if (error.status == 422) {
+                            approveRuleMessage(error)
+                        } else {
+                            DRAFT_APPROVE_ERROR
+                        },
+                    )
+                }
+            } catch (_: Exception) {
+                updateModal { it.copy(submitting = false, error = DRAFT_APPROVE_ERROR) }
+            }
+        }
+    }
+
     fun submit() {
         val modal = _uiState.value.modal ?: return
         if (!modal.canSubmit) return
-        if (modal.isEditing) update(modal) else create()
+        when {
+            modal.approving != null -> approveFromForm(modal)
+            modal.isEditing -> update(modal)
+            else -> create()
+        }
     }
 
     fun onDeleteTap() {
@@ -1050,11 +1240,7 @@ class TransactionsViewModel(
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
-                        savedWarning = if (saved.warning) {
-                            "Saved — this made a Cash wallet negative."
-                        } else {
-                            null
-                        },
+                        savedWarning = savedWarningOf(saved),
                     )
                 }
             } catch (error: ApiException) {
@@ -1083,11 +1269,7 @@ class TransactionsViewModel(
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
-                        savedWarning = if (saved.warning) {
-                            "Saved — this made a Cash wallet negative."
-                        } else {
-                            null
-                        },
+                        savedWarning = savedWarningOf(saved),
                     )
                 }
             } catch (error: ApiException) {
@@ -1152,6 +1334,15 @@ class TransactionsViewModel(
             place = modal.place.takeIf { modal.location != null },
         )
     }
+
+    /** The post-write Cash negative-balance banner of a save (ticket #20). */
+    private fun savedWarningOf(saved: TransactionDto): String? =
+        if (saved.warning) "Saved — this made a Cash wallet negative." else null
+
+    /** The message a 422 from Approve carries: the backend's rule as its
+     * `detail`, else the shared validation copy. */
+    private fun approveRuleMessage(error: ApiException): String =
+        error.detail ?: apiErrorMessage(error.status, "", "")
 
     /** The five panel filters reset to "all" (web issue #92's taxonomy) —
      * wallet, category, from-date, to-date, recurring. The search is
@@ -1275,6 +1466,24 @@ class TransactionsViewModel(
             // around, an optional fetch failure is not a ledger error.
             refreshRecurringCosts()
             refreshRecurringIncomes()
+            refreshDrafts()
+        }
+    }
+
+    /**
+     * The pinned Drafts (ADR-0036), fetched on every reload: the Assistant
+     * writes them from any tab or device, and any write bumps the data
+     * version (ADR-0002). Optional like the Recurring lists — a failed fetch
+     * keeps the held Drafts and never becomes a ledger error.
+     */
+    private fun refreshDrafts() {
+        viewModelScope.launch {
+            try {
+                val loaded = drafts.fetchDrafts()
+                _uiState.update { it.copy(drafts = loaded) }
+            } catch (_: Exception) {
+                // The block keeps its held Drafts.
+            }
         }
     }
 
@@ -1316,6 +1525,12 @@ class TransactionsViewModel(
     companion object {
         /** The web app's ~300ms debounce for the search needle. */
         const val SEARCH_DEBOUNCE_MILLIS = 300L
+
+        /** A failed Approve that is not a rule error (the web's copy). */
+        const val DRAFT_APPROVE_ERROR = "Could not approve the draft."
+
+        /** A failed Discard (the web's copy). */
+        const val DRAFT_DISCARD_ERROR = "Could not discard the draft."
 
         /** The Description field's cap (CONTEXT.md: up to 500 characters). */
         const val DESCRIPTION_MAX_LENGTH = 500

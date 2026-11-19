@@ -147,30 +147,7 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
     }
 
     override suspend fun createTransaction(draft: TransactionDraft): TransactionDto =
-        call {
-            val location = locationFields(draft)
-            api.create(
-                TransactionCreateRequest(
-                    type = draft.type,
-                    amount = draft.amount,
-                    date = draft.date,
-                    wallet_id = draft.walletId,
-                    source_wallet_id = draft.sourceWalletId,
-                    destination_wallet_id = draft.destinationWalletId,
-                    category_id = draft.categoryId,
-                    recurring_cost_id = draft.recurringCostId,
-                    recurring_income_id = draft.recurringIncomeId,
-                    description = draft.description,
-                    // The location's four keys travel whenever the form
-                    // carries a location (a fresh create has nothing to
-                    // clear, so a locationless create omits them).
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    place_name = location.place_name,
-                    place_id = location.place_id,
-                ),
-            )
-        }
+        call { api.create(createRequestOf(draft)) }
 
     override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto {
         // The location is always sent on an edit — values set it, explicit
@@ -320,27 +297,53 @@ class ApiTransactionRepository(private val api: TransactionApi) : TransactionGat
     } catch (error: HttpException) {
         throw error.toApiException()
     }
+}
 
-    /** The wire's four location keys for a draft (ticket #29): coordinates
-     * serialized through the shared helpers, and the Place only when it can
-     * accompany them — a Place without coordinates is outside the model
-     * (CONTEXT.md), so a locationless draft clears the place keys too. */
-    private fun locationFields(draft: TransactionDraft): LocationFields {
-        val wire = latLngToWire(draft.location)
-        val place = draft.place.takeIf { draft.location != null }
-        return LocationFields(
-            latitude = wire.latitude,
-            longitude = wire.longitude,
-            place_name = place?.name,
-            place_id = place?.placeId,
-        )
-    }
-
-    /** The four location keys of a request body. */
-    private data class LocationFields(
-        val latitude: String?,
-        val longitude: String?,
-        val place_name: String?,
-        val place_id: String?,
+/**
+ * The create body for a form draft — the ledger's create and the Draft
+ * Transaction's edited Approve (ADR-0036) send the same shape. The
+ * location's four keys travel whenever the form carries a location (a
+ * fresh create has nothing to clear, so a locationless create omits them).
+ */
+internal fun createRequestOf(draft: TransactionDraft): TransactionCreateRequest {
+    val location = locationFields(draft)
+    return TransactionCreateRequest(
+        type = draft.type,
+        amount = draft.amount,
+        date = draft.date,
+        wallet_id = draft.walletId,
+        source_wallet_id = draft.sourceWalletId,
+        destination_wallet_id = draft.destinationWalletId,
+        category_id = draft.categoryId,
+        recurring_cost_id = draft.recurringCostId,
+        recurring_income_id = draft.recurringIncomeId,
+        description = draft.description,
+        latitude = location.latitude,
+        longitude = location.longitude,
+        place_name = location.place_name,
+        place_id = location.place_id,
     )
 }
+
+/** The wire's four location keys for a draft (ticket #29): coordinates
+ * serialized through the shared helpers, and the Place only when it can
+ * accompany them — a Place without coordinates is outside the model
+ * (CONTEXT.md), so a locationless draft clears the place keys too. */
+private fun locationFields(draft: TransactionDraft): LocationFields {
+    val wire = latLngToWire(draft.location)
+    val place = draft.place.takeIf { draft.location != null }
+    return LocationFields(
+        latitude = wire.latitude,
+        longitude = wire.longitude,
+        place_name = place?.name,
+        place_id = place?.placeId,
+    )
+}
+
+/** The four location keys of a request body. */
+private data class LocationFields(
+    val latitude: String?,
+    val longitude: String?,
+    val place_name: String?,
+    val place_id: String?,
+)

@@ -97,6 +97,7 @@ class TransactionsChromeTest {
                 categories = categories,
                 recurringCosts = recurringCosts,
                 recurringIncomes = recurringIncomes,
+                drafts = NoDraftTransactions(),
                 location = ChromeSilentLocation(),
             )
         }
@@ -255,6 +256,7 @@ class TransactionsChromeTest {
                         categories = categories,
                         recurringCosts = recurringCosts,
                         recurringIncomes = recurringIncomes,
+                        drafts = NoDraftTransactions(),
                         location = ChromeSilentLocation(),
                     )
                 }
@@ -477,6 +479,7 @@ class TransactionsChromeTest {
                         categories = categories,
                         recurringCosts = recurringCosts,
                         recurringIncomes = recurringIncomes,
+                        drafts = NoDraftTransactions(),
                         location = ChromeSilentLocation(),
                     )
                 }

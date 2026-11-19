@@ -136,6 +136,18 @@ _Avoid_: re-check, refresh, re-scan
 The act of editing a Preview row — date, amount, type, wallet(s), category, description, location — so it becomes acceptable for import. A verified row is re-validated against the database as it is saved.
 _Avoid_: fixing rows
 
+**Draft Transaction**:
+A stored, unapproved record of a money movement produced by the Assistant: the same fields a Transaction carries, any of which may still be missing, scoped to the Account like everything else. It is not a Transaction: it counts toward no Balance, Net Worth or Budget, appears in no dashboard figure or Export, and takes no part in the Duplicate check. It sits pinned above the ledger on the Transactions tab, its missing fields marked, until it is Approved or Discarded. Not to be confused with an Import Draft, which is the unconfirmed state of an import.
+_Avoid_: draft, pending transaction, voice note, unconfirmed transaction, suggestion
+
+**Approve**:
+The one tap that turns a Draft Transaction into a Transaction through the same rules the form applies — Wallet and Category types, Recurring pins, warnings — and removes the Draft Transaction, in one request. A Draft Transaction that cannot be saved as it stands (a missing or rejected field) opens pre-filled in the Transaction form instead, whose Save goes back through Approve with the edited fields.
+_Avoid_: confirm, save, accept, promote
+
+**Discard**:
+The removal of a Draft Transaction without creating anything, at once and with no Undo. Nothing it referred to changes.
+_Avoid_: delete, reject, cancel
+
 **Export**:
 A generated .xlsx of the Account's Transactions in the import template's format, downloaded from the ledger with the current filters and search applied. It carries only what the template carries: Opening Balance Transactions are left out (the template's type vocabulary has no value for them), Recurring links are never carried, and Places flatten to coordinates. Re-importing an Export into the same Account flags every row as a Duplicate; into a fresh Account it restores the ledger once its Wallets and Categories exist.
 _Avoid_: backup, dump, statement

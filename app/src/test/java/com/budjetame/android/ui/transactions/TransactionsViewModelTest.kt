@@ -8,6 +8,8 @@ import com.budjetame.android.data.api.CategoryCreateRequest
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.DataVersion
+import com.budjetame.android.data.api.DraftTransactionApi
+import com.budjetame.android.data.api.DraftTransactionDto
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringCostApi
 import com.budjetame.android.data.api.RecurringCostCreateRequest
@@ -34,6 +36,8 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.category.CategoryGateway
+import com.budjetame.android.data.drafttransaction.ApiDraftTransactionRepository
+import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
 import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
@@ -207,6 +211,10 @@ class TransactionsViewModelTest {
             categories = categories,
             recurringCosts = recurringCosts,
             recurringIncomes = recurringIncomes,
+            // No /draft-transactions route here: the Drafts fetch fails and
+            // the block stays empty, which the ledger never notices
+            // (DraftTransactionsViewModelTest covers the Drafts).
+            drafts = ApiDraftTransactionRepository(client.create(DraftTransactionApi::class.java)),
             searchDebounceMillis = searchDebounceMillis,
             location = location,
             seed = seed,
@@ -1369,7 +1377,7 @@ class TransactionsViewModelTest {
     @Test
     fun `the search needle is debounced across rapid typing into one refetch`() {
         val gateway = RecordingGateway()
-        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway, location = location)
+        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway, gateway, location = location)
         mainRule.dispatcher.scheduler.runCurrent()
         val callsBefore = gateway.transactionCalls
 
@@ -1515,7 +1523,7 @@ class TransactionsViewModelTest {
     @Test
     fun `Clear all cancels a pending search debounce so no late refetch resurrects the needle`() {
         val gateway = RecordingGateway()
-        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway, location = location)
+        viewModel = TransactionsViewModel(gateway, gateway, gateway, gateway, gateway, gateway, location = location)
         mainRule.dispatcher.scheduler.runCurrent()
         val callsBefore = gateway.transactionCalls
 
@@ -3245,7 +3253,7 @@ class TransactionsViewModelTest {
     /** A stub quintuple gateway for the pure-timing debounce test: the seam
      * tests drive the real repositories; this one only counts fetches. */
     private class RecordingGateway : TransactionGateway, WalletGateway, CategoryGateway,
-        RecurringCostGateway, RecurringIncomeGateway {
+        RecurringCostGateway, RecurringIncomeGateway, DraftTransactionGateway {
         var transactionCalls = 0
             private set
         var lastFilters = TransactionFilters()
@@ -3262,6 +3270,13 @@ class TransactionsViewModelTest {
         }
 
         override suspend fun fetchWallets(): List<WalletDto> = emptyList()
+
+        override suspend fun fetchDrafts(): List<DraftTransactionDto> = emptyList()
+
+        override suspend fun approve(id: Int, edited: TransactionDraft?): TransactionDto =
+            error("unused in the debounce test")
+
+        override suspend fun discard(id: Int) = error("unused in the debounce test")
 
         override suspend fun fetchCategories(): List<CategoryDto> = emptyList()
 

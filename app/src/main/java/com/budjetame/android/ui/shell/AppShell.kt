@@ -56,6 +56,7 @@ import com.budjetame.android.data.api.AccountDto
 import com.budjetame.android.data.assistant.AssistantSettingsGateway
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.dashboard.DashboardGateway
+import com.budjetame.android.data.drafttransaction.DraftTransactionGateway
 import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.location.DeviceLocation
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
@@ -95,6 +96,8 @@ fun AppShell(
     categoryRepository: CategoryGateway,
     dashboardRepository: DashboardGateway,
     transactionRepository: TransactionGateway,
+    /** The Draft Transactions pinned above the ledger (ticket #67). */
+    draftTransactionRepository: DraftTransactionGateway,
     importRepository: ImportGateway,
     recurringCostRepository: RecurringCostGateway,
     recurringIncomeRepository: RecurringIncomeGateway,
@@ -184,6 +187,7 @@ fun AppShell(
                     )
                     Tab.Transactions -> TransactionsScreen(
                         transactionRepository,
+                        draftTransactionRepository,
                         importRepository,
                         walletRepository,
                         categoryRepository,

@@ -43,6 +43,7 @@ import com.budjetame.android.ui.shell.AppShell
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.budjetame.android.ui.transactions.NoDraftTransactions
 
 /**
  * The Import Draft survives tab switches (web issue #43, ticket #26, #41):
@@ -69,6 +70,7 @@ class ImportDraftTabTest {
                 categoryRepository = FakeCategoryGateway(),
                 dashboardRepository = FakeDashboardGateway(),
                 transactionRepository = FakeTransactionGateway(),
+                draftTransactionRepository = NoDraftTransactions(),
                 importRepository = FakeImportGateway(),
                 recurringCostRepository = FakeRecurringCostGateway(),
                 recurringIncomeRepository = FakeRecurringIncomeGateway(),
