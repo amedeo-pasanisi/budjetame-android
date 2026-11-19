@@ -90,6 +90,7 @@ fun BudjetameApp(
             importRepository = container.importRepository,
             recurringCostRepository = container.recurringCostRepository,
             recurringIncomeRepository = container.recurringIncomeRepository,
+            backupRepository = container.backupRepository,
             location = container.deviceLocation,
             showTransactions = showTransactions,
             onTransactionsShown = onTransactionsShown,

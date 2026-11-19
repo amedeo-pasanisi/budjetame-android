@@ -56,6 +56,7 @@ import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.settings.NoAssistantGateway
 import com.budjetame.android.ui.settings.NoAssistantSettingsGateway
+import com.budjetame.android.ui.settings.NoBackupGateway
 import com.budjetame.android.ui.settings.SilentDictationTones
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -100,6 +101,7 @@ class TabPagerTest {
                 importRepository = EmptyImportGateway(),
                 recurringCostRepository = EmptyRecurringCostGateway(),
                 recurringIncomeRepository = EmptyRecurringIncomeGateway(),
+                backupRepository = NoBackupGateway(),
                 location = ShellSilentLocation(),
                 onSignOut = {},
                 onDeleteAccount = {},
