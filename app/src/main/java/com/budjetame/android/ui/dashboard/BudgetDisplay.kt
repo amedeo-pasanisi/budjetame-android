@@ -2,6 +2,7 @@ package com.budjetame.android.ui.dashboard
 
 import com.budjetame.android.data.api.BudgetDto
 import com.budjetame.android.util.Money
+import java.util.Locale
 
 /**
  * Presentation-only text rules for the Budget card (web issues #65, #100),
@@ -36,25 +37,25 @@ data class BudgetCardText(
     val remainingOver: Boolean,
 )
 
-fun budgetCardText(budget: BudgetDto): BudgetCardText {
+fun budgetCardText(budget: BudgetDto, locale: Locale = Locale.US): BudgetCardText {
     val bucketNegative = budget.spendable_today.startsWith("-")
     val monthNegative = budget.remaining_monthly_spendable.startsWith("-")
     return BudgetCardText(
         spendableToday = if (bucketNegative) "0.00" else budget.spendable_today,
-        frameLine = "${Money.formatEuros(budget.monthly_spendable)} this month " +
-            "(${Money.formatEuros(budget.recurring_incomes_total)} income \u2212 " +
-            "${Money.formatEuros(budget.recurring_costs_total)} costs)",
-        dailyLine = "${Money.formatEuros(budget.daily_allowance)} per day",
+        frameLine = "${Money.formatEuros(budget.monthly_spendable, locale)} this month " +
+            "(${Money.formatEuros(budget.recurring_incomes_total, locale)} income \u2212 " +
+            "${Money.formatEuros(budget.recurring_costs_total, locale)} costs)",
+        dailyLine = "${Money.formatEuros(budget.daily_allowance, locale)} per day",
         bucketNote = if (bucketNegative && !monthNegative) {
-            "${Money.formatEuros(budget.spendable_today.drop(1))} over today's budget"
+            "${Money.formatEuros(budget.spendable_today.drop(1), locale)} over today's budget"
         } else {
             null
         },
         remainingLine = if (monthNegative) {
-            "${Money.formatEuros(budget.remaining_monthly_spendable.drop(1))} " +
+            "${Money.formatEuros(budget.remaining_monthly_spendable.drop(1), locale)} " +
                 "over this month's budget"
         } else {
-            "${Money.formatEuros(budget.remaining_monthly_spendable)} left this month"
+            "${Money.formatEuros(budget.remaining_monthly_spendable, locale)} left this month"
         },
         remainingOver = monthNegative,
     )

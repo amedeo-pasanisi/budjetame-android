@@ -8,7 +8,14 @@ import com.budjetame.android.data.api.AuthConfigDto
 import com.budjetame.android.data.api.CredentialsRequest
 import com.budjetame.android.data.api.EmailRequest
 import com.budjetame.android.data.api.GoogleTokenRequest
+import com.budjetame.android.data.api.LanguageUpdateRequest
 import com.budjetame.android.data.api.toApiException
+import com.budjetame.android.data.locale.LOCALE_EN
+import com.budjetame.android.data.locale.LocaleGateway
+import com.budjetame.android.data.locale.localeCode
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import retrofit2.HttpException
 
 /**
@@ -26,28 +33,35 @@ interface AuthGateway {
 /**
  * The API-backed AuthGateway: a successful sign-in stores the JWT in the
  * session, then fetches the Account the token belongs to.
+ *
+ * It is also the Account's [LocaleGateway] (issue #59): every Account it
+ * reads from `GET /auth/me` publishes its language on [locale], so the
+ * Locale costs no request of its own.
  */
 class ApiAuthRepository(
     private val api: AuthApi,
     private val session: Session,
-) : AuthGateway {
+) : AuthGateway, LocaleGateway {
+
+    private val _locale = MutableStateFlow(LOCALE_EN)
+    override val locale: StateFlow<String> = _locale.asStateFlow()
 
     override suspend fun signIn(email: String, password: String): AccountDto =
         call { api.login(CredentialsRequest(email, password)) }.let { token ->
             session.save(token.access_token)
-            call { api.me() }
+            me()
         }
 
     override suspend fun signUp(email: String, password: String): AccountDto =
         call { api.register(CredentialsRequest(email, password)) }.let { token ->
             session.save(token.access_token)
-            call { api.me() }
+            me()
         }
 
     override suspend fun signInWithGoogle(idToken: String): AccountDto =
         call { api.google(GoogleTokenRequest(idToken)) }.let { token ->
             session.save(token.access_token)
-            call { api.me() }
+            me()
         }
 
     override suspend fun authConfig(): AuthConfigDto = call { api.config() }
@@ -63,7 +77,7 @@ class ApiAuthRepository(
     suspend fun fetchCurrentAccount(): AccountDto? {
         val token = session.token ?: return null
         return try {
-            call { api.me() }
+            me()
         } catch (error: ApiException) {
             if (error.status == 401) {
                 session.clear()
@@ -79,7 +93,19 @@ class ApiAuthRepository(
         call { api.deleteAccount() }
     }
 
-    fun signOut() = session.clear()
+    override suspend fun changeLocale(code: String) {
+        call { api.updateLanguage(LanguageUpdateRequest(code)) }
+        _locale.value = localeCode(code)
+    }
+
+    fun signOut() {
+        session.clear()
+        _locale.value = LOCALE_EN
+    }
+
+    /** The current Account, its Locale published on the way. */
+    private suspend fun me(): AccountDto =
+        call { api.me() }.also { _locale.value = localeCode(it.language) }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

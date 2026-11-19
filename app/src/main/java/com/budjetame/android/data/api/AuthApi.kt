@@ -5,6 +5,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 
 /** The single login identity (CONTEXT.md: Account). [language] is the
  * Account's Locale as the server serves it (`en` or `it`): the language a
@@ -42,6 +43,12 @@ data class GoogleTokenRequest(
 @Serializable
 data class EmailRequest(
     val email: String,
+)
+
+/** Change the Account's Locale (issue #59): `en` or `it`. */
+@Serializable
+data class LanguageUpdateRequest(
+    val language: String,
 )
 
 @Serializable
@@ -84,4 +91,8 @@ interface AuthApi {
 
     @GET("auth/me")
     suspend fun me(): AccountDto
+
+    /** Store the Account's Locale (issue #59): 204. */
+    @PUT("auth/me/language")
+    suspend fun updateLanguage(@Body body: LanguageUpdateRequest)
 }

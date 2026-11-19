@@ -59,6 +59,7 @@ import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.transaction.Place
 import com.budjetame.android.data.transaction.formatLocation
 import com.budjetame.android.data.transaction.mapLink
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.maps.MapPickerDialog
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
@@ -444,6 +445,7 @@ private fun SingleWalletField(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val locale = LocalDisplayLocale.current
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = modifier) {
         ExposedDropdownMenuBox(
@@ -451,7 +453,7 @@ private fun SingleWalletField(
             onExpandedChange = { if (enabled) expanded = it },
         ) {
             OutlinedTextField(
-                value = value?.let { id -> wallets.find { it.id == id }?.let(::walletOptionLabel) } ?: "",
+                value = value?.let { id -> wallets.find { it.id == id }?.let { walletOptionLabel(it, locale) } } ?: "",
                 onValueChange = {},
                 readOnly = true,
                 enabled = enabled,
@@ -470,7 +472,7 @@ private fun SingleWalletField(
             ) {
                 wallets.forEach { wallet ->
                     DropdownMenuItem(
-                        text = { Text(walletOptionLabel(wallet)) },
+                        text = { Text(walletOptionLabel(wallet, locale)) },
                         onClick = {
                             onChange(wallet.id)
                             expanded = false
@@ -556,6 +558,7 @@ private fun WalletSelectField(
     tag: String,
     modifier: Modifier = Modifier,
 ) {
+    val locale = LocalDisplayLocale.current
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -563,7 +566,7 @@ private fun WalletSelectField(
         modifier = modifier,
     ) {
         OutlinedTextField(
-            value = value?.let { id -> wallets.find { it.id == id }?.let(::walletOptionLabel) } ?: "",
+            value = value?.let { id -> wallets.find { it.id == id }?.let { walletOptionLabel(it, locale) } } ?: "",
             onValueChange = {},
             readOnly = true,
             enabled = enabled,
@@ -582,7 +585,7 @@ private fun WalletSelectField(
         ) {
             wallets.forEach { wallet ->
                 DropdownMenuItem(
-                    text = { Text(walletOptionLabel(wallet)) },
+                    text = { Text(walletOptionLabel(wallet, locale)) },
                     onClick = {
                         onChange(wallet.id)
                         expanded = false
@@ -819,6 +822,7 @@ private fun BalancePreview(
     modal: TransactionsViewModel.ModalState,
     wallets: List<WalletDto>,
 ) {
+    val locale = LocalDisplayLocale.current
     val amount = parseAmount(modal.amount)
     val editedAmount = modal.editing?.let { parseAmount(it.amount) }
 
@@ -833,8 +837,8 @@ private fun BalancePreview(
         if (projection != null && source != null && destination != null) {
             BalancePreviewCard(
                 lines = listOf(
-                    previewLine(source.name, projection.source.before, projection.source.after),
-                    previewLine(destination.name, projection.destination.before, projection.destination.after),
+                    previewLine(source.name, projection.source.before, projection.source.after, locale),
+                    previewLine(destination.name, projection.destination.before, projection.destination.after, locale),
                 ),
                 warn = isCashNegativeWarning(source, projection.source.after),
             )
@@ -848,15 +852,20 @@ private fun BalancePreview(
         }
         if (projection != null && wallet != null) {
             BalancePreviewCard(
-                lines = listOf(previewLine(wallet.name, projection.before, projection.after)),
+                lines = listOf(previewLine(wallet.name, projection.before, projection.after, locale)),
                 warn = isCashNegativeWarning(wallet, projection.after),
             )
         }
     }
 }
 
-private fun previewLine(name: String, before: java.math.BigDecimal, after: java.math.BigDecimal): String =
-    "$name: ${Money.formatEuros(before.toPlainString())} → ${Money.formatEuros(after.toPlainString())}"
+private fun previewLine(
+    name: String,
+    before: java.math.BigDecimal,
+    after: java.math.BigDecimal,
+    locale: java.util.Locale,
+): String =
+    "$name: ${Money.formatEuros(before.toPlainString(), locale)} → ${Money.formatEuros(after.toPlainString(), locale)}"
 
 @Composable
 private fun BalancePreviewCard(

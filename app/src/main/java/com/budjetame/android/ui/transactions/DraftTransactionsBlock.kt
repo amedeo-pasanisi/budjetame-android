@@ -29,8 +29,10 @@ import androidx.compose.ui.unit.sp
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.DraftTransactionDto
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.theme.Red600
 import com.budjetame.android.ui.theme.Slate500
+import com.budjetame.android.util.Dates
 
 // The web block's tints: indigo-50/60 behind, indigo-200 border, indigo-900
 // heading, indigo-700 hint; the missing marks are amber-100 on amber-800.
@@ -107,6 +109,7 @@ private fun DraftRow(
     onEdit: () -> Unit,
     onDiscard: () -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     val categoryName = draft.category_id?.let { id -> categories.find { it.id == id }?.name }
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -129,7 +132,7 @@ private fun DraftRow(
                     )
                     DraftSubtitle(draft = draft, wallets = wallets)
                 }
-                val amount = draftSignedAmount(draft)
+                val amount = draftSignedAmount(draft, locale)
                 if (amount == null) {
                     MissingMark("Amount missing", modifier = Modifier.padding(start = 8.dp))
                 } else {
@@ -180,6 +183,7 @@ private val ACTION_PADDING = PaddingValues(horizontal = 12.dp)
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DraftSubtitle(draft: DraftTransactionDto, wallets: List<WalletDto>) {
+    val locale = LocalDisplayLocale.current
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -188,7 +192,7 @@ private fun DraftSubtitle(draft: DraftTransactionDto, wallets: List<WalletDto>) 
     ) {
         if (draft.type == null) MissingMark("Type missing")
         val date = draft.date
-        if (date == null) MissingMark("Date missing") else SubtitleText(date)
+        if (date == null) MissingMark("Date missing") else SubtitleText(Dates.ledgerDate(date, locale))
         SubtitleText("·")
         if (draftIsTransfer(draft)) {
             WalletPart(wallets, draft.source_wallet_id, "Source missing")

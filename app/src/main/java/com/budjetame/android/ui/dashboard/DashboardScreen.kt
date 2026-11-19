@@ -78,14 +78,12 @@ import com.budjetame.android.data.dashboard.DashboardGateway
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.ui.common.LoadErrorBody
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.util.Dates
 import com.budjetame.android.util.Money
 import java.math.BigDecimal
-import java.time.Month
 import java.time.YearMonth
-import java.time.format.TextStyle
-import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.round
@@ -223,6 +221,7 @@ private fun DashboardCard(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun NetWorthCard(netWorth: String) {
+    val locale = LocalDisplayLocale.current
     DashboardCard {
         Text(
             text = "NET WORTH",
@@ -231,7 +230,7 @@ private fun NetWorthCard(netWorth: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = Money.formatEuros(netWorth),
+            text = Money.formatEuros(netWorth, locale),
             fontSize = 30.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -269,6 +268,7 @@ private fun BudgetCard(
     state: DashboardViewModel.UiState,
     viewModel: DashboardViewModel,
 ) {
+    val locale = LocalDisplayLocale.current
     DashboardCard {
         val budgetError = state.budgetError
         val budget = state.budget
@@ -286,7 +286,7 @@ private fun BudgetCard(
             )
 
             else -> {
-                val text = budgetCardText(budget)
+                val text = budgetCardText(budget, locale)
                 // Month selector at the top of the card.
                 var monthPickerOpen by remember { mutableStateOf(false) }
                 MonthField(
@@ -313,7 +313,7 @@ private fun BudgetCard(
                     modifier = Modifier.padding(top = 12.dp),
                 )
                 Text(
-                    text = Money.formatEuros(text.spendableToday),
+                    text = Money.formatEuros(text.spendableToday, locale),
                     fontSize = 30.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -397,13 +397,14 @@ private fun PieCard(
     state: DashboardViewModel.UiState,
     viewModel: DashboardViewModel,
 ) {
+    val locale = LocalDisplayLocale.current
     DashboardCard {
         // The title carries the month, so it only renders once that month's
         // summary has arrived — never the requested month over stale data.
         if (state.monthInSync) {
             val sideLabel = if (state.pieSide == PieSide.EXPENSE) "Expenses" else "Incomes"
             Text(
-                text = "${Dates.monthLabel(state.requestedMonth.toString())} · $sideLabel by Category".uppercase(),
+                text = "${Dates.monthLabel(state.requestedMonth.toString(), locale)} · $sideLabel by Category".uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -442,7 +443,7 @@ private fun PieCard(
             state.pieSlices.isEmpty() -> {
                 val lower = if (state.pieSide == PieSide.EXPENSE) "expenses" else "incomes"
                 Text(
-                    text = "No $lower recorded in ${Dates.monthLabel(state.requestedMonth.toString())}.",
+                    text = "No $lower recorded in ${Dates.monthLabel(state.requestedMonth.toString(), locale)}.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp),
@@ -452,7 +453,7 @@ private fun PieCard(
             else -> {
                 DonutChart(
                     slices = state.pieSlices,
-                    centerLabel = Money.formatEuros(state.pieTotal),
+                    centerLabel = Money.formatEuros(state.pieTotal, locale),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 16.dp),
@@ -530,6 +531,7 @@ private fun DonutChart(
  * the slice's part of the slices' own sum, exactly like the web app. */
 @Composable
 private fun PieLegend(slices: List<CategorySliceDto>, modifier: Modifier = Modifier) {
+    val locale = LocalDisplayLocale.current
     val total = slices.sumOf { BigDecimal(it.amount) }.toDouble()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         slices.forEach { slice ->
@@ -551,7 +553,7 @@ private fun PieLegend(slices: List<CategorySliceDto>, modifier: Modifier = Modif
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = "${Money.formatEuros(slice.amount)} · $share%",
+                    text = "${Money.formatEuros(slice.amount, locale)} · $share%",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -584,11 +586,12 @@ private fun TrendCard(
     state: DashboardViewModel.UiState,
     viewModel: DashboardViewModel,
 ) {
+    val locale = LocalDisplayLocale.current
     DashboardCard {
         val side = if (state.trendKind == TrendKind.EXPENSE) "Expenses" else "Incomes"
         Text(
-            text = "$side Trend · ${Dates.monthLabel(state.trendFrom.toString())} – " +
-                Dates.monthLabel(state.trendTo.toString()).uppercase(),
+            text = "$side Trend · ${Dates.monthLabel(state.trendFrom.toString(), locale)} – " +
+                Dates.monthLabel(state.trendTo.toString(), locale).uppercase(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -633,8 +636,8 @@ private fun TrendCard(
                 if (months.all { BigDecimal(it.amount).compareTo(BigDecimal.ZERO) == 0 }) {
                     Text(
                         text = "No $lower recorded between " +
-                            "${Dates.monthLabel(state.trendFrom.toString())} and " +
-                            "${Dates.monthLabel(state.trendTo.toString())}.",
+                            "${Dates.monthLabel(state.trendFrom.toString(), locale)} and " +
+                            "${Dates.monthLabel(state.trendTo.toString(), locale)}.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 16.dp),
@@ -700,6 +703,7 @@ private fun MonthField(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val locale = LocalDisplayLocale.current
     Column(modifier = modifier) {
         Text(
             text = label,
@@ -716,7 +720,7 @@ private fun MonthField(
                 .padding(top = 4.dp),
         ) {
             Text(
-                text = Dates.monthLabelCompact(month.toString()),
+                text = Dates.monthLabelCompact(month.toString(), locale),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -736,6 +740,7 @@ private fun MonthPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (YearMonth) -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     var year by remember { mutableIntStateOf(initial.year) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -789,8 +794,7 @@ private fun MonthPickerDialog(
                                     .padding(2.dp),
                             ) {
                                 Text(
-                                    text = Month.of(monthValue)
-                                        .getDisplayName(TextStyle.SHORT, Locale.US),
+                                    text = Dates.shortMonthName(monthValue, locale),
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier
@@ -841,12 +845,13 @@ private data class ChartLayout(
  */
 @Composable
 private fun TrendChart(months: List<MonthBucketDto>, modifier: Modifier = Modifier) {
+    val locale = LocalDisplayLocale.current
     var pressed by remember(months) { mutableStateOf<Int?>(null) }
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val labelStyle = MaterialTheme.typography.labelSmall
     val axisLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val layout = remember(months, textMeasurer, density) {
+    val layout = remember(months, textMeasurer, density, locale) {
         val values = months.map { BigDecimal(it.amount).toFloat() }
         val maxValue = max(values.maxOrNull() ?: 0f, 1f)
         ChartLayout(
@@ -865,7 +870,7 @@ private fun TrendChart(months: List<MonthBucketDto>, modifier: Modifier = Modifi
             },
             monthLabelLayouts = months.map { bucket ->
                 textMeasurer.measure(
-                    text = AnnotatedString(Dates.shortMonthLabel(bucket.month)),
+                    text = AnnotatedString(Dates.shortMonthLabel(bucket.month, locale)),
                     style = labelStyle.copy(
                         fontSize = 9.sp,
                         color = axisLabelColor,
@@ -938,7 +943,7 @@ private fun TrendChart(months: List<MonthBucketDto>, modifier: Modifier = Modifi
                     val barTopPx = with(density) { ChartTopPad.toPx() } + plotHeightPx -
                         layout.values[index] / layout.maxValue * plotHeightPx
                     TrendValueChip(
-                        amount = Money.formatEuros(bucket.amount),
+                        amount = Money.formatEuros(bucket.amount, locale),
                         barCenterPx = geometry.barCenter(index),
                         barTopPx = barTopPx,
                         chipGapPx = with(density) { ChipGap.toPx() },

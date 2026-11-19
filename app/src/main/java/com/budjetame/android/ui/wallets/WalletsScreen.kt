@@ -34,6 +34,7 @@ import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.RowEditButton
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.theme.Slate500
@@ -230,6 +231,7 @@ private fun WalletCard(
     onOpenLedger: () -> Unit,
     actions: @Composable RowScope.() -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     val shape = RoundedCornerShape(16.dp)
     Surface(
         shape = shape,
@@ -270,7 +272,7 @@ private fun WalletCard(
                     )
                 }
                 Text(
-                    text = Money.formatSignedEuros(balance),
+                    text = Money.formatSignedEuros(balance, locale),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,

@@ -11,6 +11,7 @@ import com.budjetame.android.data.dictation.DictationTones
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -99,7 +100,7 @@ class AssistantViewModelTest {
                 override fun playStart() {}
                 override fun playEnd() {}
             },
-            locale = "en",
+            locale = MutableStateFlow("en"),
         )
     }
 

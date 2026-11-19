@@ -47,9 +47,11 @@ import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.ui.common.FreezeSection
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.UnfreezeSection
 import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.util.Dates
+import com.budjetame.android.util.Money
 import java.time.Instant
 
 // The web app's Tailwind palette, ported for the delete confirmation.
@@ -87,6 +89,7 @@ fun RecurringCostsModal(
     onUnfreeze: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     val editing = modal.editing
 
     AlertDialog(
@@ -105,7 +108,7 @@ fun RecurringCostsModal(
                         modifier = Modifier.padding(top = 12.dp),
                     )
                     Text(
-                        text = "Amount: €${modal.amount}",
+                        text = "Amount: ${Money.formatEuros(modal.amount, locale)}",
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(top = 8.dp),
                     )

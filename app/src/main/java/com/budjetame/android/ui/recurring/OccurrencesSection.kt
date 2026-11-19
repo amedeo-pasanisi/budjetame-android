@@ -23,9 +23,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.budjetame.android.data.api.RecurringOccurrenceDto
+import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.theme.Slate400
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate700
+import com.budjetame.android.util.Dates
 
 /**
  * The edit modal's Occurrences section (web ADR-0026), the port of the
@@ -135,6 +137,7 @@ private fun OccurrenceRow(
     enabled: Boolean,
     onToggle: () -> Unit,
 ) {
+    val locale = LocalDisplayLocale.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -143,7 +146,7 @@ private fun OccurrenceRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = row.date,
+                text = Dates.ledgerDate(row.date, locale),
                 // The web row type: text-sm — 14 sp; skipped rows read
                 // text-slate-400, live ones font-medium text-slate-900.
                 style = MaterialTheme.typography.bodyMedium,
