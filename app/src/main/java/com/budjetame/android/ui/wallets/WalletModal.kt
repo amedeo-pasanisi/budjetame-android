@@ -141,7 +141,7 @@ fun WalletModal(
                         value = modal.openingBalance,
                         onValueChange = onOpeningBalanceChange,
                         label = { Text(stringResource(R.string.wallet_form_opening_balance)) },
-                        placeholder = { Text("0.00") },
+                        placeholder = { Text(stringResource(R.string.wallet_form_amount_placeholder)) },
                         enabled = modal.type != WalletType.CONTACT,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,

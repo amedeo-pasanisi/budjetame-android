@@ -13,9 +13,21 @@ The app's UI language follows the Account's **Locale** (#59), not the device lan
 
 ## Conventions
 
-- **Files per area:** `values/strings_<area>.xml`, mirrored in `values-it/` (`strings_common`, `strings_shell`, `strings_settings`, `strings_dashboard`, `strings_transactions`, `strings_wallets`, and later `strings_recurring`, `strings_categories`, `strings_imports`, `strings_login`, `strings_assistant`, `strings_errors`). One file per area keeps parallel tickets from colliding. `strings_common` holds only the shared verbs (Cancel, Save, Close, Delete, Edit, Retry, Loading…, Undo). A ticket that needs a new shared word adds it to its own area file.
+- **Files per area:** `values/strings_<area>.xml`, mirrored in `values-it/`. One file per area keeps parallel tickets from colliding. Today's files and the key prefixes each one holds:
+
+  | File | Prefixes |
+  | --- | --- |
+  | `strings_common` | `common_` |
+  | `strings_shell` | `shell_`, plus `settings_title` and `settings_delete_*` for the Settings dialog's frame |
+  | `strings_settings` | `settings_` |
+  | `strings_dashboard` | `dashboard_` |
+  | `strings_transactions` | `transactions_`, `drafts_` |
+  | `strings_transaction_form` | `transaction_form_` |
+  | `strings_wallets` | `wallets_`, `wallet_form_` |
+
+  Later tickets add `strings_recurring`, `strings_categories`, `strings_imports`, `strings_login`, `strings_assistant` and `strings_errors`. `strings_common` holds only the shared verbs: Cancel, Save, Saving…, Close, Delete, Deleting…, Edit, Retry and Loading…. A ticket that needs a new shared word adds it to its own area file.
 - **Key names:** `snake_case`, `<area>_<element>[_<qualifier>]`, named for the role rather than the English wording: `wallets_empty`, `transaction_form_amount`, `settings_delete_account_confirm`, `dashboard_budget_left_this_month`. Enum labels use `<area>_<enum>_<value>`, e.g. `wallets_type_credit_card`. Accessibility labels end in `_cd`.
-- **Arguments:** always positional (`%1$s`, `%2$d`), so a translation can reorder them. Amounts and dates are passed already formatted as `String`s (`Money` / `Dates` with `LocalDisplayLocale`), never as `%f`. Escape `'` as `\'`. Text that is not language (emoji, `→`, `·` separators, user data) stays in code.
+- **Arguments:** always positional (`%1$s`, `%2$d`), so a translation can reorder them. Amounts and dates are passed already formatted as `String`s (`Money` / `Dates` with `LocalDisplayLocale`), never as `%f`. Escape `'` as `\'`. Text that is not language (emoji, `→`, `·` separators, brand names, user data) stays in code. There is one exception. When a `UiText` must join a translated part with other text, the join pattern may be a `translatable="false"` resource, e.g. `transactions_joined` = `%1$s · %2$s`. Such a resource has no `values-it` entry.
 - **Plurals:** a count-dependent phrase is a `<plurals>` resource with `one` and `other`, read with `pluralStringResource(id, count, count)`. A count shown only as a parenthesised number, e.g. "Frozen wallets (2)", is a plain `%1$d` string.
 - **Text produced outside a composable** uses `ui/common/UiText.kt`. A ViewModel's UI state or a presentation helper holds a `UiText`, never a resolved `String`: `UiText.Res(R.string.x, listOf(args))` or `UiText.of(R.string.x, arg1, arg2)`; `UiText.Plural(R.plurals.x, count)`; and `UiText.Raw(text)` for a server message or user data. An argument may itself be a `UiText`. The composable renders `text.resolve()`, and non-composable Android code calls `text.resolve(resources)`. A Locale switch therefore re-renders text already held in state. JVM tests assert the exact English with `text.english()` (test-only `ui/common/EnglishStrings.kt` reads `values/strings*.xml`), or they assert the `UiText` value itself.
 - The **system-drawn labels** (the Quick Settings tile, the launcher shortcut, `app_name`) are read by the system outside any composition, so they follow the device language. They are #71's concern.

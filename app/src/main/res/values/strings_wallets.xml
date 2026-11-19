@@ -40,4 +40,5 @@
     <string name="wallet_form_freeze_balance">Freeze requires %1$s balance (currently %2$s)</string>
     <!-- %1$s: zero, formatted (€0.00). -->
     <string name="wallet_form_freeze_description">Hides the wallet and makes it read-only. Only possible at %1$s balance; its transactions stay visible.</string>
+    <string name="wallet_form_amount_placeholder">0.00</string>
 </resources>

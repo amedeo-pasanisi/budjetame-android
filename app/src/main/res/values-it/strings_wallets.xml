@@ -33,4 +33,5 @@
     <string name="wallet_form_freeze">Congela portafoglio</string>
     <string name="wallet_form_freeze_balance">Per congelare serve un saldo di %1$s (attualmente %2$s)</string>
     <string name="wallet_form_freeze_description">Nasconde il portafoglio e lo rende in sola lettura. Possibile solo con saldo %1$s; le transazioni restano visibili.</string>
+    <string name="wallet_form_amount_placeholder">0,00</string>
 </resources>
