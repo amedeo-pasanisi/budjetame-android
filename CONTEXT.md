@@ -8,6 +8,14 @@ A personal finance app where each person has their own Account. Money lives in W
 A person's login identity and personal data space. Created by email+password registration or by a first Google sign-in (auto-provisioned). All data is scoped to the Account that owns it — no Account can see or touch another's.
 _Avoid_: user, profile
 
+**Assistant Settings**:
+What an Account configures so its Assistant can run: a provider chosen from a fixed list (Anthropic, OpenRouter, Google Gemini), its Assistant Key, and a model picked from that provider's list or typed by id. One setting per Account: switching provider replaces the key and resets the model to the provider's default. An Account without Assistant Settings has no Assistant. Set in Settings, as on the web.
+_Avoid_: AI settings, LLM config, provider config
+
+**Assistant Key**:
+The provider key inside the Assistant Settings, set and removed in Settings. It is write-only: once saved it is never shown again beyond its last characters, and the app never stores or logs it — a key typed but not saved is dropped when Settings closes, and may be sent once, in a request header, to list a provider's models before Save.
+_Avoid_: API key, token, credential, secret
+
 **Wallet**:
 Any money-holder in the system. Four types: Checking, Credit Card, Cash, Contact.
 _Avoid_: account, bank account
