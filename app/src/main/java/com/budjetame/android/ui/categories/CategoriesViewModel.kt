@@ -9,6 +9,7 @@ import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.category.CategoryMergeConflict
+import com.budjetame.android.ui.common.FieldErrors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +48,7 @@ data class CategoryModalState(
     val icon: String = "",
     val color: String = CATEGORY_PRESET_COLORS.first(),
     val error: String? = null,
+    val fieldErrors: FieldErrors = emptyMap(),
     val submitting: Boolean = false,
     val confirmingDelete: Boolean = false,
     val deleting: Boolean = false,
@@ -57,8 +59,22 @@ data class CategoryModalState(
     val editing: Boolean get() = category != null
 
     val busy: Boolean get() = submitting || deleting || merging
+}
 
-    val canSubmit: Boolean get() = !busy && name.isNotBlank()
+/** The Category form's Field Error keys (ADR-0009). */
+object CategoryFields {
+    const val NAME = "name"
+}
+
+/**
+ * Submit-and-validate (ADR-0009, mirror of the web CategoryForm's
+ * `validate()`): one Field Error per wrong field of [form], empty when it
+ * may save. Only the Name is required; a duplicate name is the server's
+ * call and stays in the `error` banner (or becomes the merge offer).
+ * Shared by every host of the Category modal.
+ */
+fun validateCategoryForm(form: CategoryModalState): FieldErrors = buildMap {
+    if (form.name.isBlank()) put(CategoryFields.NAME, "Enter a name")
 }
 
 /**
@@ -130,9 +146,17 @@ class CategoriesViewModel(private val categories: CategoryGateway) : ViewModel()
 
     fun onColorChange(value: String) = updateModal { it.copy(color = value, error = null) }
 
+    /**
+     * Save, submit-and-validate (ADR-0009): the form is judged first. A
+     * Field Error is revealed under its field and nothing is written; a
+     * valid form clears them and saves exactly as before.
+     */
     fun submit() {
         val modal = _uiState.value.modal ?: return
-        if (!modal.canSubmit) return
+        if (modal.busy) return
+        val fieldErrors = validateCategoryForm(modal)
+        updateModal { it.copy(fieldErrors = fieldErrors) }
+        if (fieldErrors.isNotEmpty()) return
         if (modal.editing) update(modal) else create(modal)
     }
 

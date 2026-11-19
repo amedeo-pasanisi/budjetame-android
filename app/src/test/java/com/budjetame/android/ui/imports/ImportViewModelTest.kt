@@ -25,6 +25,7 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.data.category.ApiCategoryRepository
 import com.budjetame.android.data.imports.ApiImportRepository
 import com.budjetame.android.data.wallet.ApiWalletRepository
+import com.budjetame.android.ui.categories.CategoryFields
 import com.budjetame.android.ui.transactions.WalletFieldTarget
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -1440,6 +1441,26 @@ class ImportViewModelTest {
         val request = json.decodeFromString<ImportBatchRevalidationRequest>(callBody("/api/import/revalidate-rows"))
         assertEquals(listOf(2), request.targets)
         assertEquals(setOf(2), draft.selected)
+    }
+
+    @Test
+    fun `saving the row category form with a blank name reveals Enter a name and creates nothing`() = runBlocking {
+        fixtureViewModel()
+        val file = csv(
+            "date,type,amount,wallet,source wallet,destination wallet,category,description,location",
+            "2026-08-04,income,50.00,Checking,,,Bonus,,",
+        )
+        pickAndRead(content = file)
+
+        viewModel.openEditor(2)
+        viewModel.onRowCategoryAdd(CategoryType.INCOME, "Bonus")
+        viewModel.onRowCategoryCreateNameChange("")
+        viewModel.submitRowCategoryCreate()
+
+        assertEquals(0, callsFor("/api/categories").count { it.method == "POST" })
+        val modal = viewModel.uiState.value.draft!!.rowCategoryCreate!!.modal
+        assertEquals(mapOf(CategoryFields.NAME to "Enter a name"), modal.fieldErrors)
+        assertNull(modal.error)
     }
 
     @Test

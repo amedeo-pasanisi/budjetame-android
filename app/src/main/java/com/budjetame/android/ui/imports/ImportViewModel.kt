@@ -17,6 +17,7 @@ import com.budjetame.android.data.category.CategoryGateway
 import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
+import com.budjetame.android.ui.categories.validateCategoryForm
 import com.budjetame.android.ui.transactions.WalletFieldTarget
 import com.budjetame.android.ui.wallets.WalletModalState
 import com.budjetame.android.ui.wallets.normalizeOpeningBalance
@@ -703,7 +704,11 @@ class ImportViewModel(
     fun submitRowCategoryCreate() {
         val create = _uiState.value.draft?.rowCategoryCreate ?: return
         val modal = create.modal
-        if (!modal.canSubmit) return
+        if (modal.busy) return
+        // Submit-and-validate (ADR-0009): the shared Category validator.
+        val fieldErrors = validateCategoryForm(modal)
+        updateRowCategoryCreate { it.copy(fieldErrors = fieldErrors) }
+        if (fieldErrors.isNotEmpty()) return
         val lockedType = create.lockedType
         val gen = generation
         viewModelScope.launch {

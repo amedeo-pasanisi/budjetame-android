@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
+import com.budjetame.android.ui.common.fieldErrorSupportingText
 
 // The web app's Tailwind palette, ported for the merge offer and delete
 // confirmation (CategoryForm.tsx).
@@ -103,12 +104,15 @@ fun CategoryModal(
                     )
                 }
 
+                val nameError = modal.fieldErrors[CategoryFields.NAME]
                 OutlinedTextField(
                     value = modal.name,
                     onValueChange = onNameChange,
                     label = { Text("Name") },
                     placeholder = { Text("e.g. Groceries") },
                     singleLine = true,
+                    isError = nameError != null,
+                    supportingText = fieldErrorSupportingText(nameError),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp)
@@ -176,7 +180,7 @@ fun CategoryModal(
             }
         },
         confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+            Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
                         modal.submitting -> "Saving…"
