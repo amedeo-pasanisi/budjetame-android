@@ -30,6 +30,8 @@ import com.budjetame.android.data.transaction.placeFromWire
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
 import com.budjetame.android.ui.common.LedgerJump
+import com.budjetame.android.ui.undo.DeletedEntity
+import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.ui.wallets.WalletModalState
 import com.budjetame.android.ui.wallets.normalizeOpeningBalance
 import com.budjetame.android.util.Dates
@@ -99,6 +101,10 @@ class TransactionsViewModel(
      * jump already applied — its very first fetch carries the filter and
      * the ledger never flashes unfiltered. Null on a plain first visit. */
     seed: LedgerJump? = null,
+    /** The shell's Undo stack (web ADR-0031 / ADR-0034, ticket #58): a
+     * deleted Transaction is reported here, its held row the replay
+     * payload. */
+    private val undo: UndoSink = UndoSink.None,
 ) : ViewModel() {
 
     data class UiState(
@@ -187,8 +193,8 @@ class TransactionsViewModel(
     /**
      * The create/edit/delete Transaction form's draft (null = modal closed).
      * Create and edit share one modal: the Type selector appears only while
-     * creating (type is immutable once recorded), and the tap-again delete
-     * confirmation only while editing. `recurringCostId` is the Recurring
+     * creating (type is immutable once recorded), and the single-tap delete
+     * (its Undo in the shell's stack, ticket #58) only while editing. `recurringCostId` is the Recurring
      * Cost link pick — an Expense's, or a Transfer-to-a-Contact-Wallet's
      * (web issue #99 / ADR-0027); null = none (web issue #57).
      * `recurringIncomeId` is the Recurring Income link pick, the mirror —
@@ -235,7 +241,6 @@ class TransactionsViewModel(
         val requestingLocationPermission: Boolean = false,
         val error: String? = null,
         val submitting: Boolean = false,
-        val confirmingDelete: Boolean = false,
         val deleting: Boolean = false,
     ) {
         val isEditing: Boolean get() = editing != null
@@ -1185,18 +1190,19 @@ class TransactionsViewModel(
         }
     }
 
+    /** Delete at once — no confirm step (web #113, ticket #58): the row
+     * this form holds enters the shell's Undo stack as the replay payload
+     * (the delete answers only the Cash warning, never the row), and the
+     * warning still surfaces as the banner. */
     fun onDeleteTap() {
         val modal = _uiState.value.modal ?: return
         val transaction = modal.editing ?: return
         if (modal.busy) return
-        if (!modal.confirmingDelete) {
-            updateModal { it.copy(confirmingDelete = true, error = null) }
-            return
-        }
         viewModelScope.launch {
             updateModal { it.copy(deleting = true, error = null) }
             try {
                 val result = transactions.deleteTransaction(transaction.id)
+                undo.pushDeleted(DeletedEntity.Transaction(transaction))
                 _uiState.update { state ->
                     state.copy(
                         modal = null,
@@ -1210,7 +1216,6 @@ class TransactionsViewModel(
             } catch (error: ApiException) {
                 updateModal {
                     it.copy(
-                        confirmingDelete = false,
                         deleting = false,
                         error = apiErrorMessage(
                             error.status,
@@ -1222,7 +1227,6 @@ class TransactionsViewModel(
             } catch (_: Exception) {
                 updateModal {
                     it.copy(
-                        confirmingDelete = false,
                         deleting = false,
                         error = "Could not delete the transaction.",
                     )

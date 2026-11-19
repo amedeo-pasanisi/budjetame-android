@@ -256,6 +256,7 @@ class TransactionExportTest {
         override suspend fun createTransaction(draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun updateTransaction(id: Int, draft: TransactionDraft): TransactionDto = error("unused")
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto = error("unused")
+        override suspend fun undoTransaction(row: TransactionDto): TransactionDto = error("unused")
         override suspend fun export(filters: TransactionFilters): ExportFile = error("boom")
     }
 

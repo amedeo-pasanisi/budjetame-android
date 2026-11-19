@@ -74,7 +74,8 @@ private val RED_600 = Color(0xFFDC2626)
  * the Expense/Income/Transfer write path with the type-specific rules
  * (Transfer's distinct From/To Wallets and no Category; Contact Wallets only
  * on an Expense, ADR-0017), the Europe/Rome-defaulted date, the Cash
- * negative-balance preview, and the tap-again delete confirmation. The
+ * negative-balance preview, and the single-tap delete (its Undo lives in
+ * the shell's stack, ticket #58). The
  * post-write warning flag from the API surfaces as the screen's banner. The
  * Wallet and Category selects carry the inline-create sentinels (ADR-0013):
  * `onAddWallet` reports which field's sentinel was picked (the created
@@ -1115,23 +1116,13 @@ private fun DeleteSection(
     Button(
         onClick = onDelete,
         enabled = !modal.busy,
-        colors = if (modal.confirmingDelete) {
-            ButtonDefaults.buttonColors(containerColor = RED_600, contentColor = Color.White)
-        } else {
-            ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = RED_600)
-        },
-        border = if (modal.confirmingDelete) null else BorderStroke(1.dp, RED_200),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = RED_600),
+        border = BorderStroke(1.dp, RED_200),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-        Text(
-            when {
-                modal.deleting -> "Deleting…"
-                modal.confirmingDelete -> "Tap again to confirm"
-                else -> "Delete transaction"
-            },
-        )
+        Text(if (modal.deleting) "Deleting…" else "Delete transaction")
     }
 }
 

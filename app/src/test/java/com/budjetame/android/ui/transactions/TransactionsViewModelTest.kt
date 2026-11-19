@@ -30,6 +30,7 @@ import com.budjetame.android.data.api.TransactionTransferCostLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionTransferIncomeLinkUpdateRequest
 import com.budjetame.android.data.api.TransactionTransferUpdateRequest
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.data.api.TransactionUndoRequest
 import com.budjetame.android.data.api.WalletApi
 import com.budjetame.android.data.api.WalletCreateRequest
 import com.budjetame.android.data.api.WalletDto
@@ -55,11 +56,16 @@ import com.budjetame.android.data.transaction.TransactionGateway
 import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.common.LedgerJump
+import com.budjetame.android.ui.undo.DeletedEntity
+import com.budjetame.android.ui.undo.UndoSink
+import com.budjetame.android.ui.undo.UndoStack
+import com.budjetame.android.ui.undo.undoReplayer
 import com.budjetame.android.util.Dates
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -113,6 +119,7 @@ class TransactionsViewModelTest {
 
     private lateinit var server: MockWebServer
     private lateinit var viewModel: TransactionsViewModel
+    private lateinit var transactionsRepository: ApiTransactionRepository
 
     private val transactionStore = mutableListOf<TransactionDto>()
     private val walletStore = mutableListOf<WalletDto>()
@@ -131,6 +138,7 @@ class TransactionsViewModelTest {
     private var categoryCreateStatus = 201
     private var updateStatus = 200
     private var deleteStatus = 200
+    private var undoStatus = 201
     private var exportStatus = 200
     private var createWarning = false
     private var updateWarning = false
@@ -180,6 +188,7 @@ class TransactionsViewModelTest {
         categoryCreateStatus = 201
         updateStatus = 200
         deleteStatus = 200
+        undoStatus = 201
         exportStatus = 200
         createWarning = false
         updateWarning = false
@@ -199,9 +208,14 @@ class TransactionsViewModelTest {
         server.shutdown()
     }
 
-    private fun createViewModel(searchDebounceMillis: Long = 0, seed: LedgerJump? = null) {
+    private fun createViewModel(
+        searchDebounceMillis: Long = 0,
+        seed: LedgerJump? = null,
+        undo: UndoSink = UndoSink.None,
+    ) {
         val client = ApiClient(server.url("/api/").toString()) { null }
         val transactions = ApiTransactionRepository(client.create(TransactionApi::class.java))
+        transactionsRepository = transactions
         val wallets = ApiWalletRepository(client.create(WalletApi::class.java))
         val categories = ApiCategoryRepository(client.create(CategoryApi::class.java))
         val recurringCosts = ApiRecurringCostRepository(client.create(RecurringCostApi::class.java))
@@ -219,6 +233,7 @@ class TransactionsViewModelTest {
             searchDebounceMillis = searchDebounceMillis,
             location = location,
             seed = seed,
+            undo = undo,
         )
     }
 
@@ -265,6 +280,8 @@ class TransactionsViewModelTest {
             method == "PATCH" && path.matches(Regex("/api/transactions/\\d+")) -> updateTransaction(path, body)
 
             method == "DELETE" && path.matches(Regex("/api/transactions/\\d+")) -> deleteTransaction(path)
+
+            method == "POST" && path == "/api/transactions/undo" -> undoTransaction(body)
 
             else -> MockResponse().setResponseCode(404)
         }
@@ -646,6 +663,37 @@ class TransactionsViewModelTest {
         if (isFrozen(current)) return jsonResponse(422, """{"detail":"Frozen Wallets are read-only"}""")
         transactionStore.removeAt(index)
         return jsonResponse(200, """{"warning":$deleteWarning}""")
+    }
+
+    /** The fake undo (web ADR-0031): the row comes back under its original
+     * id, date and pin; a rule error answers 422 with its detail and
+     * re-inserts nothing. */
+    private fun undoTransaction(body: String): MockResponse {
+        if (undoStatus != 201) {
+            return jsonResponse(undoStatus, """{"detail":"That Occurrence was already paid by another transaction."}""")
+        }
+        val undo = json.decodeFromString<TransactionUndoRequest>(body)
+        val restored = TransactionDto(
+            id = undo.id,
+            type = undo.type,
+            amount = undo.amount,
+            date = undo.date,
+            wallet_id = undo.wallet_id,
+            source_wallet_id = undo.source_wallet_id,
+            destination_wallet_id = undo.destination_wallet_id,
+            category_id = undo.category_id,
+            recurring_cost_id = undo.recurring_cost_id,
+            recurring_income_id = undo.recurring_income_id,
+            occurrence_date = undo.occurrence_date,
+            description = undo.description,
+            latitude = undo.latitude,
+            longitude = undo.longitude,
+            place_name = undo.place_name,
+            place_id = undo.place_id,
+            created_at = "2026-08-01T10:00:00Z",
+        )
+        transactionStore.add(restored)
+        return jsonResponse(201, json.encodeToString(restored))
     }
 
     private fun isFrozen(transaction: TransactionDto): Boolean =
@@ -1974,7 +2022,7 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun `delete is tap-again confirmed and the warning flag surfaces`() = runBlocking {
+    fun `one tap deletes at once and the warning flag surfaces`() = runBlocking {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
         seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
         deleteWarning = true
@@ -1983,12 +2031,81 @@ class TransactionsViewModelTest {
 
         viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
         viewModel.onDeleteTap()
-        assertTrue(viewModel.uiState.value.modal!!.confirmingDelete)
-        viewModel.onDeleteTap()
         awaitState { it.modal == null && !it.transactions.any { t -> t.id == 1 } }
 
         assertEquals("Deleted — this made a Cash wallet negative.", viewModel.uiState.value.savedWarning)
-        assertTrue(calls.toList().any { it.method == "DELETE" && it.path == "/api/transactions/1" })
+        assertEquals(1, calls.toList().count { it.method == "DELETE" && it.path == "/api/transactions/1" })
+    }
+
+    @Test
+    fun `the deleted row becomes an undo entry and Undo posts exactly that row back`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        val held = transaction(
+            9, TransactionType.EXPENSE, "30.00", "2026-07-15",
+            walletId = 1, recurringCostId = 3, occurrenceDate = "2026-07-01", description = "Gym",
+            latitude = "45.46", longitude = "9.19", placeName = "Palestra", placeId = "p-1",
+        )
+        seedTransactions(held, transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        val scope = CoroutineScope(mainRule.dispatcher)
+        lateinit var stack: UndoStack
+        val pushed = mutableListOf<DeletedEntity>()
+        createViewModel(undo = UndoSink { pushed += it; stack.pushDeleted(it) })
+        stack = UndoStack(scope, System::currentTimeMillis, undoReplayer(transactionsRepository))
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 9 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && !it.transactions.any { t -> t.id == 9 } }
+
+        // The row the ledger held when the user deleted it — nothing the
+        // delete answered (it answers only the Cash warning).
+        assertEquals(listOf<DeletedEntity>(DeletedEntity.Transaction(held)), pushed)
+        val entry = stack.state.value.entries.single()
+        assertEquals("Gym", entry.label)
+
+        stack.undo(entry.key)
+        withTimeout(5_000) { stack.restored.first { it != null } }
+        awaitState { it.transactions.any { t -> t.id == 9 } }
+
+        val undo = json.decodeFromString<TransactionUndoRequest>(call("POST", "/api/transactions/undo").body)
+        assertEquals(
+            TransactionUndoRequest(
+                id = 9, type = TransactionType.EXPENSE, amount = "30.00", date = "2026-07-15",
+                wallet_id = 1, recurring_cost_id = 3, occurrence_date = "2026-07-01", description = "Gym",
+                latitude = "45.46", longitude = "9.19", place_name = "Palestra", place_id = "p-1",
+            ),
+            undo,
+        )
+        assertTrue(stack.state.value.entries.isEmpty())
+        assertEquals("2026-07-15", viewModel.uiState.value.transactions.first { it.id == 9 }.date)
+        scope.cancel()
+    }
+
+    @Test
+    fun `a failed undo shows the server's detail on its entry and the row stays deleted`() = runBlocking {
+        seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
+        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        undoStatus = 422
+        val scope = CoroutineScope(mainRule.dispatcher)
+        lateinit var stack: UndoStack
+        createViewModel(undo = { stack.pushDeleted(it) })
+        stack = UndoStack(scope, System::currentTimeMillis, undoReplayer(transactionsRepository))
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && !it.transactions.any { t -> t.id == 1 } }
+
+        stack.undo(stack.state.value.entries.single().key)
+        withTimeout(5_000) { stack.state.first { s -> s.entries.single().error != null } }
+
+        assertEquals(
+            "That Occurrence was already paid by another transaction.",
+            stack.state.value.entries.single().error,
+        )
+        assertNull(stack.restored.value)
+        assertFalse(transactionStore.any { it.id == 1 })
+        scope.cancel()
     }
 
     @Test
@@ -3385,6 +3502,8 @@ class TransactionsViewModelTest {
 
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
             error("unused in the debounce test")
+
+        override suspend fun undoTransaction(row: TransactionDto): TransactionDto = error("unused")
 
         override suspend fun export(filters: TransactionFilters): ExportFile =
             error("unused in the debounce test")

@@ -618,6 +618,7 @@ class TransactionsChromeTest {
             error("unused")
         override suspend fun deleteTransaction(id: Int): TransactionDeleteResultDto =
             error("unused")
+        override suspend fun undoTransaction(row: TransactionDto): TransactionDto = error("unused")
         override suspend fun export(filters: TransactionFilters): ExportFile = error("unused")
     }
 
