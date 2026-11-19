@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Recurring tab (ADR-0010, issue #63): the Costs/Incomes toggle, both
+     lists with their frozen sections, both modals, the shared Occurrences
+     section and the interval wording. `recurring_` keys are shared by the
+     two sides; `recurring_costs_` / `recurring_incomes_` are side-specific. -->
+<resources>
+    <string name="recurring_side_costs">Costs</string>
+    <string name="recurring_side_incomes">Incomes</string>
+
+    <!-- The list rows: "<interval> · next due <date>" and the Backlog badge. -->
+    <string name="recurring_next_due">%1$s · next due %2$s</string>
+    <plurals name="recurring_unpaid">
+        <item quantity="one">%1$d unpaid</item>
+        <item quantity="other">%1$d unpaid</item>
+    </plurals>
+
+    <!-- The interval as display text: "Every month", "Every 2 weeks". -->
+    <plurals name="recurring_interval_days">
+        <item quantity="one">Every day</item>
+        <item quantity="other">Every %1$d days</item>
+    </plurals>
+    <plurals name="recurring_interval_weeks">
+        <item quantity="one">Every week</item>
+        <item quantity="other">Every %1$d weeks</item>
+    </plurals>
+    <plurals name="recurring_interval_months">
+        <item quantity="one">Every month</item>
+        <item quantity="other">Every %1$d months</item>
+    </plurals>
+    <plurals name="recurring_interval_years">
+        <item quantity="one">Every year</item>
+        <item quantity="other">Every %1$d years</item>
+    </plurals>
+    <!-- The interval unit select: singular next to a 1, plural otherwise. -->
+    <plurals name="recurring_unit_days">
+        <item quantity="one">Day</item>
+        <item quantity="other">Days</item>
+    </plurals>
+    <plurals name="recurring_unit_weeks">
+        <item quantity="one">Week</item>
+        <item quantity="other">Weeks</item>
+    </plurals>
+    <plurals name="recurring_unit_months">
+        <item quantity="one">Month</item>
+        <item quantity="other">Months</item>
+    </plurals>
+    <plurals name="recurring_unit_years">
+        <item quantity="one">Year</item>
+        <item quantity="other">Years</item>
+    </plurals>
+
+    <!-- The modals' shared fields. -->
+    <string name="recurring_name">Name</string>
+    <string name="recurring_amount">Amount (€)</string>
+    <string name="recurring_amount_placeholder">0.00</string>
+    <string name="recurring_repeats_every">Repeats every</string>
+    <string name="recurring_unit">Unit</string>
+    <string name="recurring_start_date">Start date</string>
+    <string name="recurring_start_hint">The first occurrence. Leave empty to start today.</string>
+    <string name="recurring_date_ok">OK</string>
+    <string name="recurring_date_clear">Clear</string>
+    <!-- A frozen definition's read-only summary. -->
+    <string name="recurring_frozen_amount">Amount: %1$s</string>
+    <string name="recurring_frozen_start_date">Start date: %1$s</string>
+    <string name="recurring_unfreeze_description">Restore this definition: new occurrences will resume.</string>
+
+    <!-- The edit modal's Occurrences section. -->
+    <string name="recurring_occurrences">Occurrences</string>
+    <string name="recurring_occurrences_loading">Loading occurrences…</string>
+    <string name="recurring_occurrences_load_error">Could not load the occurrences.</string>
+    <string name="recurring_occurrence_update_error">Could not update the occurrence.</string>
+    <string name="recurring_occurrences_help">Skip excuses an occurrence: it never counts as unpaid, and a payment covers it only after un-skipping. Paid ones live in the ledger.</string>
+    <string name="recurring_occurrence_skipped">Skipped — un-skip to pay it</string>
+    <string name="recurring_skip">Skip</string>
+    <string name="recurring_unskip">Un-skip</string>
+
+    <!-- Recurring Costs. -->
+    <string name="recurring_costs_title">Recurring Costs</string>
+    <string name="recurring_costs_new">New recurring cost</string>
+    <string name="recurring_costs_loading">Loading recurring costs…</string>
+    <string name="recurring_costs_empty">No recurring costs yet. Add your first one to track what\'s due.</string>
+    <string name="recurring_costs_load_error">Could not load your recurring costs.</string>
+    <string name="recurring_costs_frozen_header">Frozen recurring costs (%1$d)</string>
+    <string name="recurring_costs_title_edit">Edit recurring cost</string>
+    <string name="recurring_costs_name_placeholder">e.g. Rent</string>
+    <string name="recurring_costs_create">Create recurring cost</string>
+    <string name="recurring_costs_freeze">Freeze recurring cost</string>
+    <string name="recurring_costs_freeze_description">Its linked expenses stay linked. Freezing stops all new occurrences.</string>
+    <string name="recurring_costs_unfreeze">Unfreeze recurring cost</string>
+
+    <!-- Recurring Incomes. -->
+    <string name="recurring_incomes_title">Recurring Incomes</string>
+    <string name="recurring_incomes_new">New recurring income</string>
+    <string name="recurring_incomes_loading">Loading recurring incomes…</string>
+    <string name="recurring_incomes_empty">No recurring incomes yet. Add your first one to track what\'s due.</string>
+    <string name="recurring_incomes_load_error">Could not load your recurring incomes.</string>
+    <string name="recurring_incomes_frozen_header">Frozen recurring incomes (%1$d)</string>
+    <string name="recurring_incomes_title_edit">Edit recurring income</string>
+    <string name="recurring_incomes_name_placeholder">e.g. Salary</string>
+    <string name="recurring_incomes_create">Create recurring income</string>
+    <string name="recurring_incomes_freeze">Freeze recurring income</string>
+    <string name="recurring_incomes_freeze_description">Its linked incomes stay linked. Freezing stops all new occurrences.</string>
+    <string name="recurring_incomes_unfreeze">Unfreeze recurring income</string>
+</resources>

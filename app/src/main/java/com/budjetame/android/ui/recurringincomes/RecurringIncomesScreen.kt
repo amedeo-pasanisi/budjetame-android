@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,12 +33,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
+import com.budjetame.android.R
 import com.budjetame.android.ui.common.FrozenSectionToggle
 import com.budjetame.android.ui.common.LedgerJump
 import com.budjetame.android.ui.common.LoadErrorBody
 import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.MessageBody
 import com.budjetame.android.ui.common.RowEditButton
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.recurringcosts.intervalText
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate600
@@ -88,16 +92,16 @@ fun RecurringIncomesScreen(
         val loadError = state.loadError
         when {
             state.loading -> MessageBody(
-                text = "Loading recurring incomes…",
+                text = stringResource(R.string.recurring_incomes_loading),
                 modifier = Modifier.weight(1f),
             )
             loadError != null -> LoadErrorBody(
-                message = loadError,
+                message = loadError.resolve(),
                 onRetry = viewModel::retry,
                 modifier = Modifier.weight(1f),
             )
             state.incomes.isEmpty() -> MessageBody(
-                text = "No recurring incomes yet. Add your first one to track what's due.",
+                text = stringResource(R.string.recurring_incomes_empty),
                 modifier = Modifier.weight(1f),
             )
             else -> RecurringIncomesList(
@@ -135,7 +139,7 @@ private fun RecurringIncomesHeader(onNewRecurringIncome: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
-            text = "Recurring Incomes",
+            text = stringResource(R.string.recurring_incomes_title),
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -146,7 +150,7 @@ private fun RecurringIncomesHeader(onNewRecurringIncome: () -> Unit) {
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
-            Text("New recurring income")
+            Text(stringResource(R.string.recurring_incomes_new))
         }
     }
 }
@@ -224,8 +228,11 @@ private fun RecurringIncomeRow(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "${intervalText(income.interval_value, income.interval_unit)} · " +
-                            "next due ${income.next_due_date?.let { Dates.ledgerDate(it, locale) } ?: "—"}",
+                        text = stringResource(
+                            R.string.recurring_next_due,
+                            intervalText(income.interval_value, income.interval_unit).resolve(),
+                            income.next_due_date?.let { Dates.ledgerDate(it, locale) } ?: "—",
+                        ),
                         // The web subtitle type: text-xs text-slate-500 (ticket #44).
                         fontSize = 12.sp,
                         color = Slate500,
@@ -243,7 +250,7 @@ private fun RecurringIncomeRow(
                     )
                     if (income.backlog_count > 0) {
                         Badge(
-                            text = "${income.backlog_count} unpaid",
+                            text = pluralStringResource(R.plurals.recurring_unpaid, income.backlog_count, income.backlog_count),
                             background = RED_100,
                             content = RED_700,
                             modifier = Modifier.padding(top = 6.dp),
@@ -265,8 +272,7 @@ private fun FrozenSection(
     onEdit: (RecurringIncomeDto) -> Unit,
 ) {
     FrozenSectionToggle(
-        label = "Frozen recurring incomes",
-        count = frozenIncomes.size,
+        label = stringResource(R.string.recurring_incomes_frozen_header, frozenIncomes.size),
         expanded = expanded,
         onToggle = onToggle,
     ) {

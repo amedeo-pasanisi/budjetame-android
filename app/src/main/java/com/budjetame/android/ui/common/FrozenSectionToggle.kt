@@ -16,12 +16,13 @@ import androidx.compose.ui.unit.dp
 /**
  * A collapsed section toggle for frozen records (ADR-0028), matching the
  * "Frozen wallets" section style. Tap to expand/collapse. The [content] is
- * rendered below the toggle when [expanded] is true.
+ * rendered below the toggle when [expanded] is true. [label] is the whole
+ * header, count included — "Frozen recurring costs (2)" — resolved by the
+ * caller from its own string resource (ADR-0010).
  */
 @Composable
 fun FrozenSectionToggle(
     label: String,
-    count: Int,
     expanded: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -34,7 +35,7 @@ fun FrozenSectionToggle(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         ) {
-            Text("$label ($count)")
+            Text(label)
         }
         if (expanded) {
             content()

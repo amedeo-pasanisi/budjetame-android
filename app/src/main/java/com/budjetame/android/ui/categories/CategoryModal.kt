@@ -38,13 +38,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
+import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.fieldErrorSupportingText
+import com.budjetame.android.ui.common.localized
 
 // The web app's Tailwind palette, ported for the merge offer and delete
 // confirmation (CategoryForm.tsx).
@@ -89,8 +94,10 @@ fun CategoryModal(
 
     AlertDialog(
         onDismissRequest = { if (!modal.busy) onClose() },
-        title = { Text(if (editing) "Edit category" else "New category") },
-        text = {
+        title = localized {
+            Text(stringResource(if (editing) R.string.category_form_title_edit else R.string.categories_new))
+        },
+        text = localized {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,7 +105,7 @@ fun CategoryModal(
             ) {
                 if (category != null) {
                     Text(
-                        text = "${categoryTypeLabel(category.type)} · type cannot be changed",
+                        text = stringResource(R.string.category_form_type_locked, stringResource(categoryTypeLabel(category.type))),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -108,8 +115,8 @@ fun CategoryModal(
                 OutlinedTextField(
                     value = modal.name,
                     onValueChange = onNameChange,
-                    label = { Text("Name") },
-                    placeholder = { Text("e.g. Groceries") },
+                    label = { Text(stringResource(R.string.category_form_name)) },
+                    placeholder = { Text(stringResource(R.string.category_form_name_placeholder)) },
                     singleLine = true,
                     isError = nameError != null,
                     supportingText = fieldErrorSupportingText(nameError),
@@ -122,7 +129,7 @@ fun CategoryModal(
                 if (!editing) {
                     if (lockedType != null) {
                         Text(
-                            text = "${categoryTypeLabel(lockedType)} · fixed for this form",
+                            text = stringResource(R.string.category_form_type_fixed, stringResource(categoryTypeLabel(lockedType))),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 12.dp),
@@ -147,8 +154,8 @@ fun CategoryModal(
                 OutlinedTextField(
                     value = modal.icon,
                     onValueChange = onIconChange,
-                    label = { Text("Icon (optional)") },
-                    placeholder = { Text("e.g. 🛒") },
+                    label = { Text(stringResource(R.string.category_form_icon)) },
+                    placeholder = { Text(stringResource(R.string.category_form_icon_placeholder)) },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -179,20 +186,22 @@ fun CategoryModal(
                 }
             }
         },
-        confirmButton = {
+        confirmButton = localized {
             Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
-                    when {
-                        modal.submitting -> "Saving…"
-                        editing -> "Save"
-                        else -> "Create category"
-                    },
+                    stringResource(
+                        when {
+                            modal.submitting -> R.string.common_saving
+                            editing -> R.string.common_save
+                            else -> R.string.category_form_create
+                        },
+                    ),
                 )
             }
         },
-        dismissButton = {
+        dismissButton = localized {
             TextButton(onClick = onClose, enabled = !modal.busy) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         },
     )
@@ -212,10 +221,10 @@ private fun CategoryTypeField(
         modifier = modifier,
     ) {
         OutlinedTextField(
-            value = categoryTypeLabel(value),
+            value = stringResource(categoryTypeLabel(value)),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Type") },
+            label = { Text(stringResource(R.string.category_form_type)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -225,14 +234,17 @@ private fun CategoryTypeField(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            CategoryType.entries.forEach { type ->
-                DropdownMenuItem(
-                    text = { Text(categoryTypeLabel(type)) },
-                    onClick = {
-                        onSelect(type)
-                        expanded = false
-                    },
-                )
+            // The menu is its own window: re-apply the Account Locale (ADR-0010).
+            AccountLocaleResources {
+                CategoryType.entries.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(categoryTypeLabel(type))) },
+                        onClick = {
+                            onSelect(type)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }
@@ -246,8 +258,9 @@ private fun ColorPicker(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
+        val colorDescription = stringResource(R.string.category_form_color_cd)
         Text(
-            text = "Color",
+            text = stringResource(R.string.category_form_color),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
@@ -271,7 +284,7 @@ private fun ColorPicker(
                             },
                         )
                         .clickable { onSelect(preset) }
-                        .semantics { contentDescription = "Use color $preset" },
+                        .semantics { contentDescription = colorDescription.format(preset) },
                 )
             }
         }
@@ -295,8 +308,13 @@ private fun MergeOfferSection(
             .padding(12.dp),
     ) {
         Text(
-            text = "Merge ${category.name} into ${modal.name}? " +
-                "${offer.transactionCount} transactions will move — this cannot be undone.",
+            text = pluralStringResource(
+                R.plurals.category_form_merge_offer,
+                offer.transactionCount,
+                category.name,
+                modal.name,
+                offer.transactionCount,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = SLATE_800,
         )
@@ -317,9 +335,9 @@ private fun MergeOfferSection(
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
-                        modal.merging -> "Merging…"
-                        modal.confirmingMerge -> "Tap again to confirm"
-                        else -> "Merge"
+                        modal.merging -> stringResource(R.string.category_form_merging)
+                        modal.confirmingMerge -> stringResource(R.string.category_form_tap_again)
+                        else -> stringResource(R.string.category_form_merge)
                     },
                 )
             }
@@ -328,7 +346,7 @@ private fun MergeOfferSection(
                 enabled = !modal.busy,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Cancel merge")
+                Text(stringResource(R.string.category_form_merge_cancel))
             }
         }
     }
@@ -341,12 +359,12 @@ private fun DeleteSection(
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
     Text(
-        text = "Delete category",
+        text = stringResource(R.string.category_form_delete),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
     )
     Text(
-        text = "Its transactions become uncategorized — no transaction is ever deleted.",
+        text = stringResource(R.string.category_form_delete_description),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -366,9 +384,9 @@ private fun DeleteSection(
     shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Text(
             when {
-                modal.deleting -> "Deleting…"
-                modal.confirmingDelete -> "Tap again to confirm"
-                else -> "Delete category"
+                modal.deleting -> stringResource(R.string.common_deleting)
+                modal.confirmingDelete -> stringResource(R.string.category_form_tap_again)
+                else -> stringResource(R.string.category_form_delete)
             },
         )
     }

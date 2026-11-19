@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="components_edit_cd">Modifica %1$s</string>
+    <string name="components_freeze">Congela</string>
+    <string name="components_freezing">Congelamento…</string>
+    <string name="components_freeze_confirm">Tocca di nuovo per confermare il congelamento</string>
+    <string name="components_unfreeze">Scongela</string>
+    <string name="components_unfreezing">Scongelamento…</string>
+</resources>

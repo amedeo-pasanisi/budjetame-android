@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.recurringcosts
 
+import com.budjetame.android.ui.common.english
 import com.budjetame.android.MainDispatcherRule
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.DataVersion
@@ -814,7 +815,7 @@ class RecurringCostsViewModelTest {
         listStatus = 500
         createViewModel()
         awaitLoaded()
-        assertEquals("Could not load your recurring costs.", viewModel.uiState.value.loadError)
+        assertEquals("Could not load your recurring costs.", viewModel.uiState.value.loadError?.english())
 
         listStatus = 200
         seed(costDto(1, "Rent"))
@@ -884,7 +885,7 @@ class RecurringCostsViewModelTest {
         awaitState { it.modal?.occurrencesError != null }
 
         val modal = viewModel.uiState.value.modal!!
-        assertEquals("Could not load the occurrences.", modal.occurrencesError)
+        assertEquals("Could not load the occurrences.", modal.occurrencesError?.english())
         assertNull(modal.occurrences)
         // The modal itself stays usable: the fields are still editable.
         assertTrue(modal.canSave)
@@ -1000,7 +1001,7 @@ class RecurringCostsViewModelTest {
         awaitState { it.modal?.occurrencesError != null }
 
         val modal = viewModel.uiState.value.modal!!
-        assertEquals("Could not update the occurrence.", modal.occurrencesError)
+        assertEquals("Could not update the occurrence.", modal.occurrencesError?.english())
         assertNull(modal.togglingDate)
         // The held rows stay on screen — only the action failed.
         assertEquals(2, modal.occurrences!!.size)

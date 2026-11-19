@@ -10,9 +10,11 @@ import com.budjetame.android.data.api.EmailRequest
 import com.budjetame.android.data.api.GoogleTokenRequest
 import com.budjetame.android.data.api.LanguageUpdateRequest
 import com.budjetame.android.data.api.toApiException
-import com.budjetame.android.data.locale.LOCALE_EN
+import com.budjetame.android.data.locale.LastLocaleStore
 import com.budjetame.android.data.locale.LocaleGateway
 import com.budjetame.android.data.locale.localeCode
+import com.budjetame.android.data.locale.signedOutLocale
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,13 +39,21 @@ interface AuthGateway {
  * It is also the Account's [LocaleGateway] (issue #59): every Account it
  * reads from `GET /auth/me` publishes its language on [locale], so the
  * Locale costs no request of its own.
+ *
+ * Before any Account is read — the login screen, a cold start — [locale]
+ * is the last Locale this device saw ([lastLocale]), or the device
+ * language when none is stored (issue #63). Every published Locale is
+ * stored, and sign-out keeps it, so the login screen speaks the language
+ * of the Account that just left.
  */
 class ApiAuthRepository(
     private val api: AuthApi,
     private val session: Session,
+    private val lastLocale: LastLocaleStore = LastLocaleStore.None,
+    deviceLocale: Locale = Locale.US,
 ) : AuthGateway, LocaleGateway {
 
-    private val _locale = MutableStateFlow(LOCALE_EN)
+    private val _locale = MutableStateFlow(signedOutLocale(lastLocale.read(), deviceLocale))
     override val locale: StateFlow<String> = _locale.asStateFlow()
 
     override suspend fun signIn(email: String, password: String): AccountDto =
@@ -95,17 +105,24 @@ class ApiAuthRepository(
 
     override suspend fun changeLocale(code: String) {
         call { api.updateLanguage(LanguageUpdateRequest(code)) }
-        _locale.value = localeCode(code)
+        publishLocale(code)
     }
 
+    /** Clear the session. The Locale stays the last known one (issue #63):
+     * the login screen that follows renders in it. */
     fun signOut() {
         session.clear()
-        _locale.value = LOCALE_EN
     }
 
     /** The current Account, its Locale published on the way. */
     private suspend fun me(): AccountDto =
-        call { api.me() }.also { _locale.value = localeCode(it.language) }
+        call { api.me() }.also { publishLocale(it.language) }
+
+    private fun publishLocale(serverValue: String) {
+        val code = localeCode(serverValue)
+        _locale.value = code
+        lastLocale.write(code)
+    }
 
     private suspend fun <T> call(block: suspend () -> T): T = try {
         block()

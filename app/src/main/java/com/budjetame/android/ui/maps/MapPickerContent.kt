@@ -5,9 +5,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import com.budjetame.android.BuildConfig
+import com.budjetame.android.R
 import com.budjetame.android.data.transaction.LatLng
 import com.budjetame.android.data.transaction.Place
 
@@ -33,7 +35,7 @@ fun MapPickerContent(
     val resolved = config.getOrNull()
     when (resolved) {
         null -> Text(
-            text = config.exceptionOrNull()?.message ?: "Map provider misconfigured.",
+            text = config.exceptionOrNull()?.message ?: stringResource(R.string.maps_misconfigured),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
             modifier = modifier.padding(16.dp),

@@ -2,6 +2,7 @@ package com.budjetame.android.ui.recurringincomes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.IntervalUnit
@@ -11,6 +12,7 @@ import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.recurringincome.RecurringIncomeDraft
 import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.ui.common.parseAmountInput
 import com.budjetame.android.ui.recurringcosts.parseIntervalValue
@@ -58,7 +60,7 @@ data class RecurringIncomeModalState(
     val occurrences: List<RecurringOccurrenceDto>? = null,
     /** A failed occurrences read or row toggle's message — the web
      * section's inline error line. Cleared by the next toggle press. */
-    val occurrencesError: String? = null,
+    val occurrencesError: UiText? = null,
     /** The row whose Skip/Un-skip write is in flight — its button disables
      * itself so a double tap cannot fire two writes (the write is
      * idempotent anyway, like the web's `togglingDate`). */
@@ -135,7 +137,7 @@ class RecurringIncomesViewModel(
 
     data class UiState(
         val loading: Boolean = true,
-        val loadError: String? = null,
+        val loadError: UiText? = null,
         val incomes: List<RecurringIncomeDto> = emptyList(),
         val modal: RecurringIncomeModalState? = null,
         val frozenExpanded: Boolean = false,
@@ -342,7 +344,7 @@ class RecurringIncomesViewModel(
                     state.copy(
                         modal = open.copy(
                             togglingDate = null,
-                            occurrencesError = "Could not update the occurrence.",
+                            occurrencesError = UiText.of(R.string.recurring_occurrence_update_error),
                         ),
                     )
                 }
@@ -372,7 +374,7 @@ class RecurringIncomesViewModel(
                 _uiState.update { state ->
                     val modal = state.modal
                     if (modal == null || modal.income?.id != id) return@update state
-                    state.copy(modal = modal.copy(occurrencesError = "Could not load the occurrences."))
+                    state.copy(modal = modal.copy(occurrencesError = UiText.of(R.string.recurring_occurrences_load_error)))
                 }
             }
         }
@@ -471,7 +473,7 @@ class RecurringIncomesViewModel(
         } catch (_: Exception) {
             _uiState.update { state ->
                 if (state.incomes.isEmpty()) {
-                    state.copy(loadError = "Could not load your recurring incomes.", loading = false)
+                    state.copy(loadError = UiText.of(R.string.recurring_incomes_load_error), loading = false)
                 } else {
                     state.copy(loading = false)
                 }

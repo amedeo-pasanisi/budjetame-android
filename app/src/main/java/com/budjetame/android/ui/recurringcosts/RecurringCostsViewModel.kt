@@ -2,6 +2,7 @@ package com.budjetame.android.ui.recurringcosts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budjetame.android.R
 import com.budjetame.android.data.api.ApiException
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.IntervalUnit
@@ -11,6 +12,7 @@ import com.budjetame.android.data.api.apiErrorMessage
 import com.budjetame.android.data.recurringcost.RecurringCostDraft
 import com.budjetame.android.data.recurringcost.RecurringCostGateway
 import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.parseAmountInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +54,7 @@ data class RecurringCostModalState(
     val occurrences: List<RecurringOccurrenceDto>? = null,
     /** A failed occurrences read or row toggle's message — the web
      * section's inline error line. Cleared by the next toggle press. */
-    val occurrencesError: String? = null,
+    val occurrencesError: UiText? = null,
     /** The row whose Skip/Un-skip write is in flight — its button disables
      * itself so a double tap cannot fire two writes (the write is
      * idempotent anyway, like the web's `togglingDate`). */
@@ -95,7 +97,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
 
     data class UiState(
         val loading: Boolean = true,
-        val loadError: String? = null,
+        val loadError: UiText? = null,
         val costs: List<RecurringCostDto> = emptyList(),
         val modal: RecurringCostModalState? = null,
         val frozenExpanded: Boolean = false,
@@ -301,7 +303,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                     state.copy(
                         modal = open.copy(
                             togglingDate = null,
-                            occurrencesError = "Could not update the occurrence.",
+                            occurrencesError = UiText.of(R.string.recurring_occurrence_update_error),
                         ),
                     )
                 }
@@ -330,7 +332,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
                 _uiState.update { state ->
                     val modal = state.modal
                     if (modal == null || modal.cost?.id != id) return@update state
-                    state.copy(modal = modal.copy(occurrencesError = "Could not load the occurrences."))
+                    state.copy(modal = modal.copy(occurrencesError = UiText.of(R.string.recurring_occurrences_load_error)))
                 }
             }
         }
@@ -430,7 +432,7 @@ class RecurringCostsViewModel(private val recurringCosts: RecurringCostGateway) 
         } catch (_: Exception) {
             _uiState.update { state ->
                 if (state.costs.isEmpty()) {
-                    state.copy(loadError = "Could not load your recurring costs.", loading = false)
+                    state.copy(loadError = UiText.of(R.string.recurring_costs_load_error), loading = false)
                 } else {
                     state.copy(loading = false)
                 }

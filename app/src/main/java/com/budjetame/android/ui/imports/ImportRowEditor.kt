@@ -40,19 +40,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.CategoryType
 import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.ui.common.AccountLocaleResources
 import com.budjetame.android.ui.common.FieldErrors
 import com.budjetame.android.ui.common.fieldErrorSupportingText
-import com.budjetame.android.ui.transactions.ADD_CATEGORY_OPTION
-import com.budjetame.android.ui.transactions.ADD_WALLET_OPTION
+import com.budjetame.android.ui.common.localized
 import com.budjetame.android.ui.transactions.TypeSelector
 import com.budjetame.android.ui.transactions.WalletFieldTarget
 import com.budjetame.android.ui.transactions.activeWallets
@@ -171,8 +173,8 @@ fun ImportRowEditor(
 
     AlertDialog(
         onDismissRequest = { if (!saving) onClose() },
-        title = { Text("Edit row ${row.row}", fontWeight = FontWeight.SemiBold) },
-        text = {
+        title = localized { Text(stringResource(R.string.imports_edit_row, row.row), fontWeight = FontWeight.SemiBold) },
+        text = localized {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -188,8 +190,8 @@ fun ImportRowEditor(
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it },
-                        label = { Text("Amount (€)") },
-                        placeholder = { Text("0.00") },
+                        label = { Text(stringResource(R.string.transaction_form_amount)) },
+                        placeholder = { Text(stringResource(R.string.transaction_form_amount_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         isError = amountError != null,
@@ -212,7 +214,7 @@ fun ImportRowEditor(
                         modifier = Modifier.padding(top = 12.dp),
                     ) {
                         NameSelectField(
-                            label = "From",
+                            label = stringResource(R.string.transaction_form_from),
                             value = sourceWallet,
                             options = transferWallets.map { it.name to it.name },
                             onChange = { sourceWallet = it },
@@ -222,7 +224,7 @@ fun ImportRowEditor(
                             modifier = Modifier.weight(1f),
                         )
                         NameSelectField(
-                            label = "To",
+                            label = stringResource(R.string.transaction_form_to),
                             value = destinationWallet,
                             options = transferWallets.map { it.name to it.name },
                             onChange = { destinationWallet = it },
@@ -235,7 +237,7 @@ fun ImportRowEditor(
                 } else {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
                         NameSelectField(
-                            label = "Wallet",
+                            label = stringResource(R.string.transaction_form_wallet),
                             value = wallet,
                             options = spendable.map { it.name to it.name },
                             onChange = { wallet = it },
@@ -245,7 +247,7 @@ fun ImportRowEditor(
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
-                            text = "Contact wallets only move money through transfers.",
+                            text = stringResource(R.string.imports_contact_explanation),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -255,7 +257,7 @@ fun ImportRowEditor(
 
                 if (isTransfer) {
                     Text(
-                        text = "Transfers never carry a category.",
+                        text = stringResource(R.string.transaction_form_transfer_no_category),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp),
@@ -273,8 +275,8 @@ fun ImportRowEditor(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it.take(DESCRIPTION_MAX_LENGTH) },
-                    label = { Text("Description") },
-                    placeholder = { Text("Optional note") },
+                    label = { Text(stringResource(R.string.transaction_form_description)) },
+                    placeholder = { Text(stringResource(R.string.transaction_form_description_placeholder)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
@@ -287,8 +289,8 @@ fun ImportRowEditor(
                     OutlinedTextField(
                         value = latitude,
                         onValueChange = { latitude = it },
-                        label = { Text("Latitude") },
-                        placeholder = { Text("Optional") },
+                        label = { Text(stringResource(R.string.imports_latitude)) },
+                        placeholder = { Text(stringResource(R.string.imports_optional)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier
@@ -298,8 +300,8 @@ fun ImportRowEditor(
                     OutlinedTextField(
                         value = longitude,
                         onValueChange = { longitude = it },
-                        label = { Text("Longitude") },
-                        placeholder = { Text("Optional") },
+                        label = { Text(stringResource(R.string.imports_longitude)) },
+                        placeholder = { Text(stringResource(R.string.imports_optional)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier
@@ -318,7 +320,7 @@ fun ImportRowEditor(
                 }
             }
         },
-        confirmButton = {
+        confirmButton = localized {
             Button(
                 onClick = {
                     onSave(
@@ -341,12 +343,12 @@ fun ImportRowEditor(
                 // Field Errors instead.
                 enabled = !saving,
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text(if (saving) "Saving…" else "Save")
+                Text(stringResource(if (saving) R.string.common_saving else R.string.common_save))
             }
         },
-        dismissButton = {
+        dismissButton = localized {
             OutlinedButton(onClick = onClose, enabled = !saving, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         },
     )
@@ -387,7 +389,7 @@ private fun NameSelectField(
             readOnly = true,
             singleLine = true,
             label = { Text(label) },
-            placeholder = { Text("Select") },
+            placeholder = { Text(stringResource(R.string.transaction_form_select)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             isError = error != null,
             supportingText = fieldErrorSupportingText(error),
@@ -400,26 +402,29 @@ private fun NameSelectField(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            options.forEach { (name, optionLabel) ->
+            // The menu is its own window: re-apply the Account Locale (ADR-0010).
+            AccountLocaleResources {
+                options.forEach { (name, optionLabel) ->
+                    DropdownMenuItem(
+                        text = { Text(optionLabel) },
+                        onClick = {
+                            onChange(name)
+                            expanded = false
+                        },
+                    )
+                }
                 DropdownMenuItem(
-                    text = { Text(optionLabel) },
+                    text = { Text(stringResource(R.string.transaction_form_new_wallet)) },
                     onClick = {
-                        onChange(name)
+                        // Revert-on-pick: the sentinel never becomes the field's
+                        // value; it opens the Wallet create form, prefilled with
+                        // the field's name when it matches no existing Wallet
+                        // (the missing name from the file).
+                        onAdd(importSentinelPrefill(value, options))
                         expanded = false
                     },
                 )
             }
-            DropdownMenuItem(
-                text = { Text(ADD_WALLET_OPTION) },
-                onClick = {
-                    // Revert-on-pick: the sentinel never becomes the field's
-                    // value; it opens the Wallet create form, prefilled with
-                    // the field's name when it matches no existing Wallet
-                    // (the missing name from the file).
-                    onAdd(importSentinelPrefill(value, options))
-                    expanded = false
-                },
-            )
         }
     }
 }
@@ -452,8 +457,8 @@ private fun CategoryNameSelectField(
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,
-                label = { Text("Category") },
-                placeholder = { Text("None") },
+                label = { Text(stringResource(R.string.transaction_form_category)) },
+                placeholder = { Text(stringResource(R.string.transaction_form_none)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -464,33 +469,36 @@ private fun CategoryNameSelectField(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
             ) {
-                DropdownMenuItem(
-                    text = { Text("None") },
-                    onClick = {
-                        onChange("")
-                        expanded = false
-                    },
-                )
-                options.forEach { (name, optionLabel) ->
+                // The menu is its own window: re-apply the Account Locale (ADR-0010).
+                AccountLocaleResources {
                     DropdownMenuItem(
-                        text = { Text(optionLabel) },
+                        text = { Text(stringResource(R.string.transaction_form_none)) },
                         onClick = {
-                            onChange(name)
+                            onChange("")
+                            expanded = false
+                        },
+                    )
+                    options.forEach { (name, optionLabel) ->
+                        DropdownMenuItem(
+                            text = { Text(optionLabel) },
+                            onClick = {
+                                onChange(name)
+                                expanded = false
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.transaction_form_new_category)) },
+                        onClick = {
+                            // Revert-on-pick: the sentinel never becomes the
+                            // field's value; it opens the Category create form,
+                            // prefilled with the field's name when it matches no
+                            // existing Category (the missing name from the file).
+                            onAdd(importSentinelPrefill(value, options))
                             expanded = false
                         },
                     )
                 }
-                DropdownMenuItem(
-                    text = { Text(ADD_CATEGORY_OPTION) },
-                    onClick = {
-                        // Revert-on-pick: the sentinel never becomes the
-                        // field's value; it opens the Category create form,
-                        // prefilled with the field's name when it matches no
-                        // existing Category (the missing name from the file).
-                        onAdd(importSentinelPrefill(value, options))
-                        expanded = false
-                    },
-                )
             }
         }
     }
@@ -524,7 +532,7 @@ private fun EditorDateField(
             readOnly = true,
             enabled = false,
             singleLine = true,
-            label = { Text("Date") },
+            label = { Text(stringResource(R.string.transaction_form_date)) },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
             isError = error != null,
             supportingText = fieldErrorSupportingText(error),
@@ -556,7 +564,9 @@ private fun EditorDateField(
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
         DatePickerDialog(
             onDismissRequest = { pickerOpen = false },
-            confirmButton = {
+            // Its own window (ADR-0010): the buttons and the picker's
+            // built-in month/day names follow the Account Locale.
+            confirmButton = localized {
                 TextButton(
                     onClick = {
                         pickerState.selectedDateMillis?.let { millis ->
@@ -566,14 +576,14 @@ private fun EditorDateField(
                         pickerOpen = false
                     },
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.transaction_form_date_ok))
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { pickerOpen = false }) { Text("Cancel") }
+            dismissButton = localized {
+                TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         ) {
-            DatePicker(state = pickerState)
+            AccountLocaleResources { DatePicker(state = pickerState) }
         }
     }
 }

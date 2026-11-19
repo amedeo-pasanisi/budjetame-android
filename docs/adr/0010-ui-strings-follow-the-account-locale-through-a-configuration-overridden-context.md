@@ -24,8 +24,14 @@ The app's UI language follows the Account's **Locale** (#59), not the device lan
   | `strings_transactions` | `transactions_`, `drafts_` |
   | `strings_transaction_form` | `transaction_form_` |
   | `strings_wallets` | `wallets_`, `wallet_form_` |
+  | `strings_recurring` (#63) | `recurring_`, `recurring_costs_`, `recurring_incomes_` |
+  | `strings_categories` (#63) | `categories_`, `category_form_` |
+  | `strings_imports` (#63) | `imports_` (the row editor reuses `transaction_form_` for the fields it shares) |
+  | `strings_login` (#63) | `login_` |
+  | `strings_components` (#63) | `components_`: the `ui/common` components' own words (row ✎ label, Freeze/Unfreeze sections) |
+  | `strings_maps` (#63) | `maps_` |
 
-  Later tickets add `strings_recurring`, `strings_categories`, `strings_imports`, `strings_login`, `strings_assistant` and `strings_errors`. `strings_common` holds only the shared verbs: Cancel, Save, Saving…, Close, Delete, Deleting…, Edit, Retry and Loading…. A ticket that needs a new shared word adds it to its own area file.
+  #71 adds `strings_assistant` and `strings_errors`. `strings_common` holds only the shared verbs: Cancel, Save, Saving…, Close, Delete, Deleting…, Edit, Retry and Loading…. A ticket that needs a new shared word adds it to its own area file.
 - **Key names:** `snake_case`, `<area>_<element>[_<qualifier>]`, named for the role rather than the English wording: `wallets_empty`, `transaction_form_amount`, `settings_delete_account_confirm`, `dashboard_budget_left_this_month`. Enum labels use `<area>_<enum>_<value>`, e.g. `wallets_type_credit_card`. Accessibility labels end in `_cd`.
 - **Arguments:** always positional (`%1$s`, `%2$d`), so a translation can reorder them. Amounts and dates are passed already formatted as `String`s (`Money` / `Dates` with `LocalDisplayLocale`), never as `%f`. Escape `'` as `\'`. Text that is not language (emoji, `→`, `·` separators, brand names, user data) stays in code. There is one exception. When a `UiText` must join a translated part with other text, the join pattern may be a `translatable="false"` resource, e.g. `transactions_joined` = `%1$s · %2$s`. Such a resource has no `values-it` entry.
 - **Plurals:** a count-dependent phrase is a `<plurals>` resource with `one` and `other`, read with `pluralStringResource(id, count, count)`. A count shown only as a parenthesised number, e.g. "Frozen wallets (2)", is a plain `%1$d` string.
@@ -35,6 +41,12 @@ The app's UI language follows the Account's **Locale** (#59), not the device lan
 ## Scope of #62
 
 Translated: the app shell and tabs; Settings with its Language, Assistant Settings, Backup (Export all) and Restore sections; Dashboard; Transactions (the list, the filters, the Transaction form, the Draft Transactions block); and Wallets (the list and the Wallet modal), including their presentation helpers (`WalletDisplay`, `BudgetDisplay`, `TransactionDisplay`, `DraftTransactionDisplay`), which now return `UiText`. Left as English `String`s for #71: the messages the ViewModels build (load and save errors, Field Errors, Undo toasts, the Backup and Restore outcomes).
+
+## Scope of #63
+
+Translated: the Recurring tab (both sides' lists, frozen sections, modals, the Occurrences section, the interval wording as `<plurals>`), Categories (list, modal, merge offer), Import (pick step, Preview, confirm bar, done report, row editor), the auth door with its error messages, the `ui/common` components and the map picker, plus the load errors of these screens (`loadError` and the Occurrences read now hold `UiText`). `ImportDisplay` returns `UiText`, and `categoryTypeLabel` / `categorySectionLabel` return string resources. Still English for #71: the Field Error messages, the save/delete/freeze errors built through `apiErrorMessage`, and the Import read/confirm errors.
+
+**The auth door's Locale.** It runs before any Account is read, so `ApiAuthRepository.locale` starts from the last Locale stored on the device (`LastLocaleStore`, plain preferences), or from the device language when none is stored. Every published Locale is stored, and sign-out keeps the current one, so the login screen speaks the language of the Account that just left.
 
 ## Considered Options
 

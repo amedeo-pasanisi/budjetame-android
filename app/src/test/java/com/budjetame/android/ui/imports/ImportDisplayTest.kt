@@ -2,6 +2,7 @@ package com.budjetame.android.ui.imports
 
 import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.ui.common.english
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -12,23 +13,23 @@ class ImportDisplayTest {
 
     @Test
     fun `the wire statuses speak the Preview's words`() {
-        assertEquals("Ready", importStatusWord(ImportRowStatus.OK))
-        assertEquals("Duplicate", importStatusWord(ImportRowStatus.DUPLICATE))
-        assertEquals("Problem", importStatusWord(ImportRowStatus.ERROR))
+        assertEquals("Ready", importStatusWord(ImportRowStatus.OK).english())
+        assertEquals("Duplicate", importStatusWord(ImportRowStatus.DUPLICATE).english())
+        assertEquals("Problem", importStatusWord(ImportRowStatus.ERROR).english())
     }
 
     @Test
     fun `the row card's title line pairs the date with the type word`() {
-        assertEquals("2026-08-01 · Expense", importRowTitleLine("2026-08-01", TransactionType.EXPENSE))
-        assertEquals("2026-08-01 · Income", importRowTitleLine("2026-08-01", TransactionType.INCOME))
-        assertEquals("2026-08-01 · Transfer", importRowTitleLine("2026-08-01", TransactionType.TRANSFER))
+        assertEquals("2026-08-01 · Expense", importRowTitleLine("2026-08-01", TransactionType.EXPENSE).english())
+        assertEquals("2026-08-01 · Income", importRowTitleLine("2026-08-01", TransactionType.INCOME).english())
+        assertEquals("2026-08-01 · Transfer", importRowTitleLine("2026-08-01", TransactionType.TRANSFER).english())
     }
 
     @Test
     fun `a parse-error row shows dashes for the fields the file did not yield`() {
-        assertEquals("— · —", importRowTitleLine(null, null))
-        assertEquals("2026-08-01 · —", importRowTitleLine("2026-08-01", null))
-        assertEquals("— · Transfer", importRowTitleLine(null, TransactionType.TRANSFER))
+        assertEquals("— · —", importRowTitleLine(null, null).english())
+        assertEquals("2026-08-01 · —", importRowTitleLine("2026-08-01", null).english())
+        assertEquals("— · Transfer", importRowTitleLine(null, TransactionType.TRANSFER).english())
     }
 
     @Test
@@ -52,17 +53,17 @@ class ImportDisplayTest {
 
     @Test
     fun `the counts line pluralizes only the non-one words`() {
-        assertEquals("3 ready · 2 duplicates · 1 problem", importCountsText(3, 2, 1))
-        assertEquals("1 ready · 1 duplicate · 1 problem", importCountsText(1, 1, 1))
-        assertEquals("0 ready · 5 duplicates · 0 problems", importCountsText(0, 5, 0))
+        assertEquals("3 ready · 2 duplicates · 1 problem", importCountsText(3, 2, 1).english())
+        assertEquals("1 ready · 1 duplicate · 1 problem", importCountsText(1, 1, 1).english())
+        assertEquals("0 ready · 5 duplicates · 0 problems", importCountsText(0, 5, 0).english())
     }
 
     @Test
     fun `the import button speaks the selection and the busy state`() {
-        assertEquals("Importing…", importButtonText(3, busy = true))
-        assertEquals("Nothing to import", importButtonText(0, busy = false))
-        assertEquals("Import 1 row", importButtonText(1, busy = false))
-        assertEquals("Import 2 rows", importButtonText(2, busy = false))
+        assertEquals("Importing…", importButtonText(3, busy = true).english())
+        assertEquals("Nothing to import", importButtonText(0, busy = false).english())
+        assertEquals("Import 1 row", importButtonText(1, busy = false).english())
+        assertEquals("Import 2 rows", importButtonText(2, busy = false).english())
     }
 
     @Test

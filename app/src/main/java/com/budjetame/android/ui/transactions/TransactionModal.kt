@@ -453,15 +453,6 @@ internal fun transactionTypeLabelRes(type: TransactionType): Int = when (type) {
     TransactionType.OPENING_BALANCE -> R.string.transaction_form_type_opening_balance
 }
 
-/** The type word in English, for the Import screen's non-composable
- * display text (ImportDisplay) until #63 moves it to [transactionTypeLabelRes]. */
-internal fun transactionTypeLabel(type: TransactionType): String = when (type) {
-    TransactionType.EXPENSE -> "Expense"
-    TransactionType.INCOME -> "Income"
-    TransactionType.TRANSFER -> "Transfer"
-    TransactionType.OPENING_BALANCE -> "Opening balance"
-}
-
 /** The single-Wallet select an Expense/Income moves money through, with the
  * inline "New wallet…" sentinel (ADR-0013): the option always sits last and
  * never becomes the field's value — picking it reverts the select and opens

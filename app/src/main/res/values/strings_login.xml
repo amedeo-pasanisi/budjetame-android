@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The auth door (ADR-0010, issue #63): sign in, sign up and the
+     forgot-password flow, with their error messages. It runs before any
+     Account is read, so it renders in the last Locale stored on the device,
+     or the device language (LastLocaleStore). The brand name stays in code. -->
+<resources>
+    <string name="login_title_sign_in">Sign in to see your money.</string>
+    <string name="login_title_sign_up">Create an Account to see your money.</string>
+    <string name="login_title_forgot">We will email you a link to reset your password.</string>
+    <string name="login_or">or</string>
+    <string name="login_reset_sent">Check your inbox — the link works once and expires soon.</string>
+    <string name="login_back_to_sign_in">Back to sign in</string>
+    <string name="login_email">Email</string>
+    <string name="login_email_placeholder">you@example.com</string>
+    <string name="login_password">Password</string>
+    <string name="login_sending">Sending…</string>
+    <string name="login_creating">Creating…</string>
+    <string name="login_signing_in">Signing in…</string>
+    <string name="login_send_reset">Send reset link</string>
+    <string name="login_create_account">Create account</string>
+    <string name="login_sign_in">Sign in</string>
+    <string name="login_forgot_password">Forgot your password?</string>
+    <string name="login_reset_it">Reset it</string>
+    <string name="login_remembered">Remembered it?</string>
+    <string name="login_already_account">Already have an Account?</string>
+    <string name="login_no_account">Don\'t have an Account?</string>
+    <string name="login_sign_up">Sign up</string>
+    <string name="login_google">Sign in with Google</string>
+
+    <!-- Errors. -->
+    <string name="login_error_password_too_short">Use at least %1$d characters for your password.</string>
+    <string name="login_error_sign_in_401">Incorrect email or password.</string>
+    <string name="login_error_sign_in">Could not sign in. Please try again.</string>
+    <string name="login_error_sign_up_409">An Account with this email already exists.</string>
+    <string name="login_error_sign_up_422">Check the fields and try again.</string>
+    <string name="login_error_sign_up">Could not sign up. Please try again.</string>
+    <string name="login_error_forgot">Could not send the reset link. Please try again.</string>
+    <string name="login_error_google_rejected">Google could not verify the sign-in. Please try again.</string>
+    <string name="login_error_google">Could not sign in with Google. Please try again.</string>
+</resources>

@@ -34,12 +34,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.budjetame.android.R
 import com.budjetame.android.data.api.CategoryDto
 import com.budjetame.android.data.api.ImportPreviewDto
 import com.budjetame.android.data.api.ImportRowDto
@@ -47,6 +51,7 @@ import com.budjetame.android.data.api.ImportRowStatus
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.ui.categories.CategoryModal
 import com.budjetame.android.ui.common.LocalDisplayLocale
+import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.transactions.descriptionText
 import com.budjetame.android.ui.wallets.WalletModal
 import com.budjetame.android.util.Money
@@ -119,7 +124,7 @@ fun ImportScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
-                text = "Import",
+                text = stringResource(R.string.imports_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -128,7 +133,7 @@ fun ImportScreen(
             OutlinedButton(
                 onClick = if (draft.phase == ImportPhase.DONE) viewModel::done else viewModel::cancel,
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text(if (draft.phase == ImportPhase.DONE) "Back" else "Cancel")
+                Text(stringResource(if (draft.phase == ImportPhase.DONE) R.string.imports_back else R.string.common_cancel))
             }
         }
 
@@ -249,20 +254,14 @@ private fun PickPhase(
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
-            text = buildAnnotatedString {
-                append("Upload a ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Medium)) { append(".csv") }
-                append(" or ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Medium)) { append(".xlsx") }
-                append(" file with the fixed template: one flat sheet, columns ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
-                    append(
-                        "date, type, amount, wallet, source wallet, destination wallet, " +
-                            "category, description, location",
-                    )
-                }
-                append(". Nothing is written until you confirm the preview.")
-            },
+            text = withBoldArgs(
+                stringResource(R.string.imports_upload_hint),
+                ".csv",
+                ".xlsx",
+                // The template's column names: the file format, never translated.
+                "date, type, amount, wallet, source wallet, destination wallet, " +
+                    "category, description, location",
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -273,7 +272,7 @@ private fun PickPhase(
                 .fillMaxWidth()
                 .padding(top = 16.dp),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-            Text("Choose file")
+            Text(stringResource(R.string.imports_choose_file))
         }
         draft.fileName?.let { name ->
             Text(
@@ -298,7 +297,7 @@ private fun PickPhase(
                 .fillMaxWidth()
                 .padding(top = 16.dp),
         shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-            Text(if (draft.busy) "Reading file…" else "Read and validate")
+            Text(stringResource(if (draft.busy) R.string.imports_reading_file else R.string.imports_read_and_validate))
         }
     }
 }
@@ -336,12 +335,12 @@ private fun PreviewPhase(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
         ) {
             OutlinedButton(onClick = onPickAgain, enabled = !draft.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text("Pick another file")
+                Text(stringResource(R.string.imports_pick_another))
             }
         }
         if (preview.rows.isEmpty()) {
             Text(
-                text = "No data rows found in this file.",
+                text = stringResource(R.string.imports_no_rows),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -427,7 +426,7 @@ private fun ImportRowCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = importRowTitleLine(row.date, row.type, locale),
+                        text = importRowTitleLine(row.date, row.type, locale).resolve(),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -436,7 +435,7 @@ private fun ImportRowCard(
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        text = importStatusWord(row.status),
+                        text = importStatusWord(row.status).resolve(),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium,
                         color = badgeColor,
@@ -484,7 +483,7 @@ private fun ImportRowCard(
                         )
                     }
                     ImportRowStatus.DUPLICATE -> Text(
-                        text = "Already in the database or repeated in this file — this row will be skipped.",
+                        text = stringResource(R.string.imports_duplicate_explanation),
                         style = MaterialTheme.typography.labelSmall,
                         color = AMBER_800,
                         modifier = Modifier.padding(top = 4.dp),
@@ -522,17 +521,16 @@ private fun ConfirmBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         ) {
+            val readyText = pluralStringResource(R.plurals.imports_count_ready, ready, ready)
+            val duplicatesText = pluralStringResource(R.plurals.imports_count_duplicates, duplicates, duplicates)
+            val problemsText = pluralStringResource(R.plurals.imports_count_problems, problems, problems)
             Text(
                 text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = EMERALD_700)) { append("$ready ready") }
+                    withStyle(SpanStyle(color = EMERALD_700)) { append(readyText) }
                     append(" · ")
-                    withStyle(SpanStyle(color = AMBER_700)) {
-                        append(if (duplicates == 1) "1 duplicate" else "$duplicates duplicates")
-                    }
+                    withStyle(SpanStyle(color = AMBER_700)) { append(duplicatesText) }
                     append(" · ")
-                    withStyle(SpanStyle(color = RED_700)) {
-                        append(if (problems == 1) "1 problem" else "$problems problems")
-                    }
+                    withStyle(SpanStyle(color = RED_700)) { append(problemsText) }
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -543,7 +541,7 @@ private fun ConfirmBar(
                 enabled = confirmable > 0 && !busy,
                 modifier = Modifier.padding(start = 12.dp),
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                Text(importButtonText(confirmable, busy))
+                Text(importButtonText(confirmable, busy).resolve())
             }
         }
     }
@@ -570,7 +568,7 @@ private fun DonePhase(
                 border = BorderStroke(1.dp, AMBER_200),
             ) {
                 Text(
-                    text = "Imported — but the import made a Cash wallet negative.",
+                    text = stringResource(R.string.imports_cash_negative),
                     style = MaterialTheme.typography.bodySmall,
                     color = AMBER_700,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -584,14 +582,13 @@ private fun DonePhase(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Imported ${draft.imported} transaction" +
-                        (if (draft.imported == 1) "." else "s."),
+                    text = pluralStringResource(R.plurals.imports_imported, draft.imported, draft.imported),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = EMERALD_800,
                 )
                 Text(
-                    text = "They are now in your history; balances and the dashboard reflect them.",
+                    text = stringResource(R.string.imports_imported_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = EMERALD_700,
                     modifier = Modifier.padding(top = 4.dp),
@@ -600,6 +597,23 @@ private fun DonePhase(
         }
     }
 }
+
+/** [template] with its positional `%N$s` placeholders filled by [args],
+ * each argument set in medium weight — a translated sentence with bold
+ * inserts (ADR-0010: the words stay one resource, the styling stays here). */
+internal fun withBoldArgs(template: String, vararg args: String): AnnotatedString = buildAnnotatedString {
+    var last = 0
+    for (match in POSITIONAL_ARG.findAll(template)) {
+        append(template.substring(last, match.range.first))
+        withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
+            append(args[match.groupValues[1].toInt() - 1])
+        }
+        last = match.range.last + 1
+    }
+    append(template.substring(last))
+}
+
+private val POSITIONAL_ARG = Regex("%(\\d+)\\\$s")
 
 /** Read a picked document into memory: its display name and bytes, or null
  * when the read failed (the pick phase then surfaces its error). */

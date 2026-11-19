@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="categories_title">Categorie</string>
+    <string name="categories_new">Nuova categoria</string>
+    <string name="categories_search_placeholder">Cerca categorie…</string>
+    <string name="categories_loading">Caricamento categorie…</string>
+    <string name="categories_empty">Ancora nessuna categoria. Aggiungine una per iniziare a raggruppare le transazioni.</string>
+    <string name="categories_no_search_match">Nessuna categoria corrisponde alla ricerca.</string>
+    <string name="categories_load_error">Impossibile caricare le categorie.</string>
+    <string name="categories_type_expense">Spesa</string>
+    <string name="categories_type_income">Entrata</string>
+    <string name="categories_section_expenses">Spese</string>
+    <string name="categories_section_incomes">Entrate</string>
+
+    <string name="category_form_title_edit">Modifica categoria</string>
+    <string name="category_form_type_locked">%1$s · il tipo non può essere modificato</string>
+    <string name="category_form_type_fixed">%1$s · fisso per questo modulo</string>
+    <string name="category_form_name">Nome</string>
+    <string name="category_form_name_placeholder">es. Alimentari</string>
+    <string name="category_form_type">Tipo</string>
+    <string name="category_form_color">Colore</string>
+    <string name="category_form_color_cd">Usa colore %1$s</string>
+    <string name="category_form_icon">Icona (facoltativa)</string>
+    <string name="category_form_icon_placeholder">es. 🛒</string>
+    <string name="category_form_create">Crea categoria</string>
+    <string name="category_form_tap_again">Tocca di nuovo per confermare</string>
+    <plurals name="category_form_merge_offer">
+        <item quantity="one">Unire %1$s in %2$s? %3$d transazione verrà spostata — questa operazione non può essere annullata.</item>
+        <item quantity="other">Unire %1$s in %2$s? %3$d transazioni verranno spostate — questa operazione non può essere annullata.</item>
+    </plurals>
+    <string name="category_form_merge">Unisci</string>
+    <string name="category_form_merging">Unione in corso…</string>
+    <string name="category_form_merge_cancel">Annulla unione</string>
+    <string name="category_form_delete">Elimina categoria</string>
+    <string name="category_form_delete_description">Le sue transazioni diventano senza categoria — nessuna transazione viene mai eliminata.</string>
+</resources>

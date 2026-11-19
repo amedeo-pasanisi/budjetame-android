@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Categories tab (ADR-0010, issue #63): the list, its search and
+     sections, and the Category modal with its merge offer and delete
+     confirmation. -->
+<resources>
+    <string name="categories_title">Categories</string>
+    <string name="categories_new">New category</string>
+    <string name="categories_search_placeholder">Search categories…</string>
+    <string name="categories_loading">Loading categories…</string>
+    <string name="categories_empty">No categories yet. Add one to start grouping your transactions.</string>
+    <string name="categories_no_search_match">No categories match your search.</string>
+    <string name="categories_load_error">Could not load your categories.</string>
+    <string name="categories_type_expense">Expense</string>
+    <string name="categories_type_income">Income</string>
+    <string name="categories_section_expenses">Expenses</string>
+    <string name="categories_section_incomes">Incomes</string>
+
+    <!-- The Category modal. -->
+    <string name="category_form_title_edit">Edit category</string>
+    <string name="category_form_type_locked">%1$s · type cannot be changed</string>
+    <string name="category_form_type_fixed">%1$s · fixed for this form</string>
+    <string name="category_form_name">Name</string>
+    <string name="category_form_name_placeholder">e.g. Groceries</string>
+    <string name="category_form_type">Type</string>
+    <string name="category_form_color">Color</string>
+    <string name="category_form_color_cd">Use color %1$s</string>
+    <string name="category_form_icon">Icon (optional)</string>
+    <string name="category_form_icon_placeholder">e.g. 🛒</string>
+    <string name="category_form_create">Create category</string>
+    <string name="category_form_tap_again">Tap again to confirm</string>
+    <!-- The merge offer (ADR-0007): %1$s the renamed Category, %2$s the
+         Category it collides with, %3$d the transactions that move. -->
+    <plurals name="category_form_merge_offer">
+        <item quantity="one">Merge %1$s into %2$s? %3$d transaction will move — this cannot be undone.</item>
+        <item quantity="other">Merge %1$s into %2$s? %3$d transactions will move — this cannot be undone.</item>
+    </plurals>
+    <string name="category_form_merge">Merge</string>
+    <string name="category_form_merging">Merging…</string>
+    <string name="category_form_merge_cancel">Cancel merge</string>
+    <string name="category_form_delete">Delete category</string>
+    <string name="category_form_delete_description">Its transactions become uncategorized — no transaction is ever deleted.</string>
+</resources>

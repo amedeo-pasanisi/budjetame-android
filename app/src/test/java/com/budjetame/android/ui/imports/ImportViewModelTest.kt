@@ -44,6 +44,7 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import com.budjetame.android.ui.common.english
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -853,7 +854,7 @@ class ImportViewModelTest {
         assertEquals(setOf(2), viewModel.uiState.value.draft!!.selected)
         val draft = viewModel.uiState.value.draft!!
         val counts = previewCounts(draft.preview!!)
-        assertEquals("1 ready · 1 duplicate · 1 problem", importCountsText(counts.ready, counts.duplicates, counts.problems))
+        assertEquals("1 ready · 1 duplicate · 1 problem", importCountsText(counts.ready, counts.duplicates, counts.problems).english())
     }
 
     @Test
@@ -911,7 +912,7 @@ class ImportViewModelTest {
         assertNull(row.error)
         assertEquals(setOf(2, 4), draft.selected)
         val counts = previewCounts(draft.preview!!)
-        assertEquals("2 ready · 1 duplicate · 0 problems", importCountsText(counts.ready, counts.duplicates, counts.problems))
+        assertEquals("2 ready · 1 duplicate · 0 problems", importCountsText(counts.ready, counts.duplicates, counts.problems).english())
     }
 
     @Test
@@ -1288,7 +1289,7 @@ class ImportViewModelTest {
         assertNull(row.error)
         assertEquals(setOf(2, 4), draft.selected)
         val counts = previewCounts(draft.preview!!)
-        assertEquals("2 ready · 1 duplicate · 0 problems", importCountsText(counts.ready, counts.duplicates, counts.problems))
+        assertEquals("2 ready · 1 duplicate · 0 problems", importCountsText(counts.ready, counts.duplicates, counts.problems).english())
         // The computation endpoint never bumped the data version (ADR-0002):
         // only the one batch call hit the wire.
         assertEquals(1, callsFor("/api/import/revalidate-rows").size)

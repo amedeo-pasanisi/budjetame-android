@@ -8,6 +8,7 @@ import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.AuthApi
 import com.budjetame.android.data.auth.ApiAuthRepository
 import com.budjetame.android.data.auth.AuthGateway
+import com.budjetame.android.ui.common.english
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -112,7 +113,7 @@ class LoginViewModelTest {
         viewModel.submit()
         awaitOutcome()
 
-        assertEquals("Incorrect email or password.", viewModel.uiState.value.error)
+        assertEquals("Incorrect email or password.", viewModel.uiState.value.error?.english())
         assertNull(storage.stored)
     }
 
@@ -131,7 +132,7 @@ class LoginViewModelTest {
         viewModel.submit()
         awaitOutcome()
 
-        assertEquals("An Account with this email already exists.", viewModel.uiState.value.error)
+        assertEquals("An Account with this email already exists.", viewModel.uiState.value.error?.english())
     }
 
     @Test
@@ -200,7 +201,7 @@ class LoginViewModelTest {
 
         assertEquals(
             "Google could not verify the sign-in. Please try again.",
-            viewModel.uiState.value.error,
+            viewModel.uiState.value.error?.english(),
         )
         assertNull(viewModel.uiState.value.account)
         assertNull(storage.stored)
@@ -212,6 +213,6 @@ class LoginViewModelTest {
             GetCredentialProviderConfigurationException("no Android OAuth client registered"),
         )
 
-        assertEquals("Could not sign in with Google. Please try again.", viewModel.uiState.value.error)
+        assertEquals("Could not sign in with Google. Please try again.", viewModel.uiState.value.error?.english())
     }
 }
