@@ -168,19 +168,6 @@ class TransactionFormModelTest {
         assertFalse(transferIncomeLinkQualifies(contact, null))
     }
 
-    // --- Amount gate ---
-
-    @Test
-    fun `the amount gate accepts only strictly positive numbers`() {
-        assertEquals(BigDecimal("5.00"), parseAmount(" 5.00 "))
-        assertEquals(BigDecimal("0.01"), parseAmount("0.01"))
-        assertNull(parseAmount(""))
-        assertNull(parseAmount("   "))
-        assertNull(parseAmount("0"))
-        assertNull(parseAmount("-1.00"))
-        assertNull(parseAmount("abc"))
-    }
-
     // --- Projection ---
 
     @Test

@@ -202,20 +202,6 @@ fun validateTransactionForm(
     }
 }
 
-/**
- * The draft's amount as a positive BigDecimal, or null when blank, not a
- * number, or not strictly positive — the mandatory-amount gate.
- */
-fun parseAmount(raw: String): BigDecimal? {
-    val trimmed = raw.trim()
-    if (trimmed.isEmpty()) return null
-    return try {
-        val value = BigDecimal(trimmed)
-        if (value > BigDecimal.ZERO) value else null
-    } catch (_: NumberFormatException) {
-        null
-    }
-}
 
 /** The projected Balance of one Wallet. */
 data class BalanceProjection(val before: BigDecimal, val after: BigDecimal)
