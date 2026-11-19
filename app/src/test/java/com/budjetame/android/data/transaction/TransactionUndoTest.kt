@@ -2,6 +2,7 @@ package com.budjetame.android.data.transaction
 
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.ApiException
+import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.TransactionApi
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
@@ -14,7 +15,6 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
@@ -23,7 +23,12 @@ import org.junit.Test
  * The Transaction undo at the HTTP seam (web ADR-0031, ticket #58): the
  * held row travels to `POST /transactions/undo` field for field — exactly
  * the backend's TransactionUndoRequest keys, which forbids any other — and
- * a 4xx surfaces the server's `detail`.
+ * a 4xx surfaces the server's `detail`. A linked Transaction's pin (its
+ * Recurring Cost or Recurring Income and the Occurrence it paid) rides the
+ * body so the server restores that same Occurrence (ticket #61); a
+ * success bumps the data version — every screen, the Recurring ones
+ * included, revalidates on it (ADR-0002) — and the pin-taken 422 bumps
+ * nothing.
  */
 class TransactionUndoTest {
 
@@ -128,19 +133,68 @@ class TransactionUndoTest {
     }
 
     @Test
-    fun `a 4xx surfaces the server's detail`() = runBlocking {
-        server.enqueue(
-            MockResponse().setResponseCode(422)
-                .setBody("""{"detail":"That Occurrence was already paid by another transaction."}"""),
+    fun `an income's undo carries its Recurring Income pin`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201).setBody(rowJson))
+
+        repository.undoTransaction(linkedIncome)
+
+        val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        assertEquals(
+            setOf("id", "type", "amount", "date", "wallet_id", "recurring_income_id", "occurrence_date"),
+            body.keys,
         )
+        assertEquals(JsonPrimitive("income"), body["type"])
+        assertEquals(JsonPrimitive(5), body["recurring_income_id"])
+        assertEquals(JsonPrimitive("2026-08-01"), body["occurrence_date"])
+    }
+
+    @Test
+    fun `a successful undo bumps the data version so every screen revalidates`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201).setBody(rowJson))
+        val before = DataVersion.current()
+
+        repository.undoTransaction(linkedRow)
+
+        assertEquals(before + 1, DataVersion.current())
+    }
+
+    @Test
+    fun `a Recurring Cost pin-taken 422 surfaces its detail and bumps nothing`() = runBlocking {
+        assertPinTaken(linkedRow)
+    }
+
+    @Test
+    fun `a Recurring Income pin-taken 422 surfaces its detail and bumps nothing`() = runBlocking {
+        assertPinTaken(linkedIncome)
+    }
+
+    private suspend fun assertPinTaken(row: TransactionDto) {
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"$PIN_TAKEN"}"""))
+        val before = DataVersion.current()
 
         try {
-            repository.undoTransaction(linkedRow)
+            repository.undoTransaction(row)
             fail("expected an ApiException")
         } catch (error: ApiException) {
             assertEquals(422, error.status)
-            assertEquals("That Occurrence was already paid by another transaction.", error.detail)
+            assertEquals(PIN_TAKEN, error.detail)
         }
-        assertTrue(server.requestCount == 1)
+        assertEquals(before, DataVersion.current())
+    }
+
+    private val linkedIncome = TransactionDto(
+        id = 8,
+        type = TransactionType.INCOME,
+        amount = "1500.00",
+        date = "2026-08-02",
+        wallet_id = 1,
+        recurring_income_id = 5,
+        occurrence_date = "2026-08-01",
+        created_at = "2026-08-02T10:00:00Z",
+    )
+
+    private companion object {
+        /** The backend's exact pin-taken detail (services/transactions.py). */
+        const val PIN_TAKEN = "This Occurrence was already paid by another Transaction"
     }
 }

@@ -94,6 +94,10 @@ import org.junit.Test
 private const val EXPORT_CONTENT_TYPE =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+/** The backend's exact pin-taken detail for an undo (web ADR-0031,
+ * services/transactions.py). */
+private const val PIN_TAKEN = "This Occurrence was already paid by another Transaction"
+
 /**
  * The Transactions ledger tested at the single seam (the HTTP API): the
  * ViewModel is driven through the real repository, Retrofit, OkHttp, and a
@@ -667,11 +671,11 @@ class TransactionsViewModelTest {
     }
 
     /** The fake undo (web ADR-0031): the row comes back under its original
-     * id, date and pin; a rule error answers 422 with its detail and
-     * re-inserts nothing. */
+     * id, date and pin; a rule error answers the backend's pin-taken 422
+     * with its exact detail and re-inserts nothing. */
     private fun undoTransaction(body: String): MockResponse {
         if (undoStatus != 201) {
-            return jsonResponse(undoStatus, """{"detail":"That Occurrence was already paid by another transaction."}""")
+            return jsonResponse(undoStatus, """{"detail":"$PIN_TAKEN"}""")
         }
         val undo = json.decodeFromString<TransactionUndoRequest>(body)
         val restored = TransactionDto(
@@ -2210,9 +2214,36 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun `a failed undo shows the server's detail on its entry and the row stays deleted`() = runBlocking {
+    fun `a pin-taken undo of a Recurring Cost link shows the server's message and writes nothing else`() = runBlocking {
+        assertPinTakenUndo(
+            transaction(
+                1, TransactionType.EXPENSE, "30.00", "2026-08-03",
+                walletId = 1, recurringCostId = 3, occurrenceDate = "2026-08-01",
+            ),
+            expectedCostPin = 3,
+            expectedIncomePin = null,
+        )
+    }
+
+    @Test
+    fun `a pin-taken undo of a Recurring Income link shows the server's message and writes nothing else`() = runBlocking {
+        assertPinTakenUndo(
+            transaction(
+                1, TransactionType.INCOME, "1500.00", "2026-08-03",
+                walletId = 1, recurringIncomeId = 4, occurrenceDate = "2026-08-01",
+            ),
+            expectedCostPin = null,
+            expectedIncomePin = 4,
+        )
+    }
+
+    /** Delete [held], then undo it against the server's pin-taken 422
+     * (web ADR-0031, ticket #61): the entry shows the backend's message
+     * verbatim, nothing is restored, the row stays deleted, and the undo
+     * POST is the only write — the client never re-links elsewhere. */
+    private suspend fun assertPinTakenUndo(held: TransactionDto, expectedCostPin: Int?, expectedIncomePin: Int?) {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
-        seedTransactions(transaction(1, TransactionType.EXPENSE, "5.00", "2026-08-01", walletId = 1))
+        seedTransactions(held)
         undoStatus = 422
         val scope = CoroutineScope(mainRule.dispatcher)
         lateinit var stack: UndoStack
@@ -2220,19 +2251,24 @@ class TransactionsViewModelTest {
         stack = UndoStack(scope, System::currentTimeMillis, undoReplayer(transactionsRepository))
         awaitLoaded()
 
-        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 1 })
+        viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == held.id })
         viewModel.onDeleteTap()
-        awaitState { it.modal == null && !it.transactions.any { t -> t.id == 1 } }
+        awaitState { it.modal == null && !it.transactions.any { t -> t.id == held.id } }
+        val callsBeforeUndo = calls.size
 
         stack.undo(stack.state.value.entries.single().key)
         withTimeout(5_000) { stack.state.first { s -> s.entries.single().error != null } }
 
-        assertEquals(
-            "That Occurrence was already paid by another transaction.",
-            stack.state.value.entries.single().error,
-        )
+        assertEquals(PIN_TAKEN, stack.state.value.entries.single().error)
         assertNull(stack.restored.value)
-        assertFalse(transactionStore.any { it.id == 1 })
+        assertFalse(transactionStore.any { it.id == held.id })
+        assertFalse(viewModel.uiState.value.transactions.any { it.id == held.id })
+        val writesAfterUndo = calls.toList().drop(callsBeforeUndo).filter { it.method != "GET" }
+        assertEquals(listOf("POST /api/transactions/undo"), writesAfterUndo.map { "${it.method} ${it.path}" })
+        val undo = json.decodeFromString<TransactionUndoRequest>(writesAfterUndo.single().body)
+        assertEquals(expectedCostPin, undo.recurring_cost_id)
+        assertEquals(expectedIncomePin, undo.recurring_income_id)
+        assertEquals("2026-08-01", undo.occurrence_date)
         scope.cancel()
     }
 
