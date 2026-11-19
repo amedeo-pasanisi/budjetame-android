@@ -49,6 +49,8 @@ import com.budjetame.android.data.api.ImportRowDto
 import com.budjetame.android.data.api.ImportRowInput
 import com.budjetame.android.data.api.TransactionType
 import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.ui.transactions.ADD_CATEGORY_OPTION
 import com.budjetame.android.ui.transactions.ADD_WALLET_OPTION
 import com.budjetame.android.ui.transactions.TypeSelector
@@ -69,8 +71,10 @@ import java.time.Instant
  * Wallet and Category are names that the re-validation endpoint resolves
  * server-side. Save sends the edited fields and closes — the row's status
  * flips inline in the list behind, re-validated (POST /import/validate-row)
- * as it is saved. Cancel and the backdrop dismiss abandon the edit without
- * changing the row. The Wallet and Category selects list the Account's
+ * as it is saved. Save is submit-and-validate (ADR-0009): enabled except
+ * while saving, it reveals a Field Error under each wrong field of an
+ * invalid row and sends nothing. Cancel and the backdrop dismiss abandon
+ * the edit without changing the row. The Wallet and Category selects list the Account's
  * existing entities of the kind the row can use: the non-Contact active
  * Wallets for an Expense/Income's Wallet field, all active Wallets for a
  * Transfer's From/To, Categories of the row's type — a current name that
@@ -94,6 +98,9 @@ fun ImportRowEditor(
     categories: List<CategoryDto>,
     saving: Boolean,
     error: String?,
+    /** The Field Errors the last Save revealed (ADR-0009), each shown
+     * under its field; the server [error] stays the bottom banner. */
+    fieldErrors: FieldErrors,
     onSave: (ImportRowInput) -> Unit,
     onClose: () -> Unit,
     /** Inline entity creation (ADR-0013): opens the Wallet create form,
@@ -141,15 +148,6 @@ fun ImportRowEditor(
         CategoryType.EXPENSE
     }
 
-    val canSave = canSaveEditedRow(
-        type = type,
-        amount = amount,
-        date = date,
-        wallet = wallet,
-        sourceWallet = sourceWallet,
-        destinationWallet = destinationWallet,
-    )
-
     // Inline entity creation (ADR-0013, ticket #27): when the screen's
     // inner Wallet modal saves, it reports the new Wallet's name here so
     // the exact field whose sentinel was picked selects it — nothing else
@@ -186,6 +184,7 @@ fun ImportRowEditor(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(top = 12.dp),
                 ) {
+                    val amountError = fieldErrors[ImportRowFields.AMOUNT]
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it },
@@ -193,12 +192,15 @@ fun ImportRowEditor(
                         placeholder = { Text("0.00") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        isError = amountError != null,
+                        supportingText = fieldErrorSupportingText(amountError),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("im-amount"),
                     )
                     EditorDateField(
                         value = date,
+                        error = fieldErrors[ImportRowFields.DATE],
                         onSelect = { date = it },
                         modifier = Modifier.weight(1f),
                     )
@@ -215,6 +217,7 @@ fun ImportRowEditor(
                             options = transferWallets.map { it.name to it.name },
                             onChange = { sourceWallet = it },
                             tag = "im-source",
+                            error = fieldErrors[ImportRowFields.SOURCE],
                             onAdd = { prefill -> onAddWallet(WalletFieldTarget.SOURCE, prefill) },
                             modifier = Modifier.weight(1f),
                         )
@@ -224,6 +227,7 @@ fun ImportRowEditor(
                             options = transferWallets.map { it.name to it.name },
                             onChange = { destinationWallet = it },
                             tag = "im-destination",
+                            error = fieldErrors[ImportRowFields.DESTINATION],
                             onAdd = { prefill -> onAddWallet(WalletFieldTarget.DESTINATION, prefill) },
                             modifier = Modifier.weight(1f),
                         )
@@ -236,6 +240,7 @@ fun ImportRowEditor(
                             options = spendable.map { it.name to it.name },
                             onChange = { wallet = it },
                             tag = "im-wallet",
+                            error = fieldErrors[ImportRowFields.WALLET],
                             onAdd = { prefill -> onAddWallet(WalletFieldTarget.WALLET, prefill) },
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -332,7 +337,9 @@ fun ImportRowEditor(
                         ),
                     )
                 },
-                enabled = canSave && !saving,
+                // Never gated on validation (ADR-0009): Save reveals the
+                // Field Errors instead.
+                enabled = !saving,
             shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(if (saving) "Saving…" else "Save")
             }
@@ -364,6 +371,7 @@ private fun NameSelectField(
     options: List<Pair<String, String>>,
     onChange: (String) -> Unit,
     tag: String,
+    error: String?,
     onAdd: (prefillName: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -381,6 +389,8 @@ private fun NameSelectField(
             label = { Text(label) },
             placeholder = { Text("Select") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            isError = error != null,
+            supportingText = fieldErrorSupportingText(error),
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -501,10 +511,12 @@ internal fun displayedEntityName(value: String, options: List<Pair<String, Strin
 @Composable
 private fun EditorDateField(
     value: String,
+    error: String?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pickerOpen by remember { mutableStateOf(false) }
+    val errorTint = if (error != null) MaterialTheme.colorScheme.error else null
     Box(modifier = modifier) {
         OutlinedTextField(
             value = value,
@@ -514,12 +526,15 @@ private fun EditorDateField(
             singleLine = true,
             label = { Text("Date") },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
+            isError = error != null,
+            supportingText = fieldErrorSupportingText(error),
             colors = OutlinedTextFieldDefaults.colors(
                 // Disabled but styled like an enabled field: the tap goes to
-                // the overlay, not to the field.
+                // the overlay, not to the field — so the disabled colors
+                // carry the error state themselves.
                 disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledBorderColor = errorTint ?: MaterialTheme.colorScheme.outline,
+                disabledLabelColor = errorTint ?: MaterialTheme.colorScheme.onSurfaceVariant,
                 disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 disabledContainerColor = Color.Transparent,
             ),

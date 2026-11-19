@@ -18,6 +18,8 @@ import com.budjetame.android.data.imports.ImportGateway
 import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.categories.CategoryModalState
 import com.budjetame.android.ui.categories.validateCategoryForm
+import com.budjetame.android.ui.common.FieldErrors
+import com.budjetame.android.ui.common.parseAmountInput
 import com.budjetame.android.ui.transactions.WalletFieldTarget
 import com.budjetame.android.ui.wallets.WalletModalState
 import com.budjetame.android.ui.wallets.validateWalletForm
@@ -82,6 +84,10 @@ data class ImportDraft(
     /** The editor's own error — a failed re-validation call — shown inside
      * the open editor, leaving the draft untouched. */
     val editorError: String? = null,
+    /** The editor's Field Errors (ADR-0009): set by a Save on an invalid
+     * row, which re-validates nothing; refreshed only by the next Save,
+     * cleared with the editor. Never mixed with [editorError]. */
+    val editorFieldErrors: FieldErrors = emptyMap(),
     /** The inline "New wallet…" create modal stacked on the row editor
      * (ADR-0013/0014, ticket #27); null = closed. The created Wallet is
      * real at once; its name is reported back to the editor's originating
@@ -309,6 +315,7 @@ class ImportViewModel(
                     editingRow = rowNumber,
                     editorSaving = false,
                     editorError = null,
+                    editorFieldErrors = emptyMap(),
                 ),
             )
         }
@@ -325,6 +332,7 @@ class ImportViewModel(
                         editingRow = null,
                         editorSaving = false,
                         editorError = null,
+                        editorFieldErrors = emptyMap(),
                         rowWalletCreate = null,
                         rowCategoryCreate = null,
                         rowWalletToSelect = null,
@@ -344,13 +352,25 @@ class ImportViewModel(
      * that turns Ready joins the selection, one that stops being Ready
      * leaves it. Nothing is written. A failed call keeps the editor open
      * with its error inline and the draft untouched.
+     *
+     * Submit-and-validate (ADR-0009): the edited row is validated first; an
+     * invalid one only reveals its Field Errors in the editor and calls
+     * nothing. A valid one clears them and re-validates with its amount in
+     * US-canonical form (the Amount Input accepts `7,5`; the wire gets
+     * `7.5`).
      */
-    fun saveRowEdit(input: ImportRowInput) {
+    fun saveRowEdit(edited: ImportRowInput) {
         val draft = _uiState.value.draft ?: return
         val rowNumber = draft.editingRow ?: return
         if (draft.phase != ImportPhase.PREVIEW || draft.editorSaving) return
         val preview = draft.preview ?: return
         if (preview.rows.none { it.row == rowNumber }) return
+        val fieldErrors = validateImportRow(edited)
+        _uiState.update { state ->
+            state.draft?.let { state.copy(draft = it.copy(editorFieldErrors = fieldErrors)) } ?: state
+        }
+        if (fieldErrors.isNotEmpty()) return
+        val input = edited.copy(amount = parseAmountInput(edited.amount)!!.toPlainString())
         val gen = generation
         _uiState.update { state ->
             state.draft?.let {
