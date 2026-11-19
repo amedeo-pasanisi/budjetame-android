@@ -48,6 +48,7 @@ import com.budjetame.android.data.api.IntervalUnit
 import com.budjetame.android.data.api.RecurringOccurrenceDto
 import com.budjetame.android.ui.common.FreezeSection
 import com.budjetame.android.ui.common.UnfreezeSection
+import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.ui.recurring.OccurrencesSection
 import com.budjetame.android.util.Dates
 import java.time.Instant
@@ -60,8 +61,8 @@ import java.time.Instant
  * days/weeks/months/years" — the unit reads singular when N is 1), and
  * the start date: the first Occurrence, the one date the definition
  * carries (ADR-0024). Left empty at creation it becomes the creation day
- * — so "start today" needs no typing — while editing always shows a date,
- * and an empty one blocks the save: the date can be changed, never unset.
+ * — so "start today" needs no typing — while editing always shows a date:
+ * the date can be changed, never unset.
  * Occurrences repeat on the start date's day from there on (29–31 clamp
  * to the last day of shorter months). The definition itself never carries
  * a Wallet or a Category: they are chosen when a linked Expense is
@@ -123,17 +124,21 @@ fun RecurringCostsModal(
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 } else {
+                    val nameError = modal.fieldErrors[RecurringCostFields.NAME]
                     OutlinedTextField(
                         value = modal.name,
                         onValueChange = onNameChange,
                         label = { Text("Name") },
                         placeholder = { Text("e.g. Rent") },
                         singleLine = true,
+                        isError = nameError != null,
+                        supportingText = fieldErrorSupportingText(nameError),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("rc-name"),
                     )
 
+                    val amountError = modal.fieldErrors[RecurringCostFields.AMOUNT]
                     OutlinedTextField(
                         value = modal.amount,
                         onValueChange = onAmountChange,
@@ -141,6 +146,8 @@ fun RecurringCostsModal(
                         placeholder = { Text("0.00") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        isError = amountError != null,
+                        supportingText = fieldErrorSupportingText(amountError),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp)
@@ -151,12 +158,15 @@ fun RecurringCostsModal(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.padding(top = 12.dp),
                     ) {
+                        val intervalError = modal.fieldErrors[RecurringCostFields.INTERVAL]
                         OutlinedTextField(
                             value = modal.intervalValue,
                             onValueChange = onIntervalValueChange,
                             label = { Text("Repeats every") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
+                            isError = intervalError != null,
+                            supportingText = fieldErrorSupportingText(intervalError),
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("rc-interval"),
@@ -171,6 +181,7 @@ fun RecurringCostsModal(
 
                     StartDateField(
                         value = modal.startDate,
+                        error = modal.fieldErrors[RecurringCostFields.START_DATE],
                         onSelect = onStartDateChange,
                         clearable = !editing,
                         modifier = Modifier
@@ -226,7 +237,7 @@ fun RecurringCostsModal(
             }
         },
         confirmButton = {
-            Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+            Button(onClick = onSubmit, enabled = modal.canSave, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text(
                     when {
                         modal.submitting -> "Saving…"
@@ -298,6 +309,7 @@ private fun IntervalUnitField(
 @Composable
 private fun StartDateField(
     value: String,
+    error: String?,
     onSelect: (String) -> Unit,
     clearable: Boolean,
     modifier: Modifier = Modifier,
@@ -312,12 +324,23 @@ private fun StartDateField(
             singleLine = true,
             label = { Text("Start date") },
             trailingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
+            isError = error != null,
+            supportingText = fieldErrorSupportingText(error),
             colors = OutlinedTextFieldDefaults.colors(
                 // Disabled but styled like an enabled field: the tap goes to
-                // the overlay, not to the field.
+                // the overlay, not to the field — so the disabled colors
+                // carry the error state themselves.
                 disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledBorderColor = if (error != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.outline
+                },
+                disabledLabelColor = if (error != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 disabledContainerColor = Color.Transparent,
             ),
