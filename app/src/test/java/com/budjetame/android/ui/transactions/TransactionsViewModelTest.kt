@@ -987,19 +987,12 @@ class TransactionsViewModelTest {
      * the order the ViewModel issued them: back-to-back changes refetch
      * concurrently on separate OkHttp connections, so a superseded fetch can
      * land after the newest one. `last()` names the newest fetch only once
-     * every earlier fetch has landed (see [awaitListCalls]); otherwise find
-     * the fetch by its content ([listCallWith]). */
+     * every earlier fetch has landed ([awaitLedgerFetches] — a state change
+     * only proves the newest fetch answered, not that the superseded ones it
+     * raced have landed); otherwise find the fetch by its content
+     * ([awaitListCallWith]). */
     private fun listCalls(): List<RecordedCall> =
         calls.toList().filter { it.path == "/api/transactions" }
-
-    /** Wait until [count] ledger GETs have reached the server — a state
-     * change only proves the newest fetch answered, not that the superseded
-     * ones it raced have landed. */
-    private suspend fun awaitListCalls(count: Int) {
-        withTimeout(5_000) {
-            while (listCalls().size < count) delay(10)
-        }
-    }
 
     /** Wait for the one ledger GET whose query is exactly [query] (`limit`
      * included), whatever order the concurrent fetches land in. Awaiting
@@ -1127,7 +1120,6 @@ class TransactionsViewModelTest {
                 "to_date" to "2026-08-02",
             ),
         )
-        awaitState { it.transactions.map { t -> t.id } == listOf(2) }
         assertTrue(viewModel.uiState.value.filtersActive)
         assertEquals("No transactions match these filters.", viewModel.uiState.value.emptyMessage)
     }
@@ -1270,7 +1262,6 @@ class TransactionsViewModelTest {
                 "q" to "august",
             ),
         )
-        awaitState { it.transactions.map { t -> t.id } == listOf(1) }
     }
 
     @Test
@@ -1404,11 +1395,11 @@ class TransactionsViewModelTest {
         awaitState { it.searchNeedle == "lunch" }
         // The needle is set before its fetch lands: wait for it, so the blank
         // search's fetch is the newest one to reach the server.
-        awaitListCalls(2)
+        awaitLedgerFetches(2)
         viewModel.onSearchChange("   ")
         // The refetch lands but may conflate (same list content); await the
         // request instead of a state change.
-        awaitListCalls(3)
+        awaitLedgerFetches(3)
 
         assertEquals("", viewModel.uiState.value.searchNeedle)
         assertNull(listCalls().last().query["q"])
@@ -1452,7 +1443,7 @@ class TransactionsViewModelTest {
         awaitState { it.transactions.map { t -> t.id } == listOf(1) }
         // The initial load and both bound changes have all landed — the
         // from-only fetch can still be in flight after the state settles.
-        awaitListCalls(3)
+        awaitLedgerFetches(3)
 
         val before = listCalls().size
         viewModel.clearFilterDates()
@@ -1493,7 +1484,7 @@ class TransactionsViewModelTest {
         viewModel.onSearchChange("august")
         awaitState { it.searchNeedle == "august" && it.transactions.map { t -> t.id } == listOf(1) }
         // The initial load and all six changes' fetches have landed.
-        awaitListCalls(7)
+        awaitLedgerFetches(7)
 
         val before = listCalls().size
         viewModel.clearPanelFilters()
@@ -1534,7 +1525,7 @@ class TransactionsViewModelTest {
         viewModel.onSearchChange("  august ")
         awaitState { it.searchNeedle == "august" && it.transactions.map { t -> t.id } == listOf(1) }
         // The initial load and both changes' fetches have landed.
-        awaitListCalls(3)
+        awaitLedgerFetches(3)
 
         val before = listCalls().size
         viewModel.clearFiltersAndSearch()

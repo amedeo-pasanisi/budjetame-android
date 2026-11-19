@@ -422,8 +422,16 @@ class DraftTransactionsViewModelTest {
         // they run concurrently and can reach the server later. Wait for the
         // whole set (ledger, wallets, categories, both Recurring lists,
         // Drafts) before counting, or a late one reads as a new request.
+        val loadPaths = listOf(
+            "/api/transactions",
+            "/api/wallets",
+            "/api/categories",
+            "/api/recurring-costs",
+            "/api/recurring-incomes",
+            "/api/draft-transactions",
+        )
         withTimeout(5_000) {
-            while (calls.size < 6) delay(10)
+            while (loadPaths.any { callsTo("GET", it).isEmpty() }) delay(10)
         }
         val before = calls.size
 
