@@ -62,6 +62,7 @@ import com.budjetame.android.ui.undo.DeletedEntity
 import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.ui.undo.UndoStack
 import com.budjetame.android.ui.undo.undoReplayer
+import com.budjetame.android.ui.wallets.WalletFields
 import com.budjetame.android.util.Dates
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
@@ -3175,19 +3176,40 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun `a negative opening balance blocks the inline wallet create`() = runBlocking {
+    fun `saving the inline wallet form with a blank name and a bad opening balance reveals both and creates nothing`() = runBlocking {
         seedWallets(wallet(1, "Cash", WalletType.CASH, "100.00"))
         createViewModel()
         awaitLoaded()
 
         viewModel.openCreate()
+        viewModel.onAmountChange("5.00")
         viewModel.onWalletAdd(WalletFieldTarget.WALLET)
-        viewModel.onWalletCreateNameChange("New")
         viewModel.onWalletCreateOpeningBalanceChange("-5")
         viewModel.submitWalletCreate()
 
-        assertEquals("Enter an amount of €0 or more.", viewModel.uiState.value.walletCreate?.modal?.error)
         assertTrue(calls.toList().none { it.method == "POST" && it.path == "/api/wallets" })
+        val create = viewModel.uiState.value.walletCreate!!
+        assertEquals(
+            mapOf(
+                WalletFields.NAME to "Enter a name",
+                WalletFields.OPENING_BALANCE to AmountInputMessages.NOT_POSITIVE,
+            ),
+            create.modal.fieldErrors,
+        )
+        assertNull(create.modal.error)
+        // The Transaction draft beneath is untouched and judged separately.
+        assertEquals("5.00", viewModel.uiState.value.modal?.amount)
+        assertEquals(emptyMap<String, String>(), viewModel.uiState.value.modal?.fieldErrors)
+
+        // Typing keeps the errors; the next valid Save clears them and
+        // creates with the tolerant parser's canonical opening balance.
+        viewModel.onWalletCreateNameChange("Savings")
+        viewModel.onWalletCreateOpeningBalanceChange("17,5")
+        assertEquals(2, viewModel.uiState.value.walletCreate!!.modal.fieldErrors.size)
+        viewModel.submitWalletCreate()
+        awaitState { it.walletCreate == null && it.modal?.walletId == 2 }
+        val request = json.decodeFromString<WalletCreateRequest>(call("POST", "/api/wallets").body)
+        assertEquals("17.5", request.opening_balance)
     }
 
     @Test

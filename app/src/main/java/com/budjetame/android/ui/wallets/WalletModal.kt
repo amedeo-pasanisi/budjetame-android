@@ -38,6 +38,7 @@ import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.FreezeSection
 import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.UnfreezeSection
+import com.budjetame.android.ui.common.fieldErrorSupportingText
 import com.budjetame.android.util.Money
 
 /**
@@ -48,6 +49,11 @@ import com.budjetame.android.util.Money
  * `allowedTypes` restricts the create form's Type selector — an Income's
  * Wallet field never creates a Contact Wallet (ADR-0017) — and edit mode
  * never shows the selector, so the lock is create-only.
+ *
+ * Validation is submit-and-validate (ADR-0009): Save is disabled only while
+ * a save or freeze is in flight, and the host's last Save attempt renders
+ * its Field Errors inline under Name and Opening balance — a server
+ * rejection stays in the banner below the fields.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,9 +71,11 @@ fun WalletModal(
     val locale = LocalDisplayLocale.current
     val wallet = modal.wallet
     val editing = wallet != null
+    val nameError = modal.fieldErrors[WalletFields.NAME]
+    val openingBalanceError = modal.fieldErrors[WalletFields.OPENING_BALANCE]
 
     AlertDialog(
-        onDismissRequest = { if (!modal.submitting && !modal.freezing) onClose() },
+        onDismissRequest = { if (!modal.busy) onClose() },
         title = { Text(if (editing) "Edit wallet" else "New wallet") },
         text = {
             Column(
@@ -96,6 +104,8 @@ fun WalletModal(
                         label = { Text("Name") },
                         placeholder = { Text("e.g. Intesa checking") },
                         singleLine = true,
+                        isError = nameError != null,
+                        supportingText = fieldErrorSupportingText(nameError),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp)
@@ -129,9 +139,12 @@ fun WalletModal(
                         enabled = modal.type != WalletType.CONTACT,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        isError = openingBalanceError != null,
+                        supportingText = fieldErrorSupportingText(openingBalanceError),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp),
+                            .padding(top = 12.dp)
+                            .testTag("wallet-opening-balance"),
                     )
                     Text(
                         text = if (modal.type == WalletType.CONTACT) {
@@ -182,7 +195,7 @@ fun WalletModal(
             {}
         } else {
             {
-                Button(onClick = onSubmit, enabled = modal.canSubmit, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+                Button(onClick = onSubmit, enabled = !modal.busy, shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
                     Text(
                         when {
                             modal.submitting -> "Saving…"
@@ -194,7 +207,7 @@ fun WalletModal(
             }
         },
         dismissButton = {
-            TextButton(onClick = onClose, enabled = !modal.submitting && !modal.freezing) {
+            TextButton(onClick = onClose, enabled = !modal.busy) {
                 Text("Cancel")
             }
         },
