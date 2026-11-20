@@ -27,6 +27,7 @@
     <string name="errors_wallets_create">Impossibile creare il portafoglio.</string>
     <string name="errors_wallets_rename">Impossibile rinominare il portafoglio.</string>
     <string name="errors_wallets_freeze">Impossibile congelare il portafoglio.</string>
+    <string name="errors_wallets_delete">Impossibile eliminare il portafoglio.</string>
     <string name="errors_wallets_freeze_balance">Un portafoglio può essere congelato solo quando il suo saldo è esattamente €0,00.</string>
     <string name="errors_wallets_unfreeze">Impossibile scongelare il portafoglio.</string>
 
@@ -42,11 +43,13 @@
     <string name="errors_recurring_cost_create">Impossibile creare l\'uscita ricorrente.</string>
     <string name="errors_recurring_cost_save">Impossibile salvare l\'uscita ricorrente.</string>
     <string name="errors_recurring_cost_freeze">Impossibile congelare l\'uscita ricorrente.</string>
+    <string name="errors_recurring_cost_delete">Impossibile eliminare l\'uscita ricorrente.</string>
     <string name="errors_recurring_cost_unfreeze">Impossibile scongelare l\'uscita ricorrente.</string>
     <string name="errors_recurring_income_conflict">Esiste già un\'entrata ricorrente con questo nome.</string>
     <string name="errors_recurring_income_create">Impossibile creare l\'entrata ricorrente.</string>
     <string name="errors_recurring_income_save">Impossibile salvare l\'entrata ricorrente.</string>
     <string name="errors_recurring_income_freeze">Impossibile congelare l\'entrata ricorrente.</string>
+    <string name="errors_recurring_income_delete">Impossibile eliminare l\'entrata ricorrente.</string>
     <string name="errors_recurring_income_unfreeze">Impossibile scongelare l\'entrata ricorrente.</string>
 
     <!-- Import -->

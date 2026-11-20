@@ -201,6 +201,8 @@ private class RecurringCostsFixture(
     override suspend fun freezeRecurringCost(id: Int): RecurringCostDto = error("unused")
 
     override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto = error("unused")
+    override suspend fun deleteRecurringCost(id: Int): RecurringCostDto = error("unused")
+    override suspend fun undoRecurringCostDelete(row: RecurringCostDto): RecurringCostDto = error("unused")
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
 
@@ -233,6 +235,8 @@ private class RecurringIncomesFixture(
     override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
 
     override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+    override suspend fun deleteRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+    override suspend fun undoRecurringIncomeDelete(row: RecurringIncomeDto): RecurringIncomeDto = error("unused")
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
 

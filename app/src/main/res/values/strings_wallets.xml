@@ -35,6 +35,8 @@
     <string name="wallet_form_create">Create wallet</string>
     <string name="wallet_form_unfreeze">Unfreeze wallet</string>
     <string name="wallet_form_unfreeze_description">Restore this wallet: it will accept transactions again and reappear in its type section.</string>
+    <string name="wallet_form_delete">Delete wallet</string>
+    <string name="wallet_form_delete_hint">A frozen wallet with no transactions can be deleted for good. You can undo for ten seconds.</string>
     <string name="wallet_form_freeze">Freeze wallet</string>
     <!-- %1$s: zero (€0.00), %2$s: the current balance, both formatted. -->
     <string name="wallet_form_freeze_balance">Freeze requires %1$s balance (currently %2$s)</string>

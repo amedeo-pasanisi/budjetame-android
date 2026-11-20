@@ -11,6 +11,10 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+### Added
+
+- **Wallets and Recurring** — a frozen Wallet, Recurring Cost or Recurring Income that has no history can now be deleted, as on the web app: its modal shows **Delete** below Unfreeze. One tap deletes it and an Undo entry ("Wallet deleted · Old card") appears for 10 seconds; Undo brings it back, still frozen. A Wallet any Transaction has touched, or a definition with linked Transactions, is refused with the reason ("This wallet has 12 transactions") and stays frozen.
+
 ## [v1.10.0] — 2026-11-19
 
 ### Added

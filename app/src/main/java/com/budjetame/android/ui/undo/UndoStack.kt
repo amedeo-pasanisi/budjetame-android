@@ -3,8 +3,14 @@ package com.budjetame.android.ui.undo
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budjetame.android.R
+import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
+import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.data.recurringcost.RecurringCostGateway
+import com.budjetame.android.data.recurringincome.RecurringIncomeGateway
 import com.budjetame.android.data.transaction.TransactionGateway
+import com.budjetame.android.data.wallet.WalletGateway
 import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.serverMessageOr
 import kotlinx.coroutines.CancellationException
@@ -18,16 +24,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 
-/** The kinds of deletion the Undo stack can reverse (web ADR-0034). Only
- * Transactions are wired today; Wallets and Recurring definitions join
- * with their own delete-with-undo. */
-enum class UndoKind { TRANSACTION }
+/** The kinds of deletion the Undo stack can reverse (web ADR-0034). */
+enum class UndoKind { TRANSACTION, WALLET, RECURRING_COST, RECURRING_INCOME }
 
 /**
  * A deleted entity tagged with its kind: the replay payload the kind's
  * undo endpoint takes back (web ADR-0031 / ADR-0034). The payload is the
- * row the client already held when the user deleted it — the delete
- * answers only the Cash warning, never the row.
+ * row the client already held when the user deleted it for a Transaction
+ * (its delete answers only the Cash warning), and the row the delete
+ * answered for a Wallet or a Recurring definition.
  */
 sealed interface DeletedEntity {
     val kind: UndoKind
@@ -48,6 +53,33 @@ sealed interface DeletedEntity {
         override val id: Int get() = row.id
         override val headline: UiText get() = UiText.of(R.string.undo_transaction_deleted)
         override val label: String? get() = row.description?.takeIf { it.isNotBlank() }
+    }
+
+    /** A deleted Wallet: replayed to `POST /wallets/undo`, it comes back
+     * with its original id, still frozen. */
+    data class Wallet(val row: WalletDto) : DeletedEntity {
+        override val kind: UndoKind get() = UndoKind.WALLET
+        override val id: Int get() = row.id
+        override val headline: UiText get() = UiText.of(R.string.undo_wallet_deleted)
+        override val label: String get() = row.name
+    }
+
+    /** A deleted Recurring Cost: replayed to `POST /recurring-costs/undo`,
+     * it comes back with its original id, still frozen with its freeze
+     * date. */
+    data class RecurringCost(val row: RecurringCostDto) : DeletedEntity {
+        override val kind: UndoKind get() = UndoKind.RECURRING_COST
+        override val id: Int get() = row.id
+        override val headline: UiText get() = UiText.of(R.string.undo_recurring_cost_deleted)
+        override val label: String get() = row.name
+    }
+
+    /** A deleted Recurring Income: the Recurring Cost's mirror. */
+    data class RecurringIncome(val row: RecurringIncomeDto) : DeletedEntity {
+        override val kind: UndoKind get() = UndoKind.RECURRING_INCOME
+        override val id: Int get() = row.id
+        override val headline: UiText get() = UiText.of(R.string.undo_recurring_income_deleted)
+        override val label: String get() = row.name
     }
 }
 
@@ -240,20 +272,36 @@ class UndoStack(
 
 /** The Undo handler's dispatch by kind: each kind's undo endpoint
  * re-inserts the very same entity and answers it. */
-fun undoReplayer(transactions: TransactionGateway): suspend (DeletedEntity) -> DeletedEntity = { deleted ->
+fun undoReplayer(
+    transactions: TransactionGateway,
+    wallets: WalletGateway,
+    recurringCosts: RecurringCostGateway,
+    recurringIncomes: RecurringIncomeGateway,
+): suspend (DeletedEntity) -> DeletedEntity = { deleted ->
     when (deleted) {
         is DeletedEntity.Transaction ->
             DeletedEntity.Transaction(transactions.undoTransaction(deleted.row))
+        is DeletedEntity.Wallet ->
+            DeletedEntity.Wallet(wallets.undoWalletDelete(deleted.row))
+        is DeletedEntity.RecurringCost ->
+            DeletedEntity.RecurringCost(recurringCosts.undoRecurringCostDelete(deleted.row))
+        is DeletedEntity.RecurringIncome ->
+            DeletedEntity.RecurringIncome(recurringIncomes.undoRecurringIncomeDelete(deleted.row))
     }
 }
 
 /** Holds the shell's [UndoStack] in the Activity's ViewModel store: it
  * survives tab switches and configuration changes, and goes with the
  * store on sign-out (ADR-0003). */
-class UndoStackViewModel(transactions: TransactionGateway) : ViewModel() {
+class UndoStackViewModel(
+    transactions: TransactionGateway,
+    wallets: WalletGateway,
+    recurringCosts: RecurringCostGateway,
+    recurringIncomes: RecurringIncomeGateway,
+) : ViewModel() {
     val stack = UndoStack(
         scope = viewModelScope,
         clock = System::currentTimeMillis,
-        replay = undoReplayer(transactions),
+        replay = undoReplayer(transactions, wallets, recurringCosts, recurringIncomes),
     )
 }

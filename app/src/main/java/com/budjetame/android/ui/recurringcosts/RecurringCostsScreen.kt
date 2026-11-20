@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.recurringcosts
 
+import com.budjetame.android.ui.undo.UndoSink
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,8 +77,10 @@ private val RED_700 = Color(0xFFB91C1C)
 fun RecurringCostsScreen(
     recurringCosts: RecurringCostGateway,
     onLedgerJump: (LedgerJump) -> Unit = {},
+    /** Where a delete goes: the shell's Undo stack (web ADR-0034). */
+    undoSink: UndoSink = UndoSink.None,
 ) {
-    val viewModel: RecurringCostsViewModel = viewModel { RecurringCostsViewModel(recurringCosts) }
+    val viewModel: RecurringCostsViewModel = viewModel { RecurringCostsViewModel(recurringCosts, undoSink) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -120,6 +123,7 @@ fun RecurringCostsScreen(
             onFreeze = viewModel::onFreezeTap,
             onUnfreeze = viewModel::onUnfreezeTap,
             onClose = viewModel::closeModal,
+            onDelete = viewModel::onDeleteTap,
         )
     }
 }

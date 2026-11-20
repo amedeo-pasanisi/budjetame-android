@@ -1,8 +1,13 @@
 package com.budjetame.android.ui.undo
 
 import com.budjetame.android.data.api.ApiException
+import com.budjetame.android.data.api.IntervalUnit
+import com.budjetame.android.data.api.RecurringCostDto
+import com.budjetame.android.data.api.RecurringIncomeDto
 import com.budjetame.android.data.api.TransactionDto
 import com.budjetame.android.data.api.TransactionType
+import com.budjetame.android.data.api.WalletDto
+import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.english
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -83,6 +88,43 @@ class UndoStackTest {
 
         undo.pushDeleted(deleted(4))
         assertEquals(listOf(4, 3, 2), undo.ids())
+    }
+
+    @Test
+    fun `every kind names itself and the same id across kinds stays separate entries`() = runTest {
+        val undo = stack()
+        val wallet = DeletedEntity.Wallet(
+            WalletDto(5, "Old card", WalletType.CREDIT_CARD, "0.00", true, "2026-08-01T10:00:00Z"),
+        )
+        val cost = DeletedEntity.RecurringCost(
+            RecurringCostDto(
+                id = 5, name = "Gym", amount = "30.00", interval_value = 1,
+                interval_unit = IntervalUnit.MONTHS, start_date = "2026-01-01",
+                next_due_date = null, next_unpaid_occurrence_date = null,
+                frozen = true, freeze_date = "2026-08-10", created_at = "2026-01-01T10:00:00Z",
+            ),
+        )
+        val income = DeletedEntity.RecurringIncome(
+            RecurringIncomeDto(
+                id = 5, name = "Rent from Bob", amount = "400.00", interval_value = 1,
+                interval_unit = IntervalUnit.MONTHS, start_date = "2026-01-01",
+                next_due_date = null, next_unpaid_occurrence_date = null,
+                frozen = true, freeze_date = "2026-08-10", created_at = "2026-01-01T10:00:00Z",
+            ),
+        )
+
+        undo.pushDeleted(wallet)
+        undo.pushDeleted(cost)
+        undo.pushDeleted(income)
+
+        assertEquals(
+            listOf(
+                "Recurring income deleted · Rent from Bob",
+                "Recurring cost deleted · Gym",
+                "Wallet deleted · Old card",
+            ),
+            undo.state.value.entries.map { "${it.deleted.headline.english()} · ${it.deleted.label}" },
+        )
     }
 
     @Test

@@ -128,6 +128,9 @@ class TransactionsViewModelTest {
     private lateinit var server: MockWebServer
     private lateinit var viewModel: TransactionsViewModel
     private lateinit var transactionsRepository: ApiTransactionRepository
+    private lateinit var walletsRepository: ApiWalletRepository
+    private lateinit var recurringCostsRepository: ApiRecurringCostRepository
+    private lateinit var recurringIncomesRepository: ApiRecurringIncomeRepository
 
     private val transactionStore = mutableListOf<TransactionDto>()
     private val walletStore = mutableListOf<WalletDto>()
@@ -225,9 +228,12 @@ class TransactionsViewModelTest {
         val transactions = ApiTransactionRepository(client.create(TransactionApi::class.java))
         transactionsRepository = transactions
         val wallets = ApiWalletRepository(client.create(WalletApi::class.java))
+        walletsRepository = wallets
         val categories = ApiCategoryRepository(client.create(CategoryApi::class.java))
         val recurringCosts = ApiRecurringCostRepository(client.create(RecurringCostApi::class.java))
         val recurringIncomes = ApiRecurringIncomeRepository(client.create(RecurringIncomeApi::class.java))
+        recurringCostsRepository = recurringCosts
+        recurringIncomesRepository = recurringIncomes
         viewModel = TransactionsViewModel(
             transactions = transactions,
             wallets = wallets,
@@ -2185,7 +2191,7 @@ class TransactionsViewModelTest {
         lateinit var stack: UndoStack
         val pushed = mutableListOf<DeletedEntity>()
         createViewModel(undo = UndoSink { pushed += it; stack.pushDeleted(it) })
-        stack = UndoStack(scope, System::currentTimeMillis, undoReplayer(transactionsRepository))
+        stack = UndoStack(scope, System::currentTimeMillis, undoReplayer(transactionsRepository, walletsRepository, recurringCostsRepository, recurringIncomesRepository))
         awaitLoaded()
 
         viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == 9 })
@@ -2251,7 +2257,7 @@ class TransactionsViewModelTest {
         val scope = CoroutineScope(mainRule.dispatcher)
         lateinit var stack: UndoStack
         createViewModel(undo = { stack.pushDeleted(it) })
-        stack = UndoStack(scope, System::currentTimeMillis, undoReplayer(transactionsRepository))
+        stack = UndoStack(scope, System::currentTimeMillis, undoReplayer(transactionsRepository, walletsRepository, recurringCostsRepository, recurringIncomesRepository))
         awaitLoaded()
 
         viewModel.openEdit(viewModel.uiState.value.transactions.first { it.id == held.id })
@@ -3666,6 +3672,8 @@ class TransactionsViewModelTest {
         override suspend fun freezeWallet(id: Int) = error("unused in the debounce test")
 
         override suspend fun unfreezeWallet(id: Int): WalletDto = error("unused in the debounce test")
+        override suspend fun deleteWallet(id: Int): WalletDto = error("unused")
+        override suspend fun undoWalletDelete(row: WalletDto): WalletDto = error("unused")
 
         override suspend fun createCategory(name: String, type: CategoryType, icon: String, color: String): CategoryDto =
             error("unused in the debounce test")
@@ -3689,6 +3697,8 @@ class TransactionsViewModelTest {
 
         override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto =
             error("unused in the debounce test")
+        override suspend fun deleteRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun undoRecurringCostDelete(row: RecurringCostDto): RecurringCostDto = error("unused")
 
         override suspend fun createRecurringIncome(draft: RecurringIncomeDraft): RecurringIncomeDto =
             error("unused in the debounce test")
@@ -3701,6 +3711,8 @@ class TransactionsViewModelTest {
 
         override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto =
             error("unused in the debounce test")
+        override suspend fun deleteRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun undoRecurringIncomeDelete(row: RecurringIncomeDto): RecurringIncomeDto = error("unused")
 
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
             error("unused in the debounce test")

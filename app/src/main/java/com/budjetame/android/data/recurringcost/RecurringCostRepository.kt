@@ -34,6 +34,13 @@ interface RecurringCostGateway {
     suspend fun freezeRecurringCost(id: Int): RecurringCostDto
     suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto
 
+    /** Delete a frozen definition with no linked Transaction (web
+     * ADR-0034); answers the deleted row, kept for the Undo. */
+    suspend fun deleteRecurringCost(id: Int): RecurringCostDto
+
+    /** Bring a deleted definition back from its held row, still frozen. */
+    suspend fun undoRecurringCostDelete(row: RecurringCostDto): RecurringCostDto
+
     /** The Occurrences section's read (web ADR-0026): every non-Paid
      * Occurrence with its skipped state, newest first — the one order the
      * edit modal renders. */
@@ -88,6 +95,12 @@ class ApiRecurringCostRepository(private val api: RecurringCostApi) : RecurringC
 
     override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto =
         call { api.unfreeze(id) }
+
+    override suspend fun deleteRecurringCost(id: Int): RecurringCostDto =
+        call { api.delete(id) }
+
+    override suspend fun undoRecurringCostDelete(row: RecurringCostDto): RecurringCostDto =
+        call { api.undo(row) }
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
         call { api.occurrences(id) }

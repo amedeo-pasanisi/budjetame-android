@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="undo_transaction_deleted">Transazione eliminata</string>
+    <string name="undo_wallet_deleted">Portafoglio eliminato</string>
+    <string name="undo_recurring_cost_deleted">Uscita ricorrente eliminata</string>
+    <string name="undo_recurring_income_deleted">Entrata ricorrente eliminata</string>
     <string name="undo_undo">Annulla</string>
     <string name="undo_dismiss">Ignora</string>
     <string name="undo_error">Impossibile annullare.</string>

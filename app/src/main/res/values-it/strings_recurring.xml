@@ -76,6 +76,8 @@
     <string name="recurring_costs_freeze">Congela uscita ricorrente</string>
     <string name="recurring_costs_freeze_description">Le spese collegate restano collegate. Il congelamento interrompe tutte le nuove occorrenze.</string>
     <string name="recurring_costs_unfreeze">Scongela uscita ricorrente</string>
+    <string name="recurring_costs_delete">Elimina uscita ricorrente</string>
+    <string name="recurring_costs_delete_hint">Un\'uscita ricorrente congelata senza transazioni collegate può essere eliminata definitivamente. Puoi annullare per dieci secondi.</string>
 
     <string name="recurring_incomes_title">Entrate Ricorrenti</string>
     <string name="recurring_incomes_new">Nuova entrata ricorrente</string>
@@ -89,4 +91,6 @@
     <string name="recurring_incomes_freeze">Congela entrata ricorrente</string>
     <string name="recurring_incomes_freeze_description">Le entrate collegate restano collegate. Il congelamento interrompe tutte le nuove occorrenze.</string>
     <string name="recurring_incomes_unfreeze">Scongela entrata ricorrente</string>
+    <string name="recurring_incomes_delete">Elimina entrata ricorrente</string>
+    <string name="recurring_incomes_delete_hint">Un\'entrata ricorrente congelata senza transazioni collegate può essere eliminata definitivamente. Puoi annullare per dieci secondi.</string>
 </resources>

@@ -87,6 +87,8 @@
     <string name="recurring_costs_freeze">Freeze recurring cost</string>
     <string name="recurring_costs_freeze_description">Its linked expenses stay linked. Freezing stops all new occurrences.</string>
     <string name="recurring_costs_unfreeze">Unfreeze recurring cost</string>
+    <string name="recurring_costs_delete">Delete recurring cost</string>
+    <string name="recurring_costs_delete_hint">A frozen recurring cost with no linked transactions can be deleted for good. You can undo for ten seconds.</string>
 
     <!-- Recurring Incomes. -->
     <string name="recurring_incomes_title">Recurring Incomes</string>
@@ -101,4 +103,6 @@
     <string name="recurring_incomes_freeze">Freeze recurring income</string>
     <string name="recurring_incomes_freeze_description">Its linked incomes stay linked. Freezing stops all new occurrences.</string>
     <string name="recurring_incomes_unfreeze">Unfreeze recurring income</string>
+    <string name="recurring_incomes_delete">Delete recurring income</string>
+    <string name="recurring_incomes_delete_hint">A frozen recurring income with no linked transactions can be deleted for good. You can undo for ten seconds.</string>
 </resources>

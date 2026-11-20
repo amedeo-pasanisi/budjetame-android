@@ -34,6 +34,13 @@ interface RecurringIncomeGateway {
     suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto
     suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto
 
+    /** Delete a frozen definition with no linked Transaction (web
+     * ADR-0034); answers the deleted row, kept for the Undo. */
+    suspend fun deleteRecurringIncome(id: Int): RecurringIncomeDto
+
+    /** Bring a deleted definition back from its held row, still frozen. */
+    suspend fun undoRecurringIncomeDelete(row: RecurringIncomeDto): RecurringIncomeDto
+
     /** The Occurrences section's read (web ADR-0026), the mirror of the
      * Costs side: every non-Paid Occurrence with its skipped state,
      * newest first — the one order the edit modal renders. */
@@ -90,6 +97,12 @@ class ApiRecurringIncomeRepository(private val api: RecurringIncomeApi) : Recurr
 
     override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto =
         call { api.unfreeze(id) }
+
+    override suspend fun deleteRecurringIncome(id: Int): RecurringIncomeDto =
+        call { api.delete(id) }
+
+    override suspend fun undoRecurringIncomeDelete(row: RecurringIncomeDto): RecurringIncomeDto =
+        call { api.undo(row) }
 
     override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> =
         call { api.occurrences(id) }

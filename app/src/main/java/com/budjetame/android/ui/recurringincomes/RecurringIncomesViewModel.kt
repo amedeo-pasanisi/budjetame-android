@@ -15,6 +15,8 @@ import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.ui.common.apiErrorMessage
 import com.budjetame.android.ui.common.parseAmountInput
+import com.budjetame.android.ui.undo.DeletedEntity
+import com.budjetame.android.ui.undo.UndoSink
 import com.budjetame.android.ui.recurringcosts.parseIntervalValue
 import com.budjetame.android.ui.recurringcosts.sortByNextDue
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +52,11 @@ data class RecurringIncomeModalState(
     val submitting: Boolean = false,
     val confirmingFreeze: Boolean = false,
     val freezing: Boolean = false,
+    /** True while a frozen definition's delete is in flight (web ADR-0034). */
+    val deleting: Boolean = false,
+    /** Why the last delete failed — the backend's rule ("3 transactions are
+     * linked …") through the error catalogue, or the generic line. */
+    val deleteError: UiText? = null,
     /** The Occurrences section's rows (web ADR-0026): their own read, null
      * while the read is still in flight. Edit mode only — a definition
      * under creation has no id yet, so a create never fetches. The rows
@@ -68,7 +75,7 @@ data class RecurringIncomeModalState(
 ) {
     val editing: Boolean get() = income != null
 
-    val busy: Boolean get() = submitting || freezing
+    val busy: Boolean get() = submitting || freezing || deleting
 
     /** Submit-and-validate (ADR-0009): Save is disabled by in-flight work
      * only — a save, a freeze, or an Occurrence row's Skip/Un-skip (the web
@@ -133,6 +140,8 @@ fun validateRecurringIncomeForm(form: RecurringIncomeModalState): FieldErrors = 
  */
 class RecurringIncomesViewModel(
     private val recurringIncomes: RecurringIncomeGateway,
+    /** Where a delete goes: the shell's Undo stack (web ADR-0034). */
+    private val undoSink: UndoSink = UndoSink.None,
 ) : ViewModel() {
 
     data class UiState(
@@ -183,6 +192,52 @@ class RecurringIncomesViewModel(
 
     fun closeModal() {
         _uiState.update { it.copy(modal = null) }
+    }
+
+    /**
+     * Delete the modal's frozen definition (web ADR-0034): one tap, no
+     * confirm step — the Undo entry is the confirmation. The button is
+     * always tappable; the backend refuses a definition with linked
+     * Transactions and the modal shows its reason inline. A success hands
+     * the deleted row to the Undo stack, drops it from the list and closes
+     * the modal.
+     */
+    fun onDeleteTap() {
+        val modal = _uiState.value.modal ?: return
+        val income = modal.income ?: return
+        if (modal.busy || !income.frozen) return
+        viewModelScope.launch {
+            updateModal { it.copy(deleting = true, deleteError = null) }
+            try {
+                val deleted = recurringIncomes.deleteRecurringIncome(income.id)
+                undoSink.pushDeleted(DeletedEntity.RecurringIncome(deleted))
+                _uiState.update { state ->
+                    state.copy(
+                        incomes = state.incomes.filterNot { it.id == income.id },
+                        // Only this definition's modal closes: one opened
+                        // on another row meanwhile stays.
+                        modal = state.modal?.takeUnless { it.income?.id == income.id },
+                    )
+                }
+            } catch (error: ApiException) {
+                updateModal {
+                    it.copy(
+                        deleting = false,
+                        // A delete has no name to conflict on: any status
+                        // but a cataloged 422 rule is the generic line.
+                        deleteError = apiErrorMessage(
+                            error,
+                            UiText.of(R.string.errors_recurring_income_delete),
+                            UiText.of(R.string.errors_recurring_income_delete),
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateModal {
+                    it.copy(deleting = false, deleteError = UiText.of(R.string.errors_recurring_income_delete))
+                }
+            }
+        }
     }
 
     fun toggleFrozenExpanded() {

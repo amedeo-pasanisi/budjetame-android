@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.recurring
 
+import com.budjetame.android.ui.undo.UndoSink
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,6 +52,8 @@ fun RecurringScreen(
     recurringCosts: RecurringCostGateway,
     recurringIncomes: RecurringIncomeGateway,
     onLedgerJump: (LedgerJump) -> Unit = {},
+    /** Where a delete goes: the shell's Undo stack (web ADR-0034). */
+    undoSink: UndoSink = UndoSink.None,
 ) {
     var side by rememberSaveable { mutableStateOf(RecurringSide.COSTS) }
 
@@ -75,8 +78,8 @@ fun RecurringScreen(
             )
         }
         when (side) {
-            RecurringSide.COSTS -> RecurringCostsScreen(recurringCosts, onLedgerJump)
-            RecurringSide.INCOMES -> RecurringIncomesScreen(recurringIncomes, onLedgerJump)
+            RecurringSide.COSTS -> RecurringCostsScreen(recurringCosts, onLedgerJump, undoSink)
+            RecurringSide.INCOMES -> RecurringIncomesScreen(recurringIncomes, onLedgerJump, undoSink)
         }
     }
 }

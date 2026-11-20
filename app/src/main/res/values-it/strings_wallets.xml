@@ -30,6 +30,8 @@
     <string name="wallet_form_create">Crea portafoglio</string>
     <string name="wallet_form_unfreeze">Scongela portafoglio</string>
     <string name="wallet_form_unfreeze_description">Ripristina questo portafoglio: accetterà di nuovo transazioni e ricomparirà nella sezione del suo tipo.</string>
+    <string name="wallet_form_delete">Elimina portafoglio</string>
+    <string name="wallet_form_delete_hint">Un portafoglio congelato senza transazioni può essere eliminato definitivamente. Puoi annullare per dieci secondi.</string>
     <string name="wallet_form_freeze">Congela portafoglio</string>
     <string name="wallet_form_freeze_balance">Per congelare serve un saldo di %1$s (attualmente %2$s)</string>
     <string name="wallet_form_freeze_description">Nasconde il portafoglio e lo rende in sola lettura. Possibile solo con saldo %1$s; le transazioni restano visibili.</string>

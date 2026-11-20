@@ -1,6 +1,18 @@
 package com.budjetame.android.ui.recurringincomes
 
 import com.budjetame.android.MainDispatcherRule
+import com.budjetame.android.data.api.TransactionApi
+import com.budjetame.android.data.api.WalletApi
+import com.budjetame.android.data.api.RecurringCostApi
+import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
+import com.budjetame.android.data.transaction.ApiTransactionRepository
+import com.budjetame.android.data.wallet.ApiWalletRepository
+import com.budjetame.android.ui.undo.DeletedEntity
+import com.budjetame.android.ui.undo.UndoSink
+import com.budjetame.android.ui.undo.UndoStack
+import com.budjetame.android.ui.undo.undoReplayer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import com.budjetame.android.data.api.ApiClient
 import com.budjetame.android.data.api.DataVersion
 import com.budjetame.android.data.api.IntervalUnit
@@ -71,6 +83,8 @@ class RecurringIncomesViewModelTest {
     private var createStatus = 201
     private var updateStatus = 200
     private var freezeStatus = 200
+    private var deleteStatus = 200
+    private var deleteDetail = ""
 
     /** A raw list body served verbatim (when non-null): lets a test send a
      * definition JSON that the fixtures cannot produce — e.g. one still
@@ -105,6 +119,8 @@ class RecurringIncomesViewModelTest {
         createStatus = 201
         updateStatus = 200
         freezeStatus = 200
+        deleteStatus = 200
+        deleteDetail = ""
         rawListBody = null
         occurrenceStore.clear()
         occurrencesStatus = 200
@@ -120,10 +136,13 @@ class RecurringIncomesViewModelTest {
         server.shutdown()
     }
 
-    private fun createViewModel() {
-        val client = ApiClient(server.url("/api/").toString()) { null }
-        val repository = ApiRecurringIncomeRepository(client.create(RecurringIncomeApi::class.java))
-        viewModel = RecurringIncomesViewModel(repository)
+    private lateinit var client: ApiClient
+    private lateinit var repository: ApiRecurringIncomeRepository
+
+    private fun createViewModel(undo: UndoSink = UndoSink.None) {
+        client = ApiClient(server.url("/api/").toString()) { null }
+        repository = ApiRecurringIncomeRepository(client.create(RecurringIncomeApi::class.java))
+        viewModel = RecurringIncomesViewModel(repository, undo)
     }
 
     private fun route(request: RecordedRequest): MockResponse {
@@ -236,6 +255,22 @@ class RecurringIncomesViewModelTest {
                         jsonResponse(200, json.encodeToString(unfrozen))
                     }
                 }
+            }
+
+            method == "DELETE" && path.matches(Regex("/api/recurring-incomes/\\d+")) -> when {
+                deleteStatus != 200 -> jsonResponse(deleteStatus, """{"detail":"$deleteDetail"}""")
+                else -> {
+                    val id = path.removePrefix("/api/recurring-incomes/").toInt()
+                    val deleted = store.first { it.id == id }
+                    store.remove(deleted)
+                    jsonResponse(200, json.encodeToString(deleted))
+                }
+            }
+
+            method == "POST" && path == "/api/recurring-incomes/undo" -> {
+                val back = json.decodeFromString<RecurringIncomeDto>(body)
+                store.add(back)
+                jsonResponse(201, json.encodeToString(back))
             }
 
             method == "GET" &&
@@ -856,6 +891,89 @@ class RecurringIncomesViewModelTest {
 
         assertTrue(calls.toList().any { it.method == "POST" && it.path == "/api/recurring-incomes/1/unfreeze" })
         assertFalse(viewModel.uiState.value.incomes.first { it.id == 1 }.frozen)
+    }
+
+    // --- Delete (web ADR-0034) ---
+
+    private fun frozenTrial() = incomeDto(1, "Trial", frozen = true).copy(
+        next_due_date = null,
+        next_unpaid_occurrence_date = null,
+        freeze_date = "2026-08-10",
+    )
+
+    @Test
+    fun `deleting a frozen recurring income removes it and hands the deleted row to the undo stack`() = runBlocking {
+        val trial = frozenTrial()
+        seed(trial, incomeDto(2, "Salary"))
+        val pushed = mutableListOf<DeletedEntity>()
+        createViewModel(undo = UndoSink { pushed += it })
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.frozenIncomes.single())
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.incomes.none { definition -> definition.id == 1 } }
+
+        assertTrue(calls.toList().any { it.method == "DELETE" && it.path == "/api/recurring-incomes/1" })
+        assertEquals(listOf<DeletedEntity>(DeletedEntity.RecurringIncome(trial)), pushed)
+        assertEquals("Recurring income deleted", pushed.single().headline.english())
+        assertEquals("Trial", pushed.single().label)
+    }
+
+    @Test
+    fun `a recurring income with linked transactions is refused inline`() = runBlocking {
+        seed(frozenTrial())
+        deleteStatus = 422
+        deleteDetail = "3 transactions are linked to this recurring income — unlink them first"
+        val pushed = mutableListOf<DeletedEntity>()
+        createViewModel(undo = UndoSink { pushed += it })
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.frozenIncomes.single())
+        viewModel.onDeleteTap()
+        awaitState { it.modal?.deleteError != null }
+
+        assertEquals(
+            "3 transactions are linked to this recurring income — unlink them first",
+            viewModel.uiState.value.modal!!.deleteError?.english(),
+        )
+        assertFalse(viewModel.uiState.value.modal!!.deleting)
+        assertEquals(listOf(1), viewModel.uiState.value.incomes.map { it.id })
+        assertTrue(pushed.isEmpty())
+    }
+
+    @Test
+    fun `undo posts the deleted recurring income back with its freeze date`() = runBlocking {
+        val trial = frozenTrial()
+        seed(trial)
+        val scope = CoroutineScope(mainRule.dispatcher)
+        lateinit var stack: UndoStack
+        createViewModel(undo = { stack.pushDeleted(it) })
+        stack = UndoStack(
+            scope,
+            System::currentTimeMillis,
+            undoReplayer(
+                ApiTransactionRepository(client.create(TransactionApi::class.java)),
+                ApiWalletRepository(client.create(WalletApi::class.java)),
+                ApiRecurringCostRepository(client.create(RecurringCostApi::class.java)),
+                repository,
+            ),
+        )
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.frozenIncomes.single())
+        viewModel.onDeleteTap()
+        // The Undo entry, not the list: the delete's data-version refetch
+        // can empty the list before the push lands.
+        val entry = withTimeout(5_000) { stack.state.first { it.entries.isNotEmpty() } }.entries.single()
+
+        stack.undo(entry.key)
+        withTimeout(5_000) { stack.restored.first { it != null } }
+        awaitState { it.frozenIncomes.any { definition -> definition.id == 1 } }
+
+        val undo = calls.toList().first { it.method == "POST" && it.path == "/api/recurring-incomes/undo" }
+        assertEquals(trial, json.decodeFromString<RecurringIncomeDto>(undo.body))
+        assertTrue(undo.body.contains(""""freeze_date":"2026-08-10""""))
+        scope.cancel()
     }
 
     // --- Load error + retry ---

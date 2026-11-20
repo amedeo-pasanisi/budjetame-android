@@ -3,6 +3,7 @@ package com.budjetame.android.data.api
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -42,7 +43,9 @@ data class WalletUpdateRequest(
 )
 
 /**
- * Wallets resource (web issue #17): list/create/rename/freeze/unfreeze.
+ * Wallets resource (web issue #17): list/create/rename/freeze/unfreeze,
+ * and the delete of a frozen, history-free Wallet with its undo (web
+ * ADR-0034).
  */
 interface WalletApi {
 
@@ -69,4 +72,16 @@ interface WalletApi {
     /** Unfreeze a Frozen Wallet, restoring it to active. */
     @POST("wallets/{id}/unfreeze")
     suspend fun unfreeze(@Path("id") id: Int): WalletDto
+
+    /** Delete a Frozen Wallet no Transaction has ever touched, for good
+     * (web ADR-0034). Answers the full row — the Undo replay payload. 422
+     * with a rule `detail` on an active Wallet or one with history ("This
+     * wallet has 12 transactions"). */
+    @DELETE("wallets/{id}")
+    suspend fun delete(@Path("id") id: Int): WalletDto
+
+    /** Re-insert a deleted Wallet from the row [delete] answered: same id,
+     * still frozen. 409 when its name was taken in the meantime. */
+    @POST("wallets/undo")
+    suspend fun undo(@Body body: WalletDto): WalletDto
 }

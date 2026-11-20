@@ -97,6 +97,9 @@ data class RecurringCostDto(
     val next_unpaid_occurrence_date: String?,
     val backlog_count: Int = 0,
     val frozen: Boolean = false,
+    /** The day the definition was frozen (web ADR-0028); null while
+     * active. Carried so a delete's Undo restores it unchanged. */
+    val freeze_date: String? = null,
     val created_at: String,
 ) : RecurringDefinition
 
@@ -139,11 +142,11 @@ data class RecurringCostUpdateRequest(
 /**
  * Recurring Costs resource (web issue #56): the list, sorted by next due
  * date ascending (ties by name) — the one order the Recurring screen needs —
- * the create/edit/delete writes, and the Occurrences read and its
- * per-Occurrence skip write (web ADR-0026) — the card Skip/Un-skip
- * toggle is gone with the endpoint it pressed. A delete severs the links
- * and drops its skips (CONTEXT.md, ADR-0016): linked Expenses stay as
- * ordinary Expenses.
+ * the create/edit/freeze writes, the delete of a frozen definition with no
+ * linked Transaction and its undo (web ADR-0034: a delete never severs a
+ * link), and the Occurrences read and its per-Occurrence skip write (web
+ * ADR-0026) — the card Skip/Un-skip toggle is gone with the endpoint it
+ * pressed.
  */
 interface RecurringCostApi {
 
@@ -171,6 +174,20 @@ interface RecurringCostApi {
      * collides with an active definition. */
     @POST("recurring-costs/{id}/unfreeze")
     suspend fun unfreeze(@Path("id") id: Int): RecurringCostDto
+
+    /** Delete a frozen Recurring Cost no Transaction is linked to, for
+     * good (web ADR-0034). Answers the full row — the Undo replay payload.
+     * 422 with a rule `detail` on an active definition or one with linked
+     * Transactions ("3 transactions are linked to this recurring cost —
+     * unlink them first"). */
+    @DELETE("recurring-costs/{id}")
+    suspend fun delete(@Path("id") id: Int): RecurringCostDto
+
+    /** Re-insert a deleted definition from the row [delete] answered: same
+     * id, still frozen with its freeze date. 409 when its name was taken in
+     * the meantime. */
+    @POST("recurring-costs/undo")
+    suspend fun undo(@Body body: RecurringCostDto): RecurringCostDto
 
     /** The Occu section's read (web ADR-0026): every non-Paid
      * Occurrence with its skipped state — newest first, the one order the

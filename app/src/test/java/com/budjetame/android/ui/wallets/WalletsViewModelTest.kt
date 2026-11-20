@@ -11,6 +11,18 @@ import com.budjetame.android.data.wallet.ApiWalletRepository
 import com.budjetame.android.ui.common.AmountInputMessages
 import com.budjetame.android.ui.common.EnglishStrings
 import com.budjetame.android.ui.common.english
+import com.budjetame.android.ui.undo.DeletedEntity
+import com.budjetame.android.ui.undo.UndoSink
+import com.budjetame.android.ui.undo.UndoStack
+import com.budjetame.android.ui.undo.undoReplayer
+import com.budjetame.android.data.api.TransactionApi
+import com.budjetame.android.data.api.RecurringCostApi
+import com.budjetame.android.data.api.RecurringIncomeApi
+import com.budjetame.android.data.recurringcost.ApiRecurringCostRepository
+import com.budjetame.android.data.recurringincome.ApiRecurringIncomeRepository
+import com.budjetame.android.data.transaction.ApiTransactionRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -53,6 +65,8 @@ class WalletsViewModelTest {
     private var listStatus = 200
     private var createStatus = 201
     private var renameStatus = 200
+    private var deleteStatus = 200
+    private var deleteDetail = ""
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -66,6 +80,8 @@ class WalletsViewModelTest {
         listStatus = 200
         createStatus = 201
         renameStatus = 200
+        deleteStatus = 200
+        deleteDetail = ""
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = route(request)
         }
@@ -76,10 +92,13 @@ class WalletsViewModelTest {
         server.shutdown()
     }
 
-    private fun createViewModel() {
-        val client = ApiClient(server.url("/api/").toString()) { null }
-        val repository = ApiWalletRepository(client.create(WalletApi::class.java))
-        viewModel = WalletsViewModel(repository)
+    private lateinit var repository: ApiWalletRepository
+    private lateinit var client: ApiClient
+
+    private fun createViewModel(undo: UndoSink = UndoSink.None) {
+        client = ApiClient(server.url("/api/").toString()) { null }
+        repository = ApiWalletRepository(client.create(WalletApi::class.java))
+        viewModel = WalletsViewModel(repository, undo)
     }
 
     private fun route(request: RecordedRequest): MockResponse {
@@ -131,6 +150,22 @@ class WalletsViewModelTest {
                 val frozen = store[index].copy(frozen = true)
                 store[index] = frozen
                 jsonResponse(200, json.encodeToString(frozen))
+            }
+
+            method == "DELETE" && path.matches(Regex("/api/wallets/\\d+")) -> when {
+                deleteStatus != 200 -> jsonResponse(deleteStatus, """{"detail":"$deleteDetail"}""")
+                else -> {
+                    val id = path.removePrefix("/api/wallets/").toInt()
+                    val deleted = store.first { it.id == id }
+                    store.remove(deleted)
+                    jsonResponse(200, json.encodeToString(deleted))
+                }
+            }
+
+            method == "POST" && path == "/api/wallets/undo" -> {
+                val back = json.decodeFromString<WalletDto>(body).copy(balance = "0.00", frozen = true)
+                store.add(back)
+                jsonResponse(201, json.encodeToString(back))
             }
 
             method == "POST" && path.matches(Regex("/api/wallets/\\d+/unfreeze")) -> {
@@ -518,6 +553,80 @@ class WalletsViewModelTest {
             "Drawer",
             viewModel.uiState.value.sections.first { it.type == WalletType.CASH }.items.single().name,
         )
+    }
+
+    // --- Delete (web ADR-0034) ---
+
+    @Test
+    fun `deleting a frozen wallet removes it and hands the deleted row to the undo stack`() = runBlocking {
+        val mistake = wallet(1, "Mistake", WalletType.CASH, "0.00", frozen = true)
+        seed(mistake, wallet(2, "Cash", WalletType.CASH, "10.00"))
+        val pushed = mutableListOf<DeletedEntity>()
+        createViewModel(undo = UndoSink { pushed += it })
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.frozenWallets.single())
+        viewModel.onDeleteTap()
+        awaitState { it.modal == null && it.wallets.none { wallet -> wallet.id == 1 } }
+
+        assertTrue(calls.toList().any { it.method == "DELETE" && it.path == "/api/wallets/1" })
+        assertEquals(listOf<DeletedEntity>(DeletedEntity.Wallet(mistake)), pushed)
+        assertEquals("Wallet deleted", pushed.single().headline.english())
+        assertEquals("Mistake", pushed.single().label)
+    }
+
+    @Test
+    fun `a wallet with history is refused inline and nothing reaches the undo stack`() = runBlocking {
+        seed(wallet(1, "Old card", WalletType.CREDIT_CARD, "0.00", frozen = true))
+        deleteStatus = 422
+        deleteDetail = "This wallet has 12 transactions"
+        val pushed = mutableListOf<DeletedEntity>()
+        createViewModel(undo = UndoSink { pushed += it })
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.frozenWallets.single())
+        viewModel.onDeleteTap()
+        awaitState { it.modal?.deleteError != null }
+
+        val modal = viewModel.uiState.value.modal!!
+        assertEquals("This wallet has 12 transactions", modal.deleteError?.english())
+        assertFalse(modal.deleting)
+        assertEquals(listOf(1), viewModel.uiState.value.wallets.map { it.id })
+        assertTrue(pushed.isEmpty())
+    }
+
+    @Test
+    fun `undo posts the deleted row back and the wallet returns frozen`() = runBlocking {
+        val mistake = wallet(1, "Mistake", WalletType.CASH, "0.00", frozen = true)
+        seed(mistake)
+        val scope = CoroutineScope(mainRule.dispatcher)
+        lateinit var stack: UndoStack
+        createViewModel(undo = { stack.pushDeleted(it) })
+        stack = UndoStack(
+            scope,
+            System::currentTimeMillis,
+            undoReplayer(
+                ApiTransactionRepository(client.create(TransactionApi::class.java)),
+                repository,
+                ApiRecurringCostRepository(client.create(RecurringCostApi::class.java)),
+                ApiRecurringIncomeRepository(client.create(RecurringIncomeApi::class.java)),
+            ),
+        )
+        awaitLoaded()
+
+        viewModel.openEdit(viewModel.uiState.value.frozenWallets.single())
+        viewModel.onDeleteTap()
+        // The Undo entry, not the list: the delete's data-version refetch
+        // can empty the list before the push lands.
+        val entry = withTimeout(5_000) { stack.state.first { it.entries.isNotEmpty() } }.entries.single()
+
+        stack.undo(entry.key)
+        withTimeout(5_000) { stack.restored.first { it != null } }
+        awaitState { it.frozenWallets.any { wallet -> wallet.id == 1 } }
+
+        assertEquals(mistake, json.decodeFromString<WalletDto>(call("POST", "/api/wallets/undo").body))
+        assertTrue(stack.state.value.entries.isEmpty())
+        scope.cancel()
     }
 
     // --- Load error + retry ---

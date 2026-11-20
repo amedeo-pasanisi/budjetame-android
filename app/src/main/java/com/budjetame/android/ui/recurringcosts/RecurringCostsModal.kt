@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.recurringcosts
 
+import com.budjetame.android.ui.common.DeleteSection
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -95,6 +96,9 @@ fun RecurringCostsModal(
     onFreeze: () -> Unit,
     onUnfreeze: () -> Unit,
     onClose: () -> Unit,
+    /** Delete, offered below Unfreeze on a frozen definition (web
+     * ADR-0034) when the host passes it. */
+    onDelete: (() -> Unit)? = null,
 ) {
     val locale = LocalDisplayLocale.current
     val editing = modal.editing
@@ -233,6 +237,16 @@ fun RecurringCostsModal(
                             heading = stringResource(R.string.recurring_costs_unfreeze),
                             description = stringResource(R.string.recurring_unfreeze_description),
                         )
+                        onDelete?.let { delete ->
+                            DeleteSection(
+                                label = stringResource(R.string.recurring_costs_delete),
+                                hint = stringResource(R.string.recurring_costs_delete_hint),
+                                isDeleting = modal.deleting,
+                                enabled = !modal.busy,
+                                deleteError = modal.deleteError?.resolve(),
+                                onDelete = delete,
+                            )
+                        }
                     } else {
                         FreezeSection(
                             canFreeze = true,

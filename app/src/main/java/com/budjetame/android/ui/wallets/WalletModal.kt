@@ -38,6 +38,7 @@ import com.budjetame.android.R
 import com.budjetame.android.data.api.WalletDto
 import com.budjetame.android.data.api.WalletType
 import com.budjetame.android.ui.common.AccountLocaleResources
+import com.budjetame.android.ui.common.DeleteSection
 import com.budjetame.android.ui.common.FreezeSection
 import com.budjetame.android.ui.common.LocalDisplayLocale
 import com.budjetame.android.ui.common.UnfreezeSection
@@ -53,7 +54,9 @@ import com.budjetame.android.util.Money
  * hosts the Transaction form's inline "New wallet…" creation (ADR-0013):
  * `allowedTypes` restricts the create form's Type selector — an Income's
  * Wallet field never creates a Contact Wallet (ADR-0017) — and edit mode
- * never shows the selector, so the lock is create-only.
+ * never shows the selector, so the lock is create-only. A Frozen Wallet's
+ * modal also offers Delete below Unfreeze (web ADR-0034) when the host
+ * passes [onDelete] — the inline creates never do.
  *
  * Validation is submit-and-validate (ADR-0009): Save is disabled only while
  * a save or freeze is in flight, and the host's last Save attempt renders
@@ -72,6 +75,7 @@ fun WalletModal(
     onFreeze: () -> Unit,
     onUnfreeze: () -> Unit,
     onClose: () -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
     val locale = LocalDisplayLocale.current
     val wallet = modal.wallet
@@ -182,6 +186,16 @@ fun WalletModal(
                             heading = stringResource(R.string.wallet_form_unfreeze),
                             description = stringResource(R.string.wallet_form_unfreeze_description),
                         )
+                        onDelete?.let { delete ->
+                            DeleteSection(
+                                label = stringResource(R.string.wallet_form_delete),
+                                hint = stringResource(R.string.wallet_form_delete_hint),
+                                isDeleting = modal.deleting,
+                                enabled = !modal.busy,
+                                deleteError = modal.deleteError?.resolve(),
+                                onDelete = delete,
+                            )
+                        }
                     } else {
                         FreezeSection(
                             canFreeze = modal.canFreeze,

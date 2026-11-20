@@ -292,6 +292,8 @@ class ImportRevalidationTest {
         override suspend fun renameWallet(id: Int, name: String): WalletDto = error("unused")
         override suspend fun freezeWallet(id: Int) = error("unused")
         override suspend fun unfreezeWallet(id: Int): WalletDto = error("unused")
+        override suspend fun deleteWallet(id: Int): WalletDto = error("unused")
+        override suspend fun undoWalletDelete(row: WalletDto): WalletDto = error("unused")
     }
 
     /** The Categories the editor and the fake import resource read. */

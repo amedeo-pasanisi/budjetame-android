@@ -192,6 +192,8 @@ class TransactionInlineCreateTest {
         override suspend fun renameWallet(id: Int, name: String): WalletDto = error("unused")
         override suspend fun freezeWallet(id: Int) = error("unused")
         override suspend fun unfreezeWallet(id: Int): WalletDto = error("unused")
+        override suspend fun deleteWallet(id: Int): WalletDto = error("unused")
+        override suspend fun undoWalletDelete(row: WalletDto): WalletDto = error("unused")
     }
 
     /** A Category create that is real at once. */
@@ -280,6 +282,8 @@ class TransactionInlineCreateTest {
             error("unused")
         override suspend fun freezeRecurringCost(id: Int): RecurringCostDto = error("unused")
         override suspend fun unfreezeRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun deleteRecurringCost(id: Int): RecurringCostDto = error("unused")
+        override suspend fun undoRecurringCostDelete(row: RecurringCostDto): RecurringCostDto = error("unused")
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }
@@ -294,6 +298,8 @@ class TransactionInlineCreateTest {
             error("unused")
         override suspend fun freezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
         override suspend fun unfreezeRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun deleteRecurringIncome(id: Int): RecurringIncomeDto = error("unused")
+        override suspend fun undoRecurringIncomeDelete(row: RecurringIncomeDto): RecurringIncomeDto = error("unused")
         override suspend fun fetchOccurrences(id: Int): List<RecurringOccurrenceDto> = error("unused")
         override suspend fun setOccurrenceSkipped(id: Int, occurrenceDate: String, skipped: Boolean): List<RecurringOccurrenceDto> = error("unused")
     }

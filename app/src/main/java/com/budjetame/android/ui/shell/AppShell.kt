@@ -179,7 +179,14 @@ fun AppShell(
     // ViewModels: it survives configuration changes and goes with the
     // store on sign-out (ADR-0003). Screens report deletes into it; the
     // shell renders it above the bottom bar and runs its Undo handler.
-    val undoStack = viewModel { UndoStackViewModel(transactionRepository) }.stack
+    val undoStack = viewModel {
+        UndoStackViewModel(
+            transactionRepository,
+            walletRepository,
+            recurringCostRepository,
+            recurringIncomeRepository,
+        )
+    }.stack
     val undoState by undoStack.state.collectAsStateWithLifecycle()
 
     // The five tabs in one finger-following pager (ADR-0003): the content
@@ -252,6 +259,7 @@ fun AppShell(
                         Tab.Wallets -> WalletsScreen(
                             walletRepository,
                             onLedgerJump = requestLedgerJump,
+                            undoSink = undoStack,
                         )
                         Tab.Transactions -> TransactionsScreen(
                             transactionRepository,
@@ -274,6 +282,7 @@ fun AppShell(
                             recurringCostRepository,
                             recurringIncomeRepository,
                             onLedgerJump = requestLedgerJump,
+                            undoSink = undoStack,
                         )
                     }
                 }

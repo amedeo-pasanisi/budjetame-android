@@ -13,6 +13,8 @@ import com.budjetame.android.ui.common.UiText
 import com.budjetame.android.ui.common.amountFieldError
 import com.budjetame.android.ui.common.apiErrorMessage
 import com.budjetame.android.ui.common.parseAmountInput
+import com.budjetame.android.ui.undo.DeletedEntity
+import com.budjetame.android.ui.undo.UndoSink
 import java.math.BigDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * The create/edit/freeze Wallet modal's draft (null = modal closed). Shared
+ * The create/edit/freeze/delete Wallet modal's draft (null = modal closed). Shared
  * by every host of the modal: the Wallets screen (ticket #15) and the
  * Transaction form's inline "New wallet…" creation (ADR-0013, ticket #21) —
  * one draft type, so the create form cannot drift between its hosts.
@@ -41,12 +43,17 @@ data class WalletModalState(
     val confirmingFreeze: Boolean = false,
     val freezing: Boolean = false,
     val freezeError: UiText? = null,
+    /** True while a Frozen Wallet's delete is in flight (web ADR-0034). */
+    val deleting: Boolean = false,
+    /** Why the last delete failed — the backend's rule ("This wallet has 12
+     * transactions") through the error catalogue, or the generic line. */
+    val deleteError: UiText? = null,
 ) {
     val editing: Boolean get() = wallet != null
 
     /** Submit-and-validate (ADR-0009): Save is disabled by in-flight work
-     * only — a save or a freeze — never by validation. */
-    val busy: Boolean get() = submitting || freezing
+     * only — a save, a freeze or a delete — never by validation. */
+    val busy: Boolean get() = submitting || freezing || deleting
 
     /** Freeze only when the balance is exactly €0 (ADR-0002). */
     val canFreeze: Boolean
@@ -92,11 +99,16 @@ fun walletOpeningBalanceToSend(form: WalletModalState): String =
 
 /**
  * The Wallets screen's state machine (ticket #15), ported from the web app's
- * WalletsScreen + WalletForm: load with sections, create/rename/freeze, and
- * one-tap unfreeze — with the web's exact error strings. Data is refetched in
+ * WalletsScreen + WalletForm: load with sections, create/rename/freeze,
+ * one-tap unfreeze, and the one-tap delete of a Frozen Wallet whose Undo
+ * entry goes to the shell's [undoSink] (web ADR-0034) — with the web's
+ * exact error strings. Data is refetched in
  * the background when the global data version bumps (ADR-0002).
  */
-class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
+class WalletsViewModel(
+    private val wallets: WalletGateway,
+    private val undoSink: UndoSink = UndoSink.None,
+) : ViewModel() {
 
     data class UiState(
         val loading: Boolean = true,
@@ -137,7 +149,9 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
     }
 
     fun unfreezeFromModal() {
-        val wallet = _uiState.value.modal?.wallet ?: return
+        val modal = _uiState.value.modal ?: return
+        if (modal.busy) return
+        val wallet = modal.wallet ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(unfreezeError = null) }
             try {
@@ -222,6 +236,49 @@ class WalletsViewModel(private val wallets: WalletGateway) : ViewModel() {
                 updateModal {
                     it.copy(confirmingFreeze = false, freezing = false, freezeError = UiText.of(R.string.errors_wallets_freeze))
                 }
+            }
+        }
+    }
+
+    /**
+     * Delete the modal's Frozen Wallet (web ADR-0034): one tap, no confirm
+     * step — the Undo entry is the confirmation. The button is always
+     * tappable; the backend refuses a Wallet with history and the modal
+     * shows its reason inline. A success drops the Wallet from the list,
+     * closes the modal and hands the deleted row to the Undo stack.
+     */
+    fun onDeleteTap() {
+        val modal = _uiState.value.modal ?: return
+        val wallet = modal.wallet ?: return
+        if (modal.busy || !wallet.frozen) return
+        viewModelScope.launch {
+            updateModal { it.copy(deleting = true, deleteError = null) }
+            try {
+                val deleted = wallets.deleteWallet(wallet.id)
+                undoSink.pushDeleted(DeletedEntity.Wallet(deleted))
+                _uiState.update { state ->
+                    state.copy(
+                        wallets = state.wallets.filterNot { it.id == wallet.id },
+                        // Only this Wallet's modal closes: one opened on
+                        // another row meanwhile stays.
+                        modal = state.modal?.takeUnless { it.wallet?.id == wallet.id },
+                    )
+                }
+            } catch (error: ApiException) {
+                updateModal {
+                    it.copy(
+                        deleting = false,
+                        // A delete has no name to conflict on: any status
+                        // but a cataloged 422 rule is the generic line.
+                        deleteError = apiErrorMessage(
+                            error,
+                            UiText.of(R.string.errors_wallets_delete),
+                            UiText.of(R.string.errors_wallets_delete),
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+                updateModal { it.copy(deleting = false, deleteError = UiText.of(R.string.errors_wallets_delete)) }
             }
         }
     }

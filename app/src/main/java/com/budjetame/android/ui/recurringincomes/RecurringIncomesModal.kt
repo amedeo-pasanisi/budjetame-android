@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.recurringincomes
 
+import com.budjetame.android.ui.common.DeleteSection
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -98,6 +99,9 @@ fun RecurringIncomesModal(
     onFreeze: () -> Unit,
     onUnfreeze: () -> Unit,
     onClose: () -> Unit,
+    /** Delete, offered below Unfreeze on a frozen definition (web
+     * ADR-0034) when the host passes it. */
+    onDelete: (() -> Unit)? = null,
 ) {
     val editing = modal.editing
     val nameError = modal.fieldErrors[RecurringIncomeFields.NAME]
@@ -208,6 +212,16 @@ fun RecurringIncomesModal(
                 if (editing) {
                     if (modal.income?.frozen == true) {
                         UnfreezeSection(modal = modal, onUnfreeze = onUnfreeze)
+                        onDelete?.let { delete ->
+                            DeleteSection(
+                                label = stringResource(R.string.recurring_incomes_delete),
+                                hint = stringResource(R.string.recurring_incomes_delete_hint),
+                                isDeleting = modal.deleting,
+                                enabled = !modal.busy,
+                                deleteError = modal.deleteError?.resolve(),
+                                onDelete = delete,
+                            )
+                        }
                     } else {
                         FreezeSection(modal = modal, onFreeze = onFreeze)
                     }

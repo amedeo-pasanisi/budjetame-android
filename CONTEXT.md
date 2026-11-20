@@ -113,8 +113,12 @@ The algebraic sum of the balances of all Wallets, including Contact Wallets and 
 _Avoid_: total assets, equity
 
 **Frozen Wallet**:
-A Wallet deleted at balance exactly €0. It stays in the database with its Transactions viewable; while frozen it is read-only — no Transactions can be created, edited, or deleted on it — and it appears only in the Wallets screen's collapsed Frozen Wallets list. Unfreezing restores it to active: it returns to its type section, accepts Transactions again, and its existing Transactions become editable again.
+A Wallet deleted at balance exactly €0. It stays in the database with its Transactions viewable; while frozen it is read-only — no Transactions can be created, edited, or deleted on it — and it appears only in the Wallets screen's collapsed Frozen Wallets list. Unfreezing restores it to active: it returns to its type section, accepts Transactions again, and its existing Transactions become editable again. A Frozen Wallet no Transaction has ever touched can be Deleted (Definition: Delete).
 _Avoid_: deleted wallet, trashed wallet, archived wallet
+
+**Delete**:
+The permanent removal of a Frozen Wallet or a frozen Recurring definition that has no history: a Wallet no Transaction has ever touched — not as its Wallet, not as a Transfer leg, not by an Opening Balance — or a Recurring Cost or Recurring Income no Transaction is linked to. Only a frozen thing can be deleted, and only a history-free one: nothing is severed and no Balance or Budget changes, because there was nothing to change. Anything with history is never deleted; it stays frozen, and Freeze remains the one action on an active row. A delete is a single tap followed by an Undo window, like deleting a Transaction: Undo brings back the same Wallet or definition, still frozen, in the Frozen section.
+_Avoid_: remove, purge, erase, archive; and never "delete" for freeze — a Frozen Wallet is not a deleted one
 
 **Opening Balance**:
 A Transaction created when a Wallet is started with a nonzero initial balance (must be ≥ €0). It counts toward the Wallet's balance but never toward income/expense statistics.
@@ -157,7 +161,7 @@ The removal of a Draft Transaction without creating anything, at once and with n
 _Avoid_: delete, reject, cancel
 
 **Undo**:
-The 10-second window after deleting a Transaction in which that deletion can be reversed. A delete is a single tap; one stack of up to three entries (newest first) sits above the bottom bar on every tab, each naming what was deleted and running its own countdown, and tapping Undo re-creates the very same Transaction (same id, same date, same Recurring pin) from the row the app held when it was deleted. If the pinned Occurrence was already paid in the meantime, the undo fails with the server's message rather than re-linking. The window is client-enforced and dies with the app process.
+The 10-second window after deleting a Transaction, a Frozen Wallet or a frozen Recurring definition in which that deletion can be reversed. A delete is a single tap; one stack of up to three entries (newest first) sits above the bottom bar on every tab, each naming what was deleted and running its own countdown, and tapping Undo re-creates the very same entity — same id; for a Transaction the same date and Recurring pin, for a Wallet or definition still frozen. If the pinned Occurrence was already paid in the meantime, or the deleted Wallet's or definition's name was taken, the undo fails with the server's message rather than re-linking or renaming. The window is client-enforced and dies with the app process.
 _Avoid_: undo history, redo, soft delete, trash
 
 **Export**:
@@ -196,6 +200,7 @@ _Avoid_: language setting, regional format, i18n setting
 - Wallet names are unique per Account, case-insensitively. A Wallet's name can be edited after creation; its type cannot.
 - A Wallet can only be frozen when its balance is exactly €0.
 - A Frozen Wallet can be unfrozen at any time: its balance is always exactly €0 while frozen.
+- A Frozen Wallet with no Transaction — none as its Wallet, none as a Transfer leg, no Opening Balance — can be deleted; a Frozen Wallet with any Transaction stays frozen. Contact Wallets follow the same rule. An active Wallet is never deleted: freeze first.
 - A Place is attached to a Geographic Location by a name-search pick or a tap on the Google map; a coordinates-only pick (Leaflet tap, GPS), an import, or removing the Location clears it.
 - An import row is a Duplicate when date, amount, type, wallet(s), category, and description all match an existing Transaction or an earlier row of the same file; a blank description matches a missing one.
 - Searching the ledger matches Transactions whose Description contains the needle, case-insensitively (accents must match exactly), combined with any other filters.
@@ -203,7 +208,8 @@ _Avoid_: language setting, regional format, i18n setting
 - Recurring Costs and Recurring Incomes carry no Wallet and no Category: the Wallet and Category of a linked Transaction are chosen at Transaction creation time.
 - An Expense links to at most one Recurring Cost; linking pays exactly one Occurrence, the oldest Unpaid one — never a Skipped one; un-skipping comes first — pinned at link time and never reassigned by later date edits. Unlinking or deleting the Expense frees the Occurrence. An Income links to at most one Recurring Income under the same contract. A Transfer links under the same contract only when its legs are exactly one own Wallet and one Contact Wallet, and the direction picks the kind: from a Contact Wallet a Recurring Income (money in), to a Contact Wallet a Recurring Cost (money out). Own↔own and Contact↔Contact Transfers never qualify, and an edit that would leave a link on a no-longer-qualifying Transfer is rejected with a rule error naming the problem — never silently severed; unlinking always succeeds (ADR-0027).
 - Recurring Cost names are unique per Account, case-insensitively; Recurring Income names are unique the same way.
-- Deleting a Recurring Cost severs the links and drops its skips: linked Expenses — and linked Transfers to a Contact Wallet (ADR-0027) — remain as ordinary Transactions. Deleting a Recurring Income severs the links and drops its skips: linked Incomes — and linked Transfers from a Contact Wallet (ADR-0027) — remain as ordinary Transactions.
+- A frozen Recurring definition with no linked Transaction can be deleted; one with any linked Transaction stays frozen, and a delete never severs a link. An active definition is never deleted: freeze first.
+- Deleting a Wallet or a Recurring definition is a single tap followed by an Undo window, like deleting a Transaction: Undo brings back the same entity, still frozen; it fails only when its name was taken in the meantime. One Undo stack serves every kind, on every tab.
 - A skip is anchored to its Occurrence's period — the month for a monthly definition, the year for a yearly one, the date itself for daily and weekly ones — and travels with the Occurrence: editing the definition never drops it, and changing the interval unit maps the period along (a skipped month becomes its year, a skipped year becomes its month). A skip whose period holds no Occurrence lies dormant; only un-skipping removes it.
 - Occurrences and Backlog are always derived from the definition; editing interval or start date reshapes only the derived future.
 - A Recurring definition never carries a due-day or due-date override (ADR-0024): every Occurrence is due on its own date, the definition's only date is the start date, and one left empty at creation is set to the creation day.

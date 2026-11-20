@@ -43,6 +43,7 @@ import com.budjetame.android.ui.common.resolve
 import com.budjetame.android.ui.theme.Slate500
 import com.budjetame.android.ui.theme.Slate700
 import com.budjetame.android.util.Money
+import com.budjetame.android.ui.undo.UndoSink
 
 /**
  * The Wallets tab (ticket #15, ADR-0004 anatomy): four fixed sections —
@@ -63,8 +64,10 @@ fun WalletsScreen(
      * ledger pre-filtered to one Wallet. Fired by the whole-row tap surface
      * (web issue #93). */
     onLedgerJump: (LedgerJump) -> Unit = {},
+    /** Where a delete goes: the shell's Undo stack (web ADR-0034). */
+    undoSink: UndoSink = UndoSink.None,
 ) {
-    val viewModel: WalletsViewModel = viewModel { WalletsViewModel(wallets) }
+    val viewModel: WalletsViewModel = viewModel { WalletsViewModel(wallets, undoSink) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -99,6 +102,7 @@ fun WalletsScreen(
             onFreeze = viewModel::onFreezeTap,
             onUnfreeze = viewModel::unfreezeFromModal,
             onClose = viewModel::closeModal,
+            onDelete = viewModel::onDeleteTap,
         )
     }
 }

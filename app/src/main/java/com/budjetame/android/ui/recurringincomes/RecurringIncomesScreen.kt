@@ -1,5 +1,6 @@
 package com.budjetame.android.ui.recurringincomes
 
+import com.budjetame.android.ui.undo.UndoSink
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,9 +81,11 @@ private val RED_700 = Color(0xFFB91C1C)
 fun RecurringIncomesScreen(
     recurringIncomes: RecurringIncomeGateway,
     onLedgerJump: (LedgerJump) -> Unit = {},
+    /** Where a delete goes: the shell's Undo stack (web ADR-0034). */
+    undoSink: UndoSink = UndoSink.None,
 ) {
     val viewModel: RecurringIncomesViewModel = viewModel {
-        RecurringIncomesViewModel(recurringIncomes)
+        RecurringIncomesViewModel(recurringIncomes, undoSink)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -126,6 +129,7 @@ fun RecurringIncomesScreen(
             onFreeze = viewModel::onFreezeTap,
             onUnfreeze = viewModel::onUnfreezeTap,
             onClose = viewModel::closeModal,
+            onDelete = viewModel::onDeleteTap,
         )
     }
 }

@@ -129,3 +129,47 @@ fun UnfreezeSection(
 }
 
 private val INDIGO_200 = Color(0xFFC7D2FE)
+
+/**
+ * The Delete section shown in a frozen record's modal, below Unfreeze (web
+ * ADR-0034): a divider, the hint, the last refusal, and a red outlined
+ * button. Always tappable — the backend says why when it refuses (a
+ * Wallet with transactions, a definition with linked ones) instead of a
+ * greyed-out button leaving the user guessing — and one tap, no confirm
+ * step: the Undo entry is the confirmation.
+ */
+@Composable
+fun DeleteSection(
+    label: String,
+    hint: String,
+    isDeleting: Boolean,
+    enabled: Boolean,
+    deleteError: String?,
+    onDelete: () -> Unit,
+) {
+    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+    Text(
+        text = hint,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    deleteError?.let { error ->
+        Text(
+            text = error,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+    Button(
+        onClick = onDelete,
+        enabled = enabled && !isDeleting,
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = RED_600),
+        border = BorderStroke(1.dp, RED_200),
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+    ) {
+        Text(if (isDeleting) stringResource(R.string.common_deleting) else label)
+    }
+}

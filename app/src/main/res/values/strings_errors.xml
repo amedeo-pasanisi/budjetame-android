@@ -37,6 +37,7 @@
     <string name="errors_wallets_create">Could not create the wallet.</string>
     <string name="errors_wallets_rename">Could not rename the wallet.</string>
     <string name="errors_wallets_freeze">Could not freeze the wallet.</string>
+    <string name="errors_wallets_delete">Could not delete the wallet.</string>
     <string name="errors_wallets_freeze_balance">A wallet can only be frozen when its balance is exactly €0.00.</string>
     <string name="errors_wallets_unfreeze">Could not unfreeze the wallet.</string>
 
@@ -52,11 +53,13 @@
     <string name="errors_recurring_cost_create">Could not create the recurring cost.</string>
     <string name="errors_recurring_cost_save">Could not save the recurring cost.</string>
     <string name="errors_recurring_cost_freeze">Could not freeze the recurring cost.</string>
+    <string name="errors_recurring_cost_delete">Could not delete the recurring cost.</string>
     <string name="errors_recurring_cost_unfreeze">Could not unfreeze the recurring cost.</string>
     <string name="errors_recurring_income_conflict">A recurring income with this name already exists.</string>
     <string name="errors_recurring_income_create">Could not create the recurring income.</string>
     <string name="errors_recurring_income_save">Could not save the recurring income.</string>
     <string name="errors_recurring_income_freeze">Could not freeze the recurring income.</string>
+    <string name="errors_recurring_income_delete">Could not delete the recurring income.</string>
     <string name="errors_recurring_income_unfreeze">Could not unfreeze the recurring income.</string>
 
     <!-- Import -->
