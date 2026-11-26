@@ -158,6 +158,14 @@ defaultConfig {
    ./gradlew clean bundleRelease
    ```
    The signed AAB lands at `app/build/outputs/bundle/release/app-release.aab`.
+   Before building, check that `~/.gradle/gradle.properties` has
+   `MAP_PROVIDER=google` and `GOOGLE_MAPS_API_KEY` (names only:
+   `grep -o '^[A-Z_]*=' ~/.gradle/gradle.properties`). Without them the
+   build silently ships the free OpenStreetMap picker — v1.10.0 did. After
+   building, confirm `MAP_PROVIDER = "google"` in
+   `app/build/generated/source/buildConfig/release/` and that the APK's
+   `com.google.android.geo.API_KEY` is not empty
+   (`aapt2 dump xmltree --file AndroidManifest.xml <apk>`).
 
 7. **Verify the artifact** — check that the APK from the AAB (use
    `bundletool build-apks`) installs and talks to the production backend,

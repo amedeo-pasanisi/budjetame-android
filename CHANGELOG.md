@@ -11,9 +11,15 @@ when it lands, `[Unreleased]` becomes `[v1.0.0]`.
 
 ## [Unreleased]
 
+## [v1.11.0] — 2026-11-26
+
 ### Added
 
 - **Wallets and Recurring** — a frozen Wallet, Recurring Cost or Recurring Income that has no history can now be deleted, as on the web app: its modal shows **Delete** below Unfreeze. One tap deletes it and an Undo entry ("Wallet deleted · Old card") appears for 10 seconds; Undo brings it back, still frozen. A Wallet any Transaction has touched, or a definition with linked Transactions, is refused with the reason ("This wallet has 12 transactions") and stays frozen (#72).
+
+### Fixed
+
+- **Transactions** — the Place picker on the Transaction form is Google Maps again (place search, taps on points of interest, Place names): v1.10.0 was built without the Google Maps configuration and fell back to the plain OpenStreetMap picker.
 
 ## [v1.10.0] — 2026-11-19
 
@@ -336,6 +342,7 @@ build. Release builds talk to the production backend at budjetame.de.
   whose Keystore forbids caller-chosen GCM IVs; the session token is now
   encrypted with a Keystore-generated IV (#14).
 
+[v1.11.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.11.0
 [v1.10.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.10.0
 [v1.9.0]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.9.0
 [v1.7.1]: https://github.com/amedeo-pasanisi/budjetame-android/releases/tag/v1.7.1
